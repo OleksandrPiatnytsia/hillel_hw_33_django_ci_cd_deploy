@@ -38,9 +38,7 @@ SECRET_KEY = os.environ["DJANGO_SECRET_KEY"]
 DEBUG = os.getenv("DJANGO_DEBUG", "False").lower() in ("true", "1", "yes")
 
 ALLOWED_HOSTS = [
-    host.strip()
-    for host in os.getenv("DJANGO_ALLOWED_HOSTS", "").split(",")
-    if host.strip()
+    host.strip() for host in os.getenv("DJANGO_ALLOWED_HOSTS", "").split(",") if host.strip()
 ]
 
 
@@ -118,9 +116,7 @@ TESTING = "test" in sys.argv or "pytest" in sys.modules
 #   - DEBUG=True: never in production
 #   - the package is installed: requirements.txt alone still works
 #   - not the tests: the toolbar refuses to run in tests
-ENABLE_DEBUG_TOOLBAR = (
-    DEBUG and find_spec("debug_toolbar") is not None and not TESTING
-)
+ENABLE_DEBUG_TOOLBAR = DEBUG and find_spec("debug_toolbar") is not None and not TESTING
 
 if ENABLE_DEBUG_TOOLBAR:
     INSTALLED_APPS += ["debug_toolbar"]
@@ -555,8 +551,8 @@ SPECTACULAR_SETTINGS = {
     "DESCRIPTION": (
         "REST API of the bookstore: the catalog (books, authors, "
         "categories) and orders. Authentication: JWT "
-        "(POST /api/token/, then the header \"Authorization: Bearer "
-        "<access>\") or the session of the site login."
+        '(POST /api/token/, then the header "Authorization: Bearer '
+        '<access>") or the session of the site login.'
     ),
     "VERSION": "1.0.0",
     # The schema itself is not shown as an endpoint in Swagger
@@ -586,9 +582,7 @@ SPECTACULAR_SETTINGS = {
 # Postman don't care about CORS, only browsers do.
 # The list comes from .env (comma separated), empty = nobody.
 CORS_ALLOWED_ORIGINS = [
-    origin.strip()
-    for origin in os.getenv("CORS_ALLOWED_ORIGINS", "").split(",")
-    if origin.strip()
+    origin.strip() for origin in os.getenv("CORS_ALLOWED_ORIGINS", "").split(",") if origin.strip()
 ]
 # Only the API: the pages of the site (forms, the cart, the payment) are
 # never opened to other domains

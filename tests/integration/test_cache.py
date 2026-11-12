@@ -76,7 +76,9 @@ def test_second_visit_of_a_book_page_reads_the_book_from_the_cache(client, book)
 def test_the_stock_is_fresh_while_the_book_is_cached(client, book):
     assert 'max="5"' in page(client, book)
 
-    create_order(UserFactory(), {book.pk: 3}, full_name="Ann", phone="+380671234567", address="Kyiv")
+    create_order(
+        UserFactory(), {book.pk: 3}, full_name="Ann", phone="+380671234567", address="Kyiv"
+    )
 
     html = page(client, book)
     assert 'max="2"' in html  # the quantity field: at most the 2 left

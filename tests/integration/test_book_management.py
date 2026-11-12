@@ -44,14 +44,18 @@ def test_manager_creates_edits_and_deletes_a_book(manager_client):
 
     # Create: the form page, then POST -> the new book's page
     assert manager_client.get(reverse("books:create")).status_code == 200
-    created = manager_client.post(reverse("books:create"), book_form_data(author, categories=[poetry.pk]))
+    created = manager_client.post(
+        reverse("books:create"), book_form_data(author, categories=[poetry.pk])
+    )
     book = Book.objects.get(title="Kobzar")
     assertRedirects(created, book.get_absolute_url(), fetch_redirect_response=False)
     assert (book.price, book.stock, list(book.categories.all())) == (Decimal("250.50"), 7, [poetry])
 
     # Edit: price and stock
     edited = manager_client.post(
-        reverse("books:update", args=[book.pk]), book_form_data(author, price="300.00", stock="2"), follow=True
+        reverse("books:update", args=[book.pk]),
+        book_form_data(author, price="300.00", stock="2"),
+        follow=True,
     )
     book.refresh_from_db()
     assert (book.price, book.stock) == (Decimal("300.00"), 2)
@@ -71,7 +75,9 @@ def test_manager_creates_edits_and_deletes_a_book(manager_client):
 def test_invalid_book_form_shows_errors_and_saves_nothing(manager_client):
     author = AuthorFactory()
 
-    response = manager_client.post(reverse("books:create"), book_form_data(author, title="", price="-1"))
+    response = manager_client.post(
+        reverse("books:create"), book_form_data(author, title="", price="-1")
+    )
 
     assert response.status_code == 200  # the form again, not a redirect
     assert set(response.context["form"].errors) == {"title", "price"}
@@ -83,7 +89,8 @@ def test_editor_edits_a_book_but_cannot_change_the_stock(editor_client):
 
     # The stock field is disabled for an editor: a POSTed value is ignored
     editor_client.post(
-        reverse("books:update", args=[book.pk]), book_form_data(book.author, title="Kobzar (2nd ed.)", stock="999")
+        reverse("books:update", args=[book.pk]),
+        book_form_data(book.author, title="Kobzar (2nd ed.)", stock="999"),
     )
 
     book.refresh_from_db()

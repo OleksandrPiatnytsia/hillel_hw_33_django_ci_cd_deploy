@@ -63,7 +63,8 @@ def cart_add(request, book_id):
     else:
         messages.success(
             request,
-            _("“%(title)s”: %(quantity)s in the cart.") % {"title": book.title, "quantity": quantity},
+            _("“%(title)s”: %(quantity)s in the cart.")
+            % {"title": book.title, "quantity": quantity},
         )
     return _redirect_back(request)
 

@@ -72,14 +72,18 @@ def test_manual_payment_for_cancelled_order_is_refused(order):
 # ---------------------------------------------------------------------------
 
 
-def test_online_payment_of_someone_elses_order_is_refused(order, other_customer, request_of, fake_stripe):
+def test_online_payment_of_someone_elses_order_is_refused(
+    order, other_customer, request_of, fake_stripe
+):
     with pytest.raises(PaymentError):
         start_online_payment(order.pk, other_customer, request_of)
 
     assert fake_stripe.created == []
 
 
-def test_online_payment_of_cancelled_or_paid_order_is_refused(order, customer, request_of, fake_stripe):
+def test_online_payment_of_cancelled_or_paid_order_is_refused(
+    order, customer, request_of, fake_stripe
+):
     record_manual_payment(order.pk, "250")  # fully paid
 
     with pytest.raises(PaymentError):
@@ -186,7 +190,9 @@ def test_sync_payment_sees_an_expired_page(order, customer, request_of, fake_str
     assert sync_payment(payment).status == Payment.Status.EXPIRED
 
 
-def test_close_payment_page_when_stripe_is_down_changes_nothing(order, customer, request_of, fake_stripe, caplog):
+def test_close_payment_page_when_stripe_is_down_changes_nothing(
+    order, customer, request_of, fake_stripe, caplog
+):
     start_online_payment(order.pk, customer, request_of)
     payment = order.payments.get()
     fake_stripe.fail_with = stripe.APIConnectionError("down (test)")
@@ -198,7 +204,9 @@ def test_close_payment_page_when_stripe_is_down_changes_nothing(order, customer,
     assert "can't close the payment page" in caplog.text
 
 
-def test_close_payment_page_already_paid_records_the_money(order, customer, request_of, fake_stripe):
+def test_close_payment_page_already_paid_records_the_money(
+    order, customer, request_of, fake_stripe
+):
     """Too late to close: the customer paid a second earlier. The money is real."""
     start_online_payment(order.pk, customer, request_of)
     payment = order.payments.get()
@@ -244,7 +252,9 @@ def test_webhook_of_other_event_types_is_accepted_and_ignored(client, order):
 def test_webhook_delayed_payment_failed_marks_the_payment_failed(client, order):
     payment = PaymentFactory(order=order, external_id="cs_test_1")
 
-    post_webhook(client, "checkout.session.async_payment_failed", "cs_test_1", payment_status="unpaid")
+    post_webhook(
+        client, "checkout.session.async_payment_failed", "cs_test_1", payment_status="unpaid"
+    )
 
     payment.refresh_from_db()
     assert payment.status == Payment.Status.FAILED

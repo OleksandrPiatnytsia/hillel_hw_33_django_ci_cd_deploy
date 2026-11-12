@@ -35,8 +35,16 @@ def admin_tools():
     """[(group title, [Tool, ...]), ...] in the order they are shown."""
     site = [
         Tool(_("Admin"), reverse("admin:index"), _("Books, authors, users, groups")),
-        Tool(_("Orders"), reverse("admin:orders_order_changelist"), _("Statuses, cancellation, payments")),
-        Tool(_("Stock"), reverse("admin:inventory_stock_changelist"), _("Copies of every book in the warehouse")),
+        Tool(
+            _("Orders"),
+            reverse("admin:orders_order_changelist"),
+            _("Statuses, cancellation, payments"),
+        ),
+        Tool(
+            _("Stock"),
+            reverse("admin:inventory_stock_changelist"),
+            _("Copies of every book in the warehouse"),
+        ),
     ]
     api = [
         Tool(_("Browsable API"), reverse("api:api-root"), _("The API in the browser, with forms")),
@@ -50,13 +58,24 @@ def admin_tools():
     ]
     if settings.SENTRY_ISSUES_URL:
         monitoring.append(
-            Tool("Sentry", settings.SENTRY_ISSUES_URL, _("Errors of the site and of the tasks"), external=True)
+            Tool(
+                "Sentry",
+                settings.SENTRY_ISSUES_URL,
+                _("Errors of the site and of the tasks"),
+                external=True,
+            )
         )
     monitoring.append(
-        Tool(_("Sentry test error"), reverse("sentry_debug"), _("Raises an error on purpose: check that Sentry gets it"))
+        Tool(
+            _("Sentry test error"),
+            reverse("sentry_debug"),
+            _("Raises an error on purpose: check that Sentry gets it"),
+        )
     )
     groups = [(_("Site"), site), ("API", api), (_("Monitoring"), monitoring)]
 
     if stripe_url := stripe_dashboard_url():
-        groups.append((_("Payments"), [Tool("Stripe", stripe_url, _("Payments and webhooks"), external=True)]))
+        groups.append(
+            (_("Payments"), [Tool("Stripe", stripe_url, _("Payments and webhooks"), external=True)])
+        )
     return groups

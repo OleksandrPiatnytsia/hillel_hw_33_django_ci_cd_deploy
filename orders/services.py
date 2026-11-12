@@ -192,8 +192,7 @@ def cancel_order(order_id, *, user=None, only_unpaid=False, notify_customer=Fals
         if order.status == Order.Status.CANCELLED:
             raise OrderError(_("%(order)s is already cancelled.") % {"order": order})
         if only_unpaid and not (
-            order.status == Order.Status.NEW
-            and order.payment_status == Order.PaymentStatus.UNPAID
+            order.status == Order.Status.NEW and order.payment_status == Order.PaymentStatus.UNPAID
         ):
             raise OrderError(_("%(order)s is not a new unpaid order any more.") % {"order": order})
 

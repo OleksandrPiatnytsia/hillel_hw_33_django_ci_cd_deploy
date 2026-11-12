@@ -29,7 +29,11 @@ from ..helpers import message_levels
 
 pytestmark = pytest.mark.django_db
 
-DELIVERY = {"full_name": "Ann Shevchenko", "phone": "+380 67 123 45 67", "address": "Kyiv, Khreshchatyk 1"}
+DELIVERY = {
+    "full_name": "Ann Shevchenko",
+    "phone": "+380 67 123 45 67",
+    "address": "Kyiv, Khreshchatyk 1",
+}
 
 
 def add_to_cart(client, book, quantity=1):
@@ -54,7 +58,10 @@ def test_guest_cart_survives_login_and_becomes_an_order(
         {"username": "ann", "password": DEFAULT_PASSWORD},
     )
     assertRedirects(response, checkout_url)
-    assert client.session["cart"] == {str(first.pk): {"quantity": 2}, str(second.pk): {"quantity": 1}}
+    assert client.session["cart"] == {
+        str(first.pk): {"quantity": 2},
+        str(second.pk): {"quantity": 1},
+    }
 
     # 3. The delivery form -> the order
     with django_capture_on_commit_callbacks(execute=True):
@@ -64,7 +71,10 @@ def test_guest_cart_survives_login_and_becomes_an_order(
     assertRedirects(response, order.get_absolute_url())
     assert order.total == 250
     assert order.phone == "+380671234567"
-    assert {(item.book_id, item.quantity) for item in order.items.all()} == {(first.pk, 2), (second.pk, 1)}
+    assert {(item.book_id, item.quantity) for item in order.items.all()} == {
+        (first.pk, 2),
+        (second.pk, 1),
+    }
     # Stock reserved, cart empty, one "order created" email to the customer
     first.refresh_from_db()
     second.refresh_from_db()
@@ -98,7 +108,9 @@ def test_not_enough_stock_keeps_cart_and_saves_nothing(customer_client, mailoutb
 
 
 @pytest.mark.parametrize(("checkbox", "saved"), [("on", True), (None, False)])
-def test_checkout_saves_phone_and_address_to_profile_only_when_asked(customer, customer_client, checkbox, saved):
+def test_checkout_saves_phone_and_address_to_profile_only_when_asked(
+    customer, customer_client, checkbox, saved
+):
     add_to_cart(customer_client, BookFactory())
     data = {**DELIVERY, "save_to_profile": checkbox} if checkbox else DELIVERY
 
@@ -110,7 +122,9 @@ def test_checkout_saves_phone_and_address_to_profile_only_when_asked(customer, c
     )
 
 
-def test_order_is_created_even_if_email_fails(customer_client, failing_mailer, django_capture_on_commit_callbacks):
+def test_order_is_created_even_if_email_fails(
+    customer_client, failing_mailer, django_capture_on_commit_callbacks
+):
     add_to_cart(customer_client, BookFactory())
 
     with django_capture_on_commit_callbacks(execute=True):
@@ -190,7 +204,9 @@ def test_only_one_of_two_simultaneous_orders_gets_the_last_copy():
     def buy(user):
         try:
             start.wait()
-            create_order(user, {book.pk: 1}, full_name="Buyer", phone="+380671234567", address="Kyiv")
+            create_order(
+                user, {book.pk: 1}, full_name="Buyer", phone="+380671234567", address="Kyiv"
+            )
             results.append("ordered")
         except OrderError:
             results.append("out of stock")

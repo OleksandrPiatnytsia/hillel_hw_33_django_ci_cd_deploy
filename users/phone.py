@@ -15,7 +15,5 @@ def normalize_phone(value):
         return ""
     digits = re.sub(r"\D", "", value)  # \D = any non-digit
     if not re.fullmatch(r"\+?[\d\s()\-]+", value) or not 10 <= len(digits) <= 15:
-        raise ValidationError(
-            _("Enter a phone number: 10–15 digits, e.g. +380 67 123 45 67.")
-        )
+        raise ValidationError(_("Enter a phone number: 10–15 digits, e.g. +380 67 123 45 67."))
     return ("+" if value.startswith("+") else "") + digits

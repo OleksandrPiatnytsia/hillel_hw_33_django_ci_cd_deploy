@@ -54,7 +54,10 @@ def test_pay_on_stripe_and_come_back_to_success_page(
     params = fake_stripe.created[0]["params"]
     assert params["line_items"][0]["price_data"]["unit_amount"] == 25000
     assert params["metadata"] == {"order_id": str(order.pk), "payment_id": str(payment.pk)}
-    assert params["success_url"] == "http://testserver/payments/success/?session_id={CHECKOUT_SESSION_ID}"
+    assert (
+        params["success_url"]
+        == "http://testserver/payments/success/?session_id={CHECKOUT_SESSION_ID}"
+    )
 
     # 2. The customer pays; Stripe sends them back with the session id
     fake_stripe.pay(session.id)
@@ -101,12 +104,20 @@ def test_webhook_and_return_page_both_confirm_but_one_email(
     assert len(mailoutbox) == 1
 
 
-def test_expired_stripe_page_then_pay_again_with_a_new_page(order, client, customer_client, fake_stripe):
+def test_expired_stripe_page_then_pay_again_with_a_new_page(
+    order, client, customer_client, fake_stripe
+):
     press_pay(customer_client, order)
     old = order.payments.get()
     fake_stripe.expire_session(old.external_id)
 
-    response = send_webhook(client, "checkout.session.expired", old.external_id, payment_status="unpaid", status="expired")
+    response = send_webhook(
+        client,
+        "checkout.session.expired",
+        old.external_id,
+        payment_status="unpaid",
+        status="expired",
+    )
 
     assert response.status_code == 200
     old.refresh_from_db()
@@ -127,7 +138,9 @@ def test_webhook_for_unknown_session_is_accepted_and_ignored(client):
     assert not Payment.objects.exists()
 
 
-def test_stripe_is_down_payment_fails_and_order_page_shows_error(order, customer_client, fake_stripe):
+def test_stripe_is_down_payment_fails_and_order_page_shows_error(
+    order, customer_client, fake_stripe
+):
     fake_stripe.fail_with = stripe.APIConnectionError("Network is unreachable (test)")
 
     response = press_pay(customer_client, order)

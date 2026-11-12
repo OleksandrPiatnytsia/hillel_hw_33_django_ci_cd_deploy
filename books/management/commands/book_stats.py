@@ -40,15 +40,11 @@ class Command(BaseCommand):
         # ------------------------------------------------------------------
 
         # field lookups: __gt (>), __lte (<=); several kwargs are joined with AND
-        cheap_in_stock = books.filter(
-            stock__gt=0, price__lte=max_price
-        ).order_by("price")
+        cheap_in_stock = books.filter(stock__gt=0, price__lte=max_price).order_by("price")
         self.section(f"filter: in stock and price <= {max_price}", cheap_in_stock)
 
         # __range is BETWEEN; exclude() is the opposite of filter()
-        low_stock = books.filter(
-            stock__range=(1, LOW_STOCK_THRESHOLD)
-        ).order_by("stock")
+        low_stock = books.filter(stock__range=(1, LOW_STOCK_THRESHOLD)).order_by("stock")
         self.section(f"filter: low stock (1..{LOW_STOCK_THRESHOLD})", low_stock)
 
         out_of_stock = books.filter(stock=0)
@@ -77,20 +73,13 @@ class Command(BaseCommand):
         self.section(f"Q (OR): title/author/category contains '{search}'", found)
 
         # NOT: in stock, but not in the given category
-        not_in_category = books.filter(
-            Q(stock__gt=0) & ~Q(categories__slug=category_slug)
-        )
-        self.section(
-            f"Q (AND + NOT): in stock and not in '{category_slug}'", not_in_category
-        )
+        not_in_category = books.filter(Q(stock__gt=0) & ~Q(categories__slug=category_slug))
+        self.section(f"Q (AND + NOT): in stock and not in '{category_slug}'", not_in_category)
 
         # mixed: (cheap OR plenty in stock) AND has description
-        promo = books.filter(
-            (Q(price__lt=150) | Q(stock__gte=20)) & ~Q(description="")
-        ).order_by("price")
-        self.section(
-            "Q (mixed): (price < 150 OR stock >= 20) AND has description", promo
-        )
+        promo_filter = (Q(price__lt=150) | Q(stock__gte=20)) & ~Q(description="")
+        promo = books.filter(promo_filter).order_by("price")
+        self.section("Q (mixed): (price < 150 OR stock >= 20) AND has description", promo)
 
         # ------------------------------------------------------------------
         # 3. annotate: a computed value for every row
@@ -105,9 +94,7 @@ class Command(BaseCommand):
         categories = Category.objects.annotate(
             books_count=Count("books", distinct=True),
             # Count with filter=Q(...) counts only matching rows
-            in_stock_count=Count(
-                "books", filter=default_stock & Q(books__stocks__quantity__gt=0)
-            ),
+            in_stock_count=Count("books", filter=default_stock & Q(books__stocks__quantity__gt=0)),
             avg_price=Avg("books__price", filter=default_stock),
             total_stock=Sum("books__stocks__quantity", filter=default_stock),
         ).order_by("-books_count", "name")

@@ -33,12 +33,20 @@ class CheckoutForm(forms.ModelForm):
             "full_name": forms.TextInput(attrs={"class": "form-control", "autocomplete": "name"}),
             # type="tel": a phone keyboard on mobile
             "phone": forms.TextInput(
-                attrs={"class": "form-control", "type": "tel", "autocomplete": "tel",
-                       "placeholder": "+380 67 123 45 67"}
+                attrs={
+                    "class": "form-control",
+                    "type": "tel",
+                    "autocomplete": "tel",
+                    "placeholder": "+380 67 123 45 67",
+                }
             ),
             "address": forms.Textarea(
-                attrs={"class": "form-control", "rows": 3, "autocomplete": "street-address",
-                       "placeholder": _("City, street, house, flat or the post office number")}
+                attrs={
+                    "class": "form-control",
+                    "rows": 3,
+                    "autocomplete": "street-address",
+                    "placeholder": _("City, street, house, flat or the post office number"),
+                }
             ),
         }
 

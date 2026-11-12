@@ -7,7 +7,6 @@ from inventory.models import Stock
 
 from .models import Author, Book, BookCategory, BookQuerySet, Category
 
-
 # ---------------------------------------------------------------------------
 # Inlines
 # ---------------------------------------------------------------------------

@@ -72,6 +72,8 @@ def test_set_language_ignores_unsupported_language(customer, customer_client):
 
 
 def test_set_language_does_not_redirect_to_another_site(client):
-    response = client.post(reverse("set_language"), {"language": "en", "next": "https://evil.example/"})
+    response = client.post(
+        reverse("set_language"), {"language": "en", "next": "https://evil.example/"}
+    )
 
     assert response.url == "/"

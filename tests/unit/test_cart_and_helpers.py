@@ -69,7 +69,10 @@ def test_cart_len_total_and_quantities(cart):
     assert cart.total == Decimal("250.50")
     assert cart.quantities() == {first.pk: 2, second.pk: 1}
     # In the session: string keys (JSON), quantities only (no prices)
-    assert cart.session[CART_SESSION_KEY] == {str(first.pk): {"quantity": 2}, str(second.pk): {"quantity": 1}}
+    assert cart.session[CART_SESSION_KEY] == {
+        str(first.pk): {"quantity": 2},
+        str(second.pk): {"quantity": 1},
+    }
 
 
 @pytest.mark.django_db

@@ -235,12 +235,14 @@ class OrderAdmin(admin.ModelAdmin):
                 messages.error(request, text)
             return False
         messages.success(
-            request, gettext("%(order)s is cancelled, the books are back in stock.") % {"order": order}
+            request,
+            gettext("%(order)s is cancelled, the books are back in stock.") % {"order": order},
         )
         if order.payment_status != Order.PaymentStatus.UNPAID:
             messages.warning(
                 request,
-                gettext("%(order)s has payments: return the money to the customer.") % {"order": order},
+                gettext("%(order)s has payments: return the money to the customer.")
+                % {"order": order},
             )
         return True
 

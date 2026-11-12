@@ -62,10 +62,18 @@ async def asgi_get(path, headers):
     from config.asgi import application
 
     scope = {
-        "type": "http", "asgi": {"version": "3.0"}, "http_version": "1.1",
-        "method": "GET", "scheme": "http", "path": path, "raw_path": path.encode(),
-        "root_path": "", "query_string": b"", "headers": headers,
-        "client": ("203.0.113.7", 50000), "server": ("testserver", 80),
+        "type": "http",
+        "asgi": {"version": "3.0"},
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": path,
+        "raw_path": path.encode(),
+        "root_path": "",
+        "query_string": b"",
+        "headers": headers,
+        "client": ("203.0.113.7", 50000),
+        "server": ("testserver", 80),
     }
     communicator = ApplicationCommunicator(application, scope)
     await communicator.send_input({"type": "http.request", "body": b""})
@@ -136,6 +144,8 @@ def test_task_follows_the_decision_of_the_request_that_queued_it():
 
 # Generated with AI
 def test_log_lines_with_ip_addresses_are_not_breadcrumbs():
-    assert before_breadcrumb({"category": "users.signals", "message": "Login: ip=1.2.3.4"}, {}) is None
+    assert (
+        before_breadcrumb({"category": "users.signals", "message": "Login: ip=1.2.3.4"}, {}) is None
+    )
     crumb = {"category": "orders", "message": "Order #1 cancelled"}
     assert before_breadcrumb(crumb, {}) is crumb

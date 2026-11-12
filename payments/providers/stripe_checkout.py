@@ -60,9 +60,7 @@ class StripeProvider(PaymentProvider):
 
     def start(self, payment, request):
         order = payment.order
-        titles = ", ".join(
-            f"{item.title} × {item.quantity}" for item in order.items.all()
-        )
+        titles = ", ".join(f"{item.title} × {item.quantity}" for item in order.items.all())
         try:
             session = self._client().v1.checkout.sessions.create(
                 params={
@@ -79,7 +77,8 @@ class StripeProvider(PaymentProvider):
                                 "product_data": {
                                     # In the language of the customer
                                     # pressing "Pay" (the active one)
-                                    "name": _("Bookstore: order #%(number)s") % {"number": order.pk},
+                                    "name": _("Bookstore: order #%(number)s")
+                                    % {"number": order.pk},
                                     "description": titles[:250],
                                 },
                             },
@@ -109,7 +108,9 @@ class StripeProvider(PaymentProvider):
                 # The creation time makes it unique even if the database is
                 # recreated and ids start from 1 again (Stripe keeps keys 24 h).
                 options={
-                    "idempotency_key": f"bookstore-payment-{payment.pk}-{int(payment.created_at.timestamp())}"
+                    "idempotency_key": (
+                        f"bookstore-payment-{payment.pk}-{int(payment.created_at.timestamp())}"
+                    )
                 },
             )
         except stripe.StripeError as error:
@@ -118,7 +119,9 @@ class StripeProvider(PaymentProvider):
                 _("The payment service is not available now, please try again later.")
             ) from error
 
-        return ProviderSession(external_id=session.id, url=session.url, expires_at=session.expires_at)
+        return ProviderSession(
+            external_id=session.id, url=session.url, expires_at=session.expires_at
+        )
 
     def fetch_status(self, payment):
         """Checkout Session -> our status.

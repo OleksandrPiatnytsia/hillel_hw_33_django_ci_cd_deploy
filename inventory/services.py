@@ -19,9 +19,7 @@ def set_stock(book, quantity, warehouse=None):
     call shows it without another query.
     """
     warehouse = warehouse or Warehouse.objects.get_default()
-    Stock.objects.update_or_create(
-        book=book, warehouse=warehouse, defaults={"quantity": quantity}
-    )
+    Stock.objects.update_or_create(book=book, warehouse=warehouse, defaults={"quantity": quantity})
     if warehouse.is_default:
         book.stock = quantity
     return quantity

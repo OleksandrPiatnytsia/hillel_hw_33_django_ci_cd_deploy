@@ -30,9 +30,7 @@ class BookFilterForm(forms.Form):
         # The error goes to price_min: django-filter answers with form.errors,
         # where an error of the whole form would be under the key "__all__"
         if price_min is not None and price_max is not None and price_min > price_max:
-            self.add_error(
-                "price_min", _("“Price from” can't be greater than “Price to”.")
-            )
+            self.add_error("price_min", _("“Price from” can't be greater than “Price to”."))
         return cleaned_data
 
 

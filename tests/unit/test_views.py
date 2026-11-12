@@ -270,7 +270,9 @@ def test_someone_elses_order_is_404(customer, other_customer_client):
     assert order.status == Order.Status.NEW
 
 
-def test_my_orders_lists_only_own_orders_with_books_count(customer, other_customer, customer_client):
+def test_my_orders_lists_only_own_orders_with_books_count(
+    customer, other_customer, customer_client
+):
     mine = OrderFactory(user=customer, items=[(BookFactory(), 2), (BookFactory(), 1)])
     OrderFactory(user=other_customer)
 
@@ -281,10 +283,14 @@ def test_my_orders_lists_only_own_orders_with_books_count(customer, other_custom
     assert orders[0].books_count == 3
 
 
-def test_payment_success_with_someone_elses_session_is_404(customer, other_customer_client, fake_stripe):
+def test_payment_success_with_someone_elses_session_is_404(
+    customer, other_customer_client, fake_stripe
+):
     payment = PaymentFactory(order__user=customer)
 
-    response = other_customer_client.get(reverse("payments:success"), {"session_id": payment.external_id})
+    response = other_customer_client.get(
+        reverse("payments:success"), {"session_id": payment.external_id}
+    )
 
     assert response.status_code == 404
 
@@ -296,7 +302,9 @@ def test_payment_success_with_someone_elses_session_is_404(customer, other_custo
 
 @pytest.mark.parametrize("provider", ["manual", "paypal"])
 def test_webhook_of_provider_without_webhooks_is_404(client, provider):
-    response = client.post(reverse("payments:webhook", args=[provider]), data="{}", content_type="application/json")
+    response = client.post(
+        reverse("payments:webhook", args=[provider]), data="{}", content_type="application/json"
+    )
 
     assert response.status_code == 404
 
@@ -327,7 +335,11 @@ def test_profile_edit_saves_own_data(customer, customer_client):
 
     assertRedirects(response, reverse("users:profile"))
     customer.refresh_from_db()
-    assert (customer.first_name, customer.phone, customer.address) == ("Anna", "+380677654321", "Odesa")
+    assert (customer.first_name, customer.phone, customer.address) == (
+        "Anna",
+        "+380677654321",
+        "Odesa",
+    )
 
 
 def test_logged_in_user_is_sent_away_from_sign_up(customer_client):
@@ -374,7 +386,9 @@ def test_every_response_has_timing_headers(client):
 
 
 def tool_links(response):
-    return {tool.title: tool.url for _group, tools in response.context["tool_groups"] for tool in tools}
+    return {
+        tool.title: tool.url for _group, tools in response.context["tool_groups"] for tool in tools
+    }
 
 
 # Generated with AI
@@ -389,10 +403,14 @@ def test_superuser_sees_the_tools_and_every_link_works(superuser_client, setting
     assert links["Flower"] == "http://localhost:5555"
     assert links["Sentry"] == "https://example.sentry.io/issues/?project=1"
     assert links["Stripe"] == "https://dashboard.stripe.com/test/payments"
-    assert 'href="http://localhost:5555" target="_blank" rel="noopener"' in response.content.decode()
+    assert (
+        'href="http://localhost:5555" target="_blank" rel="noopener"' in response.content.decode()
+    )
     # Every page of the project in the list opens for the superuser.
     # Not /sentry-debug/: it fails on purpose (its own tests in test_sentry.py)
-    internal = [url for url in links.values() if url.startswith("/") and url != reverse("sentry_debug")]
+    internal = [
+        url for url in links.values() if url.startswith("/") and url != reverse("sentry_debug")
+    ]
     assert len(internal) == 8  # admin x3, API x4, health
     for url in internal:
         assert superuser_client.get(url).status_code == 200, url
@@ -447,7 +465,7 @@ def test_navbar_brand_menu_highlights_the_current_page(client, url_name, active_
 
 def test_navbar_has_no_admin_link_even_for_superuser(superuser_client):
     html = superuser_client.get(reverse("books:list")).content.decode()
-    navbar = html[html.index("<nav class=\"navbar"):html.index("</nav>")]
+    navbar = html[html.index('<nav class="navbar') : html.index("</nav>")]
 
     assert reverse("admin:index") not in navbar
 

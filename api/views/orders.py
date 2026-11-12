@@ -164,7 +164,10 @@ class OrderViewSet(
 
         logger.info(
             "API order created: id=%s total=%s items=%s by user=%s",
-            order.pk, order.total, len(serializer.quantities()), request.user.username,
+            order.pk,
+            order.total,
+            len(serializer.quantities()),
+            request.user.username,
         )
         if key:
             logger.info("API order id=%s idempotency key=%r", order.pk, key)
@@ -218,7 +221,9 @@ class OrderViewSet(
             raise IdempotencyKeyReused()
         logger.info(
             "API order replayed: id=%s key=%r by user=%s",
-            order.pk, order.idempotency_key, self.request.user.username,
+            order.pk,
+            order.idempotency_key,
+            self.request.user.username,
         )
         return Response(
             OrderSerializer(order, context=self.get_serializer_context()).data,

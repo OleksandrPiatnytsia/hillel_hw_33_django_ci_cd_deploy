@@ -32,9 +32,7 @@ class Migration(migrations.Migration):
                     models.DecimalField(
                         decimal_places=2,
                         max_digits=10,
-                        validators=[
-                            django.core.validators.MinValueValidator(Decimal("0.00"))
-                        ],
+                        validators=[django.core.validators.MinValueValidator(Decimal("0.00"))],
                     ),
                 ),
                 ("description", models.TextField(blank=True)),
@@ -81,9 +79,7 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "book",
-                    models.ForeignKey(
-                        on_delete=django.db.models.deletion.CASCADE, to="books.book"
-                    ),
+                    models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to="books.book"),
                 ),
                 (
                     "category",

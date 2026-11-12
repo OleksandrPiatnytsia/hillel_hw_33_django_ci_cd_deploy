@@ -214,4 +214,3 @@ async def test_order_status_without_payments_is_zero_paid():
     assert response.json()["payment_status"] == Order.PaymentStatus.UNPAID
     assert response.json()["paid_amount"] == "0,00"  # default language: uk
     assert response.json()["amount_due"] == "300,00"
-

@@ -61,14 +61,19 @@ class LoggedModelViewSet(viewsets.ModelViewSet):
         instance = serializer.save()
         logger.info(
             "API %s created: id=%s %r by user=%s",
-            self.log_name, instance.pk, str(instance), self.request.user.username,
+            self.log_name,
+            instance.pk,
+            str(instance),
+            self.request.user.username,
         )
 
     def perform_update(self, serializer):
         instance = serializer.save()
         logger.info(
             "API %s updated: id=%s fields=%s by user=%s",
-            self.log_name, instance.pk, sorted(serializer.validated_data),
+            self.log_name,
+            instance.pk,
+            sorted(serializer.validated_data),
             self.request.user.username,
         )
 
@@ -82,7 +87,10 @@ class LoggedModelViewSet(viewsets.ModelViewSet):
             raise Conflict(self.protected_message)
         logger.info(
             "API %s deleted: id=%s %r by user=%s",
-            self.log_name, pk, name, self.request.user.username,
+            self.log_name,
+            pk,
+            name,
+            self.request.user.username,
         )
 
 
@@ -104,8 +112,7 @@ class BookViewSet(LoggedModelViewSet):
         .prefetch_related("categories")
         # "stock" of the default warehouse in the same SQL query; also
         # needed by the ?stock= filter
-        .with_stock()
-        .order_by("title", "pk")
+        .with_stock().order_by("title", "pk")
     )
     serializer_class = BookSerializer
     permission_classes = [DjangoModelPermissionsOrAnonReadOnly]

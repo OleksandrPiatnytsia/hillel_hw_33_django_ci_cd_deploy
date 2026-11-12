@@ -65,9 +65,9 @@ def cache_api_response(view_func):
             view_ran = True
             return view_func(*view_args, **view_kwargs)
 
-        cached_view = cache_page(
-            settings.API_CACHE_TIMEOUT, key_prefix=f"api:{generation}"
-        )(run_view)
+        cached_view = cache_page(settings.API_CACHE_TIMEOUT, key_prefix=f"api:{generation}")(
+            run_view
+        )
         response = cached_view(request, *args, **kwargs)
         logger.debug(
             "API cache %s: %s (generation %s)",

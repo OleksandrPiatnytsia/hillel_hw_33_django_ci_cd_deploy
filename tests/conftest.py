@@ -78,7 +78,9 @@ def customer(db):
 @pytest.fixture
 def other_customer(db):
     """A second customer: "can't see / cancel / pay somebody else's order"."""
-    return UserFactory(username="bob", email="bob@example.com", first_name="Bob", groups=["Customers"])
+    return UserFactory(
+        username="bob", email="bob@example.com", first_name="Bob", groups=["Customers"]
+    )
 
 
 @pytest.fixture

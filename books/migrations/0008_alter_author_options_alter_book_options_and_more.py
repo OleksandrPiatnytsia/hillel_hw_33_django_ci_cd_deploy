@@ -64,9 +64,7 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name="book",
             name="cover",
-            field=models.ImageField(
-                blank=True, upload_to="covers/%Y/%m/", verbose_name="cover"
-            ),
+            field=models.ImageField(blank=True, upload_to="covers/%Y/%m/", verbose_name="cover"),
         ),
         migrations.AlterField(
             model_name="book",

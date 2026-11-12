@@ -14,7 +14,7 @@ from orders.services import create_order
 from payments.admin import ManualPaymentFormSet
 from payments.models import Payment
 
-from ..factories import BookFactory, OrderFactory, PaymentFactory
+from ..factories import BookFactory, PaymentFactory
 from ..helpers import admin_change_form_data, inline_prefix, message_levels
 
 pytestmark = pytest.mark.django_db
@@ -28,7 +28,9 @@ def book():
 @pytest.fixture
 def order(customer, book):
     """An order made by the real checkout code: 3 books reserved, 300 UAH."""
-    return create_order(customer, {book.pk: 3}, full_name="Ann", phone="+380671234567", address="Kyiv")
+    return create_order(
+        customer, {book.pk: 3}, full_name="Ann", phone="+380671234567", address="Kyiv"
+    )
 
 
 def change_url(order):
@@ -53,7 +55,9 @@ def test_manager_sees_orders_in_admin_customer_does_not(order, manager_client, c
 
 def test_manager_cannot_add_or_delete_orders(order, manager_client):
     assert manager_client.get(reverse("admin:orders_order_add")).status_code == 403
-    assert manager_client.get(reverse("admin:orders_order_delete", args=[order.pk])).status_code == 403
+    assert (
+        manager_client.get(reverse("admin:orders_order_delete", args=[order.pk])).status_code == 403
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -117,8 +121,12 @@ def test_manager_cancels_order_by_status_field(order, book, manager_client):
 
 
 def test_cancel_action_warns_about_paid_orders(customer, book, manager_client):
-    unpaid = create_order(customer, {book.pk: 1}, full_name="Ann", phone="+380671234567", address="Kyiv")
-    paid = create_order(customer, {book.pk: 2}, full_name="Ann", phone="+380671234567", address="Kyiv")
+    unpaid = create_order(
+        customer, {book.pk: 1}, full_name="Ann", phone="+380671234567", address="Kyiv"
+    )
+    paid = create_order(
+        customer, {book.pk: 2}, full_name="Ann", phone="+380671234567", address="Kyiv"
+    )
     PaymentFactory(order=paid, status=Payment.Status.SUCCEEDED, amount=paid.total)
     paid.refresh_payment_status()
 
@@ -145,7 +153,9 @@ def old_orders(customer, book):
     """Two orders from two days ago (one unpaid, one paid) and a fresh unpaid one."""
 
     def make(quantity):
-        return create_order(customer, {book.pk: quantity}, full_name="Ann", phone="+380671234567", address="Kyiv")
+        return create_order(
+            customer, {book.pk: quantity}, full_name="Ann", phone="+380671234567", address="Kyiv"
+        )
 
     old_unpaid, old_paid, fresh = make(1), make(2), make(3)
     PaymentFactory(order=old_paid, status=Payment.Status.SUCCEEDED, amount=old_paid.total)

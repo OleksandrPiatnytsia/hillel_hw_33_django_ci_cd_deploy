@@ -102,8 +102,10 @@ class Cart:
         # in_bulk: {id: Book} for all ids of the cart in one query
         # (WHERE id IN (...)); select_related: author names in the same query;
         # with_stock(): the stock in the same query too
-        books = Book.objects.select_related("author").with_stock().in_bulk(
-            [int(key) for key in self.cart]
+        books = (
+            Book.objects.select_related("author")
+            .with_stock()
+            .in_bulk([int(key) for key in self.cart])
         )
 
         items = []

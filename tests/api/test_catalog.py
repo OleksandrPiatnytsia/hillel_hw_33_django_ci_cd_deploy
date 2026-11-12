@@ -184,9 +184,7 @@ def test_anonymous_cannot_create_a_book(api_client):
 
 
 def test_customer_cannot_create_a_book(as_user, customer):
-    response = as_user(customer).post(
-        "/api/books/", new_book_data(AuthorFactory()), format="json"
-    )
+    response = as_user(customer).post("/api/books/", new_book_data(AuthorFactory()), format="json")
 
     assert response.status_code == 403
     assert not Book.objects.exists()

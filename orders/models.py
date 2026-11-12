@@ -125,10 +125,7 @@ class Order(models.Model):
         Later (processing, shipped) or after any payment only a manager can
         cancel it (admin, stage 8): goods may be packed, money must be returned.
         """
-        return (
-            self.status == self.Status.NEW
-            and self.payment_status == self.PaymentStatus.UNPAID
-        )
+        return self.status == self.Status.NEW and self.payment_status == self.PaymentStatus.UNPAID
 
     # ------------------------------------------------------------------
     # Payments (payments.Payment, related_name="payments")

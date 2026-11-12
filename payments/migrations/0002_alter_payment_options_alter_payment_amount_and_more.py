@@ -45,9 +45,7 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name="payment",
             name="external_id",
-            field=models.CharField(
-                blank=True, max_length=255, verbose_name="provider's id"
-            ),
+            field=models.CharField(blank=True, max_length=255, verbose_name="provider's id"),
         ),
         migrations.AlterField(
             model_name="payment",

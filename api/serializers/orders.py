@@ -178,6 +178,4 @@ class OrderCreateSerializer(serializers.Serializer):
 
     def quantities(self):
         """{book_id: quantity}: the format of create_order() (and of the cart)."""
-        return {
-            item["book_id"].pk: item["quantity"] for item in self.validated_data["items"]
-        }
+        return {item["book_id"].pk: item["quantity"] for item in self.validated_data["items"]}

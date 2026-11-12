@@ -84,11 +84,7 @@ def send_order_cancelled_email(order_id, raise_errors=False):
 
     Takes the id: called after COMMIT, like send_order_created_email().
     """
-    order = (
-        Order.objects.select_related("user")
-        .prefetch_related("items")
-        .get(pk=order_id)
-    )
+    order = Order.objects.select_related("user").prefetch_related("items").get(pk=order_id)
     return send_order_email(order, "orders/emails/order_cancelled", raise_errors=raise_errors)
 
 
@@ -98,9 +94,5 @@ def send_order_created_email(order_id, raise_errors=False):
     Takes the id, not the object: it is called after COMMIT
     (transaction.on_commit) and reads the saved order from the database.
     """
-    order = (
-        Order.objects.select_related("user")
-        .prefetch_related("items")
-        .get(pk=order_id)
-    )
+    order = Order.objects.select_related("user").prefetch_related("items").get(pk=order_id)
     return send_order_email(order, "orders/emails/order_created", raise_errors=raise_errors)

@@ -51,7 +51,9 @@ def record_manual_payment(order_id, amount, *, note="", recorded_by=None):
     with transaction.atomic():
         order = _lock_order(order_id)
         if order.status == Order.Status.CANCELLED:
-            raise PaymentError(_("%(order)s is cancelled, payments can't be added.") % {"order": order})
+            raise PaymentError(
+                _("%(order)s is cancelled, payments can't be added.") % {"order": order}
+            )
         due = order.amount_due
         if amount > due:
             raise PaymentError(
@@ -76,7 +78,9 @@ def record_manual_payment(order_id, amount, *, note="", recorded_by=None):
             # One email when the order is fully paid, not one per part
             enqueue_on_commit(send_payment_received_email_task, payment.pk)
 
-    logger.info("Manual payment %s UAH for order #%s recorded (%s)", amount, order.pk, order.payment_status)
+    logger.info(
+        "Manual payment %s UAH for order #%s recorded (%s)", amount, order.pk, order.payment_status
+    )
     return payment
 
 
@@ -101,9 +105,7 @@ def mark_payment_succeeded(payment_id, *, details=None):
         if payment.status != Payment.Status.PENDING:
             # expired / failed and then "paid": the provider says the money
             # is received, so it is recorded, but somebody should look at it
-            logger.warning(
-                "Payment %s was %s and is now succeeded", payment.pk, payment.status
-            )
+            logger.warning("Payment %s was %s and is now succeeded", payment.pk, payment.status)
 
         payment.status = Payment.Status.SUCCEEDED
         payment.paid_at = timezone.now()
@@ -123,7 +125,9 @@ def mark_payment_succeeded(payment_id, *, details=None):
             # be returned by a manager
             logger.warning("Order #%s is cancelled but received payment %s", order.pk, payment.pk)
 
-    logger.info("Payment %s for order #%s succeeded (%s)", payment.pk, order.pk, order.payment_status)
+    logger.info(
+        "Payment %s for order #%s succeeded (%s)", payment.pk, order.pk, order.payment_status
+    )
     return payment
 
 
@@ -197,16 +201,16 @@ def start_online_payment(order_id, user, request):
             raise PaymentError(_("%(order)s is already paid.") % {"order": order})
 
         now = timezone.now()
-        for payment in order.payments.filter(
-            provider=provider.name, status=Payment.Status.PENDING
-        ):
+        for payment in order.payments.filter(provider=provider.name, status=Payment.Status.PENDING):
             url = payment.details.get("url")
             expires_at = payment.details.get("expires_at", 0)
             if not url:
                 # Created a moment ago by another click, the request to the
                 # provider is still running: no second page
                 if payment.created_at > now - timedelta(minutes=1):
-                    raise PaymentError(_("The payment is being prepared, please try again in a minute."))
+                    raise PaymentError(
+                        _("The payment is being prepared, please try again in a minute.")
+                    )
                 continue
             if payment.amount == due and expires_at > (now + MIN_TIME_LEFT_ON_PAGE).timestamp():
                 logger.info("Payment %s: reusing the open payment page", payment.pk)
@@ -226,15 +230,18 @@ def start_online_payment(order_id, user, request):
     try:
         session = provider.start(payment, request)
     except PaymentProviderError as error:
-        mark_payment_unsuccessful(
-            payment.pk, Payment.Status.FAILED, details={"error": str(error)}
-        )
+        mark_payment_unsuccessful(payment.pk, Payment.Status.FAILED, details={"error": str(error)})
         raise PaymentError(str(error)) from error
 
     payment.external_id = session.external_id
     payment.details = {**payment.details, "url": session.url, "expires_at": session.expires_at}
     payment.save(update_fields=["external_id", "details", "updated_at"])
-    logger.info("Payment %s for order #%s: payment page created (%s)", payment.pk, order.pk, session.external_id)
+    logger.info(
+        "Payment %s for order #%s: payment page created (%s)",
+        payment.pk,
+        order.pk,
+        session.external_id,
+    )
     return session.url
 
 
@@ -284,7 +291,7 @@ def close_open_payments(order_id):
 
     Called by orders.services.cancel_order() with transaction.on_commit().
     """
-    for payment in Payment.objects.filter(
-        order_id=order_id, status=Payment.Status.PENDING
-    ).exclude(external_id=""):
+    pending = Payment.objects.filter(order_id=order_id, status=Payment.Status.PENDING)
+    # Without external_id the provider has no page yet: nothing to close
+    for payment in pending.exclude(external_id=""):
         close_payment_page(payment)

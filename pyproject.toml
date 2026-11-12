@@ -1,0 +1,18 @@
+# Settings of the code tools. Only black reads this file here: flake8 has
+# no pyproject.toml support (its settings are in .flake8), pytest and
+# coverage keep their own files (pytest.ini, .coveragerc).
+
+[tool.black]
+# Black formats the code by itself: run "black ." before a commit,
+# CI runs "black --check ." and fails if a file would change.
+#
+# 100, not black's default 88: Django code has long names
+# (select_related("author"), reverse("admin:orders_order_changelist")),
+# and at 88 many short calls would be broken into 3-4 lines.
+# .flake8 uses the same limit (max-line-length).
+line-length = 100
+# The Python of the Docker image (python:3.13-slim) and of CI
+target-version = ["py313"]
+# Black skips the files in .gitignore by itself (.venv, htmlcov, media, ...).
+# Migrations are formatted too: Django formats the migrations it generates
+# with black when black is installed, so they already look like this.

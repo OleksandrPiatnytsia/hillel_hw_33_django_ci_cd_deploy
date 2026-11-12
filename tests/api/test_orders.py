@@ -393,9 +393,7 @@ def test_too_long_key_is_400(as_user, customer):
     assert not Order.objects.exists()
 
 
-def test_parallel_request_with_the_same_key_gets_the_first_order(
-    as_user, customer, monkeypatch
-):
+def test_parallel_request_with_the_same_key_gets_the_first_order(as_user, customer, monkeypatch):
     # Two requests at the same moment: both look for the key BEFORE the
     # other one has saved its order. Simulated: the first order already
     # exists, but the first lookup of the view misses it, as it would for

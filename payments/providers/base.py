@@ -48,7 +48,9 @@ class PaymentProvider:
 
         Raises PaymentProviderError if the provider refuses or is unreachable.
         """
-        raise PaymentProviderError(_("%(provider)s: online payment is not supported.") % {"provider": self.name})
+        raise PaymentProviderError(
+            _("%(provider)s: online payment is not supported.") % {"provider": self.name}
+        )
 
     def fetch_status(self, payment):
         """Ask the provider about the payment; return a Payment.Status value.
@@ -72,4 +74,6 @@ class PaymentProvider:
         Must check that the request really comes from the provider
         (signature) before trusting its data.
         """
-        raise PaymentProviderError(_("%(provider)s: webhooks are not supported.") % {"provider": self.name})
+        raise PaymentProviderError(
+            _("%(provider)s: webhooks are not supported.") % {"provider": self.name}
+        )

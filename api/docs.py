@@ -84,7 +84,7 @@ book_schema = catalog_schema(
     "books",
     "Needs the permissions of the user's group: add_book (Editors, Managers), "
     "change_book (Editors, Managers), delete_book (Managers). Changing "
-    "\"stock\" needs inventory.change_stock (Managers), otherwise 403.",
+    '"stock" needs inventory.change_stock (Managers), otherwise 403.',
     protected="The book is in orders.",
 )
 author_schema = catalog_schema(
@@ -125,9 +125,9 @@ ORDER_CREATE = dict(
     description=(
         "The delivery data and the books at once (there is no cart in the "
         "API). The prices and the total come from the catalog; the copies "
-        "are reserved right away. 400 with \"items\" when there are not "
-        "enough copies: nothing is saved then. Payment: open \"site_url\" "
-        "of the answer, the order page has the \"Pay\" button."
+        'are reserved right away. 400 with "items" when there are not '
+        'enough copies: nothing is saved then. Payment: open "site_url" '
+        'of the answer, the order page has the "Pay" button.'
     ),
 )
 
@@ -140,7 +140,7 @@ IDEMPOTENCY_KEY_PARAMETER = OpenApiParameter(
         "Optional, up to 255 characters, a new one for every new order "
         "(e.g. a UUID). Send the same request with the same key again (a "
         "timeout, a retry) and the answer is the order of the first request, "
-        "201 with the header \"Idempotent-Replayed: true\": no second order. "
+        '201 with the header "Idempotent-Replayed: true": no second order. '
         "The same key with other books or another address: 422."
     ),
 )
@@ -162,9 +162,9 @@ ORDER_CANCEL_ERRORS = {
 TOKEN_OBTAIN = dict(
     summary="Get a pair of tokens",
     description=(
-        "Username and password -> \"access\" (15 minutes) and \"refresh\" "
+        'Username and password -> "access" (15 minutes) and "refresh" '
         "(1 day). Send the access token in every request: "
-        "\"Authorization: Bearer <access>\". At most 10 requests per minute "
+        '"Authorization: Bearer <access>". At most 10 requests per minute '
         "from one address (429)."
     ),
 )

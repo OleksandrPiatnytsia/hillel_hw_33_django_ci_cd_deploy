@@ -16,3 +16,9 @@ factory-boy==3.3.3
 # Reads .po / .mo files: the test that every text is translated and
 # compiled (tests/unit/test_translation_catalog.py)
 polib==1.2.0
+
+# Code style (CI runs both and fails on any finding):
+# black formats the code (settings in pyproject.toml): black .
+black==26.10.1
+# flake8 finds errors black doesn't fix (settings in .flake8): flake8
+flake8==7.5.0

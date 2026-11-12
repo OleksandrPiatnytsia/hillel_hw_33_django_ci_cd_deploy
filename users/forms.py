@@ -57,8 +57,11 @@ class ProfileForm(BootstrapFormMixin, forms.ModelForm):
                 attrs={"type": "tel", "autocomplete": "tel", "placeholder": "+380 67 123 45 67"}
             ),
             "address": forms.Textarea(
-                attrs={"rows": 3, "autocomplete": "street-address",
-                       "placeholder": _("City, street, house, flat or the post office number")}
+                attrs={
+                    "rows": 3,
+                    "autocomplete": "street-address",
+                    "placeholder": _("City, street, house, flat or the post office number"),
+                }
             ),
         }
 

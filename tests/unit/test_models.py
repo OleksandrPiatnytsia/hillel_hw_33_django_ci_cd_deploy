@@ -215,8 +215,11 @@ def test_models_str_and_urls():
     order = OrderFactory(total=Decimal("250.00"))
     item = OrderItemFactory(order=order, title="Kobzar", quantity=2)
     payment = PaymentFactory(
-        order=order, provider=Payment.Provider.MANUAL, external_id="",
-        amount=Decimal("250.00"), status=Payment.Status.SUCCEEDED,
+        order=order,
+        provider=Payment.Provider.MANUAL,
+        external_id="",
+        amount=Decimal("250.00"),
+        status=Payment.Status.SUCCEEDED,
     )
 
     # English: Order and Payment translate their __str__ (gettext)

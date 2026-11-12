@@ -54,9 +54,7 @@ def test_token_obtain_for_inactive_user_is_401(api_client):
 def test_token_refresh_gives_a_new_access_token(api_client, customer, get_tokens):
     tokens = get_tokens(customer)
 
-    response = api_client.post(
-        "/api/token/refresh/", {"refresh": tokens["refresh"]}, format="json"
-    )
+    response = api_client.post("/api/token/refresh/", {"refresh": tokens["refresh"]}, format="json")
 
     assert response.status_code == 200
     new_access = response.json()["access"]
@@ -68,9 +66,7 @@ def test_token_refresh_does_not_accept_an_access_token(api_client, customer, get
     # get new tokens, even before it expires
     tokens = get_tokens(customer)
 
-    response = api_client.post(
-        "/api/token/refresh/", {"refresh": tokens["access"]}, format="json"
-    )
+    response = api_client.post("/api/token/refresh/", {"refresh": tokens["access"]}, format="json")
 
     assert response.status_code == 401
 
@@ -102,9 +98,7 @@ def test_token_obtain_is_limited_to_10_requests_per_minute(api_client, customer)
     # The counters are in the cache, cleared before every test (conftest.py).
     data = {"username": customer.username, "password": "wrong-password"}
 
-    statuses = [
-        api_client.post("/api/token/", data, format="json").status_code for _ in range(10)
-    ]
+    statuses = [api_client.post("/api/token/", data, format="json").status_code for _ in range(10)]
     eleventh = api_client.post("/api/token/", data, format="json")
 
     assert statuses == [401] * 10

@@ -101,8 +101,7 @@ class OrderListView(LoginRequiredMixin, ElidedPaginationMixin, ListView):
 
     def get_queryset(self):
         return (
-            Order.objects.filter(user=self.request.user)
-            .annotate(
+            Order.objects.filter(user=self.request.user).annotate(
                 # Copies in the order (2 + 1 = 3), calculated by the database
                 # in the same query: GROUP BY order + SUM, not one query per row
                 books_count=Sum("items__quantity")

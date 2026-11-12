@@ -197,7 +197,9 @@ def test_customer_cancelling_own_order_gets_no_cancellation_email(
 def test_clear_expired_sessions_deletes_only_expired_ones():
     now = timezone.now()
     Session.objects.create(session_key="old", session_data="x", expire_date=now - timedelta(days=1))
-    Session.objects.create(session_key="live", session_data="x", expire_date=now + timedelta(days=1))
+    Session.objects.create(
+        session_key="live", session_data="x", expire_date=now + timedelta(days=1)
+    )
 
     clear_expired_sessions.delay()
 
@@ -213,7 +215,9 @@ DAY = date(2026, 11, 10)
 
 def make_order(items, status=Order.Status.NEW, when=None):
     order = OrderFactory(items=items, status=status)
-    when = when or timezone.make_aware(datetime.combine(DAY, datetime.min.time())) + timedelta(hours=12)
+    when = when or timezone.make_aware(datetime.combine(DAY, datetime.min.time())) + timedelta(
+        hours=12
+    )
     Order.objects.filter(pk=order.pk).update(created_at=when)
     return order
 

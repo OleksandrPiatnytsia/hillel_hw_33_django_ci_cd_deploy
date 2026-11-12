@@ -81,7 +81,11 @@ class Command(BaseCommand):
                 # the values are put in after (% {...}).
                 self.stdout.write(
                     _("would cancel %(order)s from %(date)s (%(total)s UAH)")
-                    % {"order": order, "date": f"{order.created_at:%d.%m.%Y %H:%M}", "total": order.total}
+                    % {
+                        "order": order,
+                        "date": f"{order.created_at:%d.%m.%Y %H:%M}",
+                        "total": order.total,
+                    }
                 )
             count = orders.count()
             self.stdout.write(

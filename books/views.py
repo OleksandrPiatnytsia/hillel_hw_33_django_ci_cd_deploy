@@ -73,8 +73,7 @@ class BookListView(ElidedPaginationMixin, ListView):
 
     def get_queryset(self):
         queryset = (
-            super()
-            .get_queryset()
+            super().get_queryset()
             # ForeignKey: author comes in the same SQL query (JOIN)
             .select_related("author")
             # ManyToMany: categories of all books on the page in one extra query
@@ -167,9 +166,7 @@ class BookFormUserMixin:
 # So a separate LoginRequiredMixin is not needed here.
 
 
-class BookCreateView(
-    PermissionRequiredMixin, BookFormUserMixin, SuccessMessageMixin, CreateView
-):
+class BookCreateView(PermissionRequiredMixin, BookFormUserMixin, SuccessMessageMixin, CreateView):
     """New book. Template: books/book_form.html (shared with update).
 
     No success_url: after saving, Django redirects to book.get_absolute_url().
@@ -192,9 +189,7 @@ class BookCreateView(
         return response
 
 
-class BookUpdateView(
-    PermissionRequiredMixin, BookFormUserMixin, SuccessMessageMixin, UpdateView
-):
+class BookUpdateView(PermissionRequiredMixin, BookFormUserMixin, SuccessMessageMixin, UpdateView):
     """Edit a book. Template: books/book_form.html (shared with create)."""
 
     permission_required = "books.change_book"

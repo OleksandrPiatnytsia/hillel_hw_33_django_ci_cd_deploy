@@ -80,7 +80,7 @@ class ManualPaymentFormSet(BaseInlineFormSet):
 
 
 class ManualPaymentInline(admin.TabularInline):
-    """"Add a manual payment" rows under the payments list.
+    """ "Add a manual payment" rows under the payments list.
 
     Shows no existing rows (get_queryset -> none()), only new ones. The rows
     are NOT saved by the admin: OrderAdmin.save_formset() passes each one to

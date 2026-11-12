@@ -126,7 +126,9 @@ def test_order_email_in_users_language_whatever_the_site_language(
     assert f'<html lang="{user_language}">' in html
 
 
-def test_payment_email_from_webhook_is_in_users_language(client, fake_stripe, mailoutbox, django_capture_on_commit_callbacks):
+def test_payment_email_from_webhook_is_in_users_language(
+    client, fake_stripe, mailoutbox, django_capture_on_commit_callbacks
+):
     """The webhook request comes from Stripe: no user, no cookie, the
     default language. The email still follows User.language."""
     user = UserFactory(language="en")
@@ -155,7 +157,9 @@ def test_payment_email_from_webhook_is_in_users_language(client, fake_stripe, ma
 
 
 @pytest.mark.parametrize(("site_language", "stripe_locale"), [("en", "en"), ("uk", "auto")])
-def test_stripe_page_language_follows_the_site(customer, customer_client, fake_stripe, site_language, stripe_locale):
+def test_stripe_page_language_follows_the_site(
+    customer, customer_client, fake_stripe, site_language, stripe_locale
+):
     order = OrderFactory(user=customer, items=[(BookFactory(), 1)])
     customer_client.cookies[COOKIE] = site_language
 
@@ -164,7 +168,9 @@ def test_stripe_page_language_follows_the_site(customer, customer_client, fake_s
     params = fake_stripe.created[0]["params"]
     assert params["locale"] == stripe_locale
     product = params["line_items"][0]["price_data"]["product_data"]["name"]
-    assert product == ("Bookstore: order #" if site_language == "en" else "Книгарня: замовлення #") + str(order.pk)
+    assert product == (
+        "Bookstore: order #" if site_language == "en" else "Книгарня: замовлення #"
+    ) + str(order.pk)
 
 
 # ---------------------------------------------------------------------------
@@ -174,8 +180,19 @@ def test_stripe_page_language_follows_the_site(customer, customer_client, fake_s
 
 # Words of the English templates that a Ukrainian email must not contain
 ENGLISH = [
-    "Bookstore", "Hello", "Total", "UAH", "Order page", "was not paid", "If you still",
-    "report for", "Sales report", "Orders:", "Best sellers", "Low stock", "Details",
+    "Bookstore",
+    "Hello",
+    "Total",
+    "UAH",
+    "Order page",
+    "was not paid",
+    "If you still",
+    "report for",
+    "Sales report",
+    "Orders:",
+    "Best sellers",
+    "Low stock",
+    "Details",
 ]
 # Not "left" alone: the HTML part has align="left"; "2 left" is checked below
 

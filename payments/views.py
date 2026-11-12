@@ -43,7 +43,9 @@ def payment_success(request):
         order__user=request.user,
     )
     payment = sync_payment(payment)
-    return render(request, "payments/payment_success.html", {"payment": payment, "order": payment.order})
+    return render(
+        request, "payments/payment_success.html", {"payment": payment, "order": payment.order}
+    )
 
 
 @login_required

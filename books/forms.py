@@ -81,14 +81,10 @@ class BookForm(forms.ModelForm):
             "title": forms.TextInput(attrs={"class": "form-control"}),
             # ForeignKey -> <select> with all authors (ModelChoiceField)
             "author": forms.Select(attrs={"class": "form-select"}),
-            "price": forms.NumberInput(
-                attrs={"class": "form-control", "min": "0", "step": "0.01"}
-            ),
+            "price": forms.NumberInput(attrs={"class": "form-control", "min": "0", "step": "0.01"}),
             # Through model (BookCategory) has no extra required fields,
             # so ModelForm.save() can write the M2M as usual
-            "categories": forms.CheckboxSelectMultiple(
-                attrs={"class": "form-check-input"}
-            ),
+            "categories": forms.CheckboxSelectMultiple(attrs={"class": "form-check-input"}),
             "description": forms.Textarea(attrs={"class": "form-control", "rows": 5}),
         }
 

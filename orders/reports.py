@@ -55,7 +55,15 @@ class DailyReport:
             (
                 f"orders_{day}.csv",
                 _csv(
-                    ["number", "created_at", "customer", "email", "status", "payment_status", "total"],
+                    [
+                        "number",
+                        "created_at",
+                        "customer",
+                        "email",
+                        "status",
+                        "payment_status",
+                        "total",
+                    ],
                     [
                         [
                             order.pk,
@@ -154,9 +162,7 @@ def send_daily_report_email(report):
     may send the email again to the languages already done: a duplicate
     report is better than none). Returns the number of recipients.
     """
-    managers = User.objects.filter(
-        groups__name=MANAGERS_GROUP, is_active=True
-    ).exclude(email="")
+    managers = User.objects.filter(groups__name=MANAGERS_GROUP, is_active=True).exclude(email="")
     by_language = {}
     for manager in managers:
         by_language.setdefault(manager.language, []).append(manager.email)
@@ -182,6 +188,9 @@ def send_daily_report_email(report):
     count = sum(len(emails) for emails in by_language.values())
     logger.info(
         "Daily report %s sent to %s managers: %s orders, %s UAH",
-        report.day, count, report.orders_count, report.revenue,
+        report.day,
+        count,
+        report.orders_count,
+        report.revenue,
     )
     return count
