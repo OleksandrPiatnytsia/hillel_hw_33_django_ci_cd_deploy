@@ -6,10 +6,13 @@ import uuid
 
 from django.contrib.contenttypes.models import ContentType
 from django.core.cache import cache
+from django.conf import settings
 from django.http import Http404, JsonResponse
+from django.utils.cache import patch_cache_control
 from django.views.decorators.cache import never_cache
-from django.views.decorators.http import require_GET, require_POST
+from django.views.decorators.http import require_GET, require_POST, require_safe
 from django.views.i18n import set_language as django_set_language
+from django.views.static import serve
 
 from .i18n import is_supported_language
 
@@ -99,6 +102,29 @@ async def health(request):
         {"status": "ok" if healthy else "error", **results},
         status=200 if healthy else 503,
     )
+
+
+# A cover keeps its name while it exists (a new upload gets a new name), but
+# it may be deleted: a week, not "forever". The same as nginx/default.conf.
+MEDIA_MAX_AGE = 7 * 24 * 60 * 60
+
+
+@require_safe  # GET and HEAD only
+def serve_media(request, path):
+    """/media/<path>: an uploaded file (a book cover) from MEDIA_ROOT.
+
+    Only with DEBUG (runserver) or SERVE_MEDIA (Railway, where no nginx
+    stands in front of the app); otherwise 404, nginx serves /media/ there.
+    Django's serve() view does the work: it refuses paths outside
+    MEDIA_ROOT ("../"), sets the type from the extension, answers
+    If-Modified-Since with 304. SecurityMiddleware adds "nosniff", so a file
+    is never run as something else than its extension says.
+    """
+    if not (settings.DEBUG or settings.SERVE_MEDIA):
+        raise Http404
+    response = serve(request, path, document_root=settings.MEDIA_ROOT)
+    patch_cache_control(response, public=True, max_age=MEDIA_MAX_AGE)
+    return response
 
 
 @require_POST

@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)  # "users.signals"
 def get_client_ip(request):
     # REMOTE_ADDR: the address of the client. Behind nginx (Docker) it is
     # still the real client, not nginx: nginx sends it in X-Forwarded-For
-    # and uvicorn (gunicorn --forwarded-allow-ips, Dockerfile) puts it into
+    # and uvicorn (forwarded_allow_ips in gunicorn.conf.py) puts it into
     # REMOTE_ADDR, so no code here has to read the header itself.
     # request may be None, e.g. authenticate() called from a script.
     if request is None:

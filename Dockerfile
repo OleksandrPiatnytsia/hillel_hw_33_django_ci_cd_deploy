@@ -36,8 +36,8 @@ WORKDIR /app
 # while requirements.txt is unchanged, this slow step (downloading
 # packages) is taken from the cache, and a change in the code rebuilds only
 # the "COPY . ." layer below.
-# requirements.txt only, without requirements-dev.txt: no Debug Toolbar in
-# the image (development.py turns it off when the package is missing).
+# requirements.txt only, without requirements-dev.txt: no Debug Toolbar,
+# pytest, black or flake8 in the image.
 COPY requirements.txt .
 RUN pip install -r requirements.txt
 
@@ -72,43 +72,16 @@ USER app
 # It needs the executable bit: git keeps it (chmod +x), COPY . . copies it.
 ENTRYPOINT ["/app/docker-entrypoint.sh"]
 
-# Documentation only: the app listens on 8000, inside the Docker network.
-# Browsers reach it through nginx (docker-compose.yml: nginx "8000:80").
+# Documentation only: the app listens on 8000 by default, inside the Docker
+# network (browsers reach it through nginx, docker-compose.yml "8000:80").
+# A hosting may choose another port with $PORT (gunicorn.conf.py).
 EXPOSE 8000
 
-# Default command: gunicorn as the process manager + uvicorn workers, i.e.
-# an ASGI server (runserver is for development only: one process, not built
-# for load or security). ASGI: the async views (health, order status, book
-# search) run in an event loop; the sync views keep working as before
-# (Django runs them in a thread).
+# Default command: gunicorn with uvicorn workers (ASGI). Everything else
+# (port from $PORT, workers, proxy headers, ...) is in gunicorn.conf.py,
+# which gunicorn reads from the current folder (/app) by itself.
 #   config.asgi:application - the `application` object from config/asgi.py
-#   -k uvicorn_worker.UvicornWorker
-#                           - every gunicorn worker process runs uvicorn
-#                             (package uvicorn-worker): gunicorn restarts
-#                             crashed workers, uvicorn speaks ASGI
-#   --bind 0.0.0.0:8000     - listen on all interfaces of the container;
-#                             127.0.0.1 would be reachable only from inside it
-#   --workers 3             - 3 processes handle requests in parallel
-#   --forwarded-allow-ips="*"
-#                           - trust X-Forwarded-For / X-Forwarded-Proto from
-#                             any address. Requests come only from nginx (web
-#                             has no published port), and nginx sets these
-#                             headers itself (nginx/default.conf). uvicorn then
-#                             puts the client's real address into REMOTE_ADDR
-#                             and the scheme into request.is_secure(). The
-#                             default (127.0.0.1) would ignore them: nginx is
-#                             another container with another address.
-#   (no --access-logfile: RequestTimingMiddleware already logs one line per
-#   request, with the user and the duration; gunicorn's access log would
-#   repeat every request and add a line for every /health/ check)
-#   --no-control-socket     - no control socket. Since gunicorn 25.1 it opens
-#                             a unix socket for the `gunicornc` tool (worker
-#                             status, reload) at $HOME/.gunicorn/gunicorn.ctl.
-#                             Our "app" user has no home folder, so without
-#                             this flag the log shows "Control server error:
-#                             Permission denied: '/home/app'". We don't use
-#                             gunicornc: `docker compose restart web` is enough.
 # The exec form ["...", "..."] (not a string): gunicorn becomes process
 # PID 1 itself and receives SIGTERM from `docker compose stop` directly,
 # so it finishes current requests and exits cleanly.
-CMD ["gunicorn", "config.asgi:application", "-k", "uvicorn_worker.UvicornWorker", "--bind", "0.0.0.0:8000", "--workers", "3", "--forwarded-allow-ips=*", "--no-control-socket"]
+CMD ["gunicorn", "config.asgi:application"]

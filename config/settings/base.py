@@ -103,9 +103,10 @@ MIDDLEWARE = [
     # Our middleware, first: its timer covers every middleware below + the view
     "config.middleware.RequestTimingMiddleware",
     "django.middleware.security.SecurityMiddleware",
-    # No static files middleware: in Docker nginx serves /static/ and
-    # /media/ itself (nginx/default.conf), the request never reaches Django;
-    # runserver (DEBUG=True) serves static files by itself.
+    # Static files: production.py inserts WhiteNoise here (Railway has no
+    # nginx). Locally nginx serves /static/ and /media/ itself
+    # (nginx/default.conf), and runserver (DEBUG=True) serves static files
+    # by itself.
     "django.contrib.sessions.middleware.SessionMiddleware",
     # Chooses the language of every request (see "Internationalization"
     # below) and activates it for the view and the templates. After
@@ -398,6 +399,11 @@ STORAGES = {
 MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
+# Django serves /media/ itself (config.views.serve_media) only with DEBUG
+# (runserver) or with this flag: production.py turns it on with
+# DJANGO_SERVE_MEDIA=True (Railway, no nginx). Locally nginx serves it.
+SERVE_MEDIA = False
+
 
 # Email
 # https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration
@@ -505,7 +511,7 @@ REST_FRAMEWORK = {
     # takes X-Forwarded-For when the request has it, and any client can
     # send that header with a new made-up address every time, so the "anon"
     # limit would never be reached. Behind nginx REMOTE_ADDR is already the
-    # real client address (gunicorn --forwarded-allow-ips, see Dockerfile).
+    # real client address (forwarded_allow_ips in gunicorn.conf.py).
     "NUM_PROXIES": 0,
     "DEFAULT_THROTTLE_CLASSES": [
         "rest_framework.throttling.AnonRateThrottle",

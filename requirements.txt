@@ -3,14 +3,17 @@ Django==6.1.3
 gunicorn==26.2.0
 pillow==13.0.0
 psycopg[binary]==3.3.8
-# Pool of database connections (DATABASES OPTIONS "pool" in settings.py)
+# Pool of database connections (DATABASES OPTIONS "pool" in config/settings/base.py)
 psycopg-pool==3.3.3
 python-dotenv==1.2.4
 redis==8.1.0
 sqlparse==0.6.1
-# ASGI server for gunicorn: async views run in an event loop (Dockerfile CMD)
+# ASGI server for gunicorn: async views run in an event loop (gunicorn.conf.py)
 uvicorn==0.54.0
 uvicorn-worker==0.4.0
+# Static files served by Django itself, compressed and cached for a year,
+# where there is no nginx in front (Railway): config/settings/production.py
+whitenoise==6.12.0
 stripe==16.1.0
 # Background tasks: emails, the daily report, cleanup (config/celery.py);
 # [redis]: the Redis broker transport. Worker: celery -A config worker,

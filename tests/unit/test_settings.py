@@ -158,6 +158,7 @@ SETTINGS_TO_JSON = (
     "'SESSION_COOKIE_SECURE': s.SESSION_COOKIE_SECURE, "
     "'SECURE_HSTS_SECONDS': s.SECURE_HSTS_SECONDS, "
     "'SECURE_REDIRECT_EXEMPT': s.SECURE_REDIRECT_EXEMPT, "
+    "'MIDDLEWARE': s.MIDDLEWARE, 'SERVE_MEDIA': s.SERVE_MEDIA, "
     "'STATICFILES': s.STORAGES['staticfiles']['BACKEND']}))"
 )
 
@@ -185,7 +186,21 @@ def test_production_settings_have_https_and_no_debug():
     assert values["SECURE_SSL_REDIRECT"] is True
     assert values["SESSION_COOKIE_SECURE"] is True
     assert values["SECURE_HSTS_SECONDS"] == 3600
-    assert values["STATICFILES"].endswith("ManifestStaticFilesStorage")
+    assert values["STATICFILES"] == "whitenoise.storage.CompressedManifestStaticFilesStorage"
+    assert values["SERVE_MEDIA"] is False  # only with DJANGO_SERVE_MEDIA=True
+
+
+def test_production_serves_static_files_with_whitenoise():
+    """Railway has no nginx: WhiteNoise right after SecurityMiddleware
+    (the HTTPS redirect first, then a static file skips the rest)."""
+    middleware = production_settings()["MIDDLEWARE"]
+
+    security = middleware.index("django.middleware.security.SecurityMiddleware")
+    assert middleware[security + 1] == "whitenoise.middleware.WhiteNoiseMiddleware"
+
+
+def test_production_serves_media_with_the_flag():
+    assert production_settings(DJANGO_SERVE_MEDIA="True")["SERVE_MEDIA"] is True
 
 
 def test_production_settings_without_https_for_local_docker():

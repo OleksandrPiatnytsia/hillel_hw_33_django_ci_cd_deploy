@@ -9,7 +9,9 @@ with DEBUG by mistake. Everything from base.py, plus:
 - HTTPS: redirect from http://, cookies only over HTTPS, HSTS
   (DJANGO_HTTPS=False turns these off for local docker compose, which has
   no certificate: http://localhost:8000);
-- static files with a hash in the name (long browser cache).
+- static files with a hash in the name (long browser cache), served by
+  WhiteNoise where there is no nginx (Railway);
+- covers (/media/) served by Django when DJANGO_SERVE_MEDIA=True (Railway).
 
 Check: python manage.py check --deploy --settings=config.settings.production
 (tests/unit/test_settings.py runs it).
@@ -24,7 +26,7 @@ from config.env import env_bool, env_list
 # F401 + F403: flake8 can't see which names come from "*"; settings modules
 # are read by Django, nothing here uses them by name
 from .base import *  # noqa: F401, F403
-from .base import ALLOWED_HOSTS, STORAGES
+from .base import ALLOWED_HOSTS, MIDDLEWARE, STORAGES
 
 DEBUG = False
 
@@ -106,17 +108,46 @@ if HTTPS:
 # ---------------------------------------------------------------------------
 # Static files
 # ---------------------------------------------------------------------------
-# ManifestStaticFilesStorage: collectstatic writes every file a second time
-# with a hash of its content in the name
-#   css/styles.css -> css/styles.3f9a2c41b7e0.css
-# and a list of them (staticfiles.json); {% static "css/styles.css" %} gives
-# the hashed name. A changed file = a new name, so nginx may tell browsers
-# to keep static files for a year (Cache-Control: immutable): after a
-# deploy the pages link to the new names, nothing stale is used.
+# Railway runs only the image, there is no nginx in front of it, so Django
+# itself must answer /static/... WhiteNoise does it fast: it reads the list
+# of files in STATIC_ROOT once at start and sends them without the views,
+# templates or the database. Locally nginx still answers /static/ before a
+# request reaches Django, so there WhiteNoise just stays idle.
+# Right after SecurityMiddleware (WhiteNoise docs): the HTTPS redirect and
+# the security headers still apply, and a static file skips the sessions,
+# auth and the rest of the chain.
+MIDDLEWARE.insert(
+    MIDDLEWARE.index("django.middleware.security.SecurityMiddleware") + 1,
+    "whitenoise.middleware.WhiteNoiseMiddleware",
+)
+
+# CompressedManifestStaticFilesStorage (WhiteNoise) = Django's
+# ManifestStaticFilesStorage + compression:
+#   - collectstatic writes every file a second time with a hash of its
+#     content in the name: css/styles.css -> css/styles.3f9a2c41b7e0.css,
+#     and a list of them (staticfiles.json); {% static "css/styles.css" %}
+#     gives the hashed name. A changed file = a new name, so the browsers
+#     may keep the files for a year (WhiteNoise and nginx both send
+#     Cache-Control "max-age=315360000, immutable" for hashed names): after
+#     a deploy the pages link to the new names, nothing stale is used;
+#   - + a .gz copy of every text file (CSS, JS, SVG): WhiteNoise sends it to
+#     browsers that accept gzip, 3-5 times fewer bytes.
 # Needs collectstatic before the start (docker-entrypoint.sh runs it).
 STORAGES = {
     **STORAGES,
     "staticfiles": {
-        "BACKEND": "django.contrib.staticfiles.storage.ManifestStaticFilesStorage",
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
     },
 }
+
+
+# ---------------------------------------------------------------------------
+# Media files (book covers)
+# ---------------------------------------------------------------------------
+# Uploaded files can't go through WhiteNoise: it only knows the files that
+# existed at start. On Railway the covers live on a Volume (/app/media) and
+# Django serves them (config.views.serve_media). Fine for a small shop: a
+# few covers per page, each cached by the browser for a week.
+# Locally (docker compose) nginx serves /media/ from the media_data volume,
+# so it stays False there.
+SERVE_MEDIA = env_bool("DJANGO_SERVE_MEDIA", False)

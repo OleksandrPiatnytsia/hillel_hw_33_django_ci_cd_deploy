@@ -3,7 +3,7 @@
 # celery-beat): prepares Django, then starts the command.
 #
 # Docker runs it as ENTRYPOINT with the CMD as arguments:
-#   docker-entrypoint.sh gunicorn config.wsgi:application --bind ...
+#   docker-entrypoint.sh gunicorn config.asgi:application
 #   docker compose run --rm web python manage.py createsuperuser
 #     -> docker-entrypoint.sh python manage.py createsuperuser
 # So every start of the container goes through migrate + collectstatic first,

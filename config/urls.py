@@ -1,9 +1,10 @@
-from django.conf import settings
-from django.conf.urls.static import static
-from django.contrib import admin
-from django.urls import include, path
+import re
 
-from config.views import health, sentry_debug, set_language
+from django.conf import settings
+from django.contrib import admin
+from django.urls import include, path, re_path
+
+from config.views import health, sentry_debug, serve_media, set_language
 
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -31,16 +32,19 @@ urlpatterns = [
     # templates of DRF look for the namespace "rest_framework" exactly,
     # inside "api" it would be "api:rest_framework".
     path("api/auth/", include("rest_framework.urls")),
+    # Uploaded covers: /media/covers/2026/11/kobzar.jpg. Served by Django
+    # with runserver (DEBUG) and on Railway (DJANGO_SERVE_MEDIA=True); in
+    # local Docker nginx answers /media/ before the request gets here.
+    # Before the catalog: its patterns start at the site root too.
+    re_path(
+        rf"^{re.escape(settings.MEDIA_URL.lstrip('/'))}(?P<path>.+)$",
+        serve_media,
+        name="media",
+    ),
     # Bookstore catalog lives at the site root; namespace "books" comes
     # from app_name in books/urls.py
     path("", include("books.urls")),
 ]
-
-if settings.DEBUG:
-    # Uploaded files (covers) with runserver: it serves static files by
-    # itself, but not media. In Docker (DEBUG=False) nginx serves /media/
-    # from the media_data volume (nginx/default.conf).
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 if settings.ENABLE_DEBUG_TOOLBAR:
     # Imported here: without requirements-dev.txt the package doesn't exist.

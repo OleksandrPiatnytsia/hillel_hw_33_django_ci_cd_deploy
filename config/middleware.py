@@ -40,12 +40,14 @@ class RequestTimingMiddleware:
     async_capable = True
 
     # Requests that are not worth a log line (the header is still added):
-    # the toolbar's own AJAX calls, book covers (up to 10 per catalog page)
-    # and /health/ (Docker calls it every few seconds; a failed check is
-    # logged by the health view itself, with the reason)
+    # the toolbar's own AJAX calls, book covers (up to 10 per catalog page),
+    # static files (CSS / JS / images: on Railway WhiteNoise serves them
+    # through Django, several per page) and /health/ (Docker calls it every
+    # few seconds; a failed check is logged by the health view itself)
     SKIP_LOG_PREFIXES = (
         "/__debug__/",
         "/" + settings.MEDIA_URL.lstrip("/"),
+        "/" + settings.STATIC_URL.lstrip("/"),
         "/health/",
     )
 
