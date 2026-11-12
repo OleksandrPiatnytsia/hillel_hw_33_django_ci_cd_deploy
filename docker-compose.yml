@@ -29,7 +29,7 @@ x-django: &django
   build: .
   image: hillel-bookstore-django
   # All variables from .env go into the container (DJANGO_SECRET_KEY,
-  # DJANGO_DEBUG, POSTGRES_*, ...). The .env file itself is not in the
+  # POSTGRES_*, ...). The .env file itself is not in the
   # image (.dockerignore).
   env_file: .env
   # &django-env: a name for this block, so flower can add one variable to
@@ -40,13 +40,19 @@ x-django: &django
     # PostgreSQL and Redis are reached by service name.
     POSTGRES_HOST: db
     POSTGRES_PORT: "5432"
-    # Redis database 0: cache + sessions; database 1: the Celery queue
-    REDIS_URL: redis://redis:6379/0
-    CELERY_BROKER_URL: redis://redis:6379/1
-    # Like production: no debug pages, no Debug Toolbar, DEBUG logs off.
-    # Possible now that nginx serves the media files (with DEBUG=True only
-    # Django's static() did it). .env keeps True for runserver on the Mac.
-    DJANGO_DEBUG: "False"
+    # The Redis server; the settings use its database 0 for the cache and
+    # sessions and database 1 for the Celery queue (config/env.py redis_url).
+    # Empty CELERY_BROKER_URL: an old .env may still have it with
+    # "localhost", which means nothing inside a container.
+    REDIS_URL: redis://redis:6379
+    CELERY_BROKER_URL: ""
+    # The production settings come from the image (Dockerfile:
+    # DJANGO_SETTINGS_MODULE=config.settings.production): no debug pages,
+    # no Debug Toolbar, hashed static files, the same code as on Railway.
+    # Except HTTPS: http://localhost:8000 has no certificate, and the HTTPS
+    # settings would redirect to https://localhost and keep the session
+    # cookie away from http (no login). Railway leaves it True (default).
+    DJANGO_HTTPS: "False"
     # + "nginx": the stripe-cli service sends webhooks to http://nginx/...,
     # so the Host header is "nginx"; any host not in ALLOWED_HOSTS gets 400.
     # Browsers come with "localhost:8000" (from .env; the port is ignored).
@@ -101,7 +107,7 @@ services:
       start_period: 10s   # failures in the first 10 s don't count (start-up)
 
   redis:
-    # Cache + sessions (CACHES / SESSION_ENGINE in settings.py).
+    # Cache + sessions (CACHES / SESSION_ENGINE in config/settings/base.py).
     # No volume: the cache may be lost on restart; sessions are also in
     # PostgreSQL (cached_db), so nobody gets logged out.
     image: redis:8-alpine
@@ -212,7 +218,7 @@ services:
         condition: service_healthy
 
   celery-beat:
-    # The scheduler: at the times of CELERY_BEAT_SCHEDULE (settings.py) it
+    # The scheduler: at the times of CELERY_BEAT_SCHEDULE (config/settings/base.py) it
     # puts the periodic tasks into the queue; the worker runs them.
     # Exactly ONE beat: two would put every periodic task in twice.
     <<: *django
@@ -231,7 +237,7 @@ services:
     # Web dashboard of Celery: workers, every task with its arguments,
     # state, time and error, retries, the queue length; graphs.
     # It listens to the events of the worker (CELERY_WORKER_SEND_TASK_EVENTS
-    # in settings.py) through the broker (Redis db 1). The same image as
+    # in config/settings/base.py) through the broker (Redis db 1). The same image as
     # the worker: Flower knows our task names and Celery settings.
     # The task list lives in Flower's memory: after a restart it shows the
     # tasks from that moment on (the logs keep the history).

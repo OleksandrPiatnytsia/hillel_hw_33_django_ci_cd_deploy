@@ -9,7 +9,7 @@ omit =
     tests/*
     */migrations/*
     manage.py
-    config/settings*.py
+    config/settings/*
     config/asgi.py
     config/wsgi.py
 

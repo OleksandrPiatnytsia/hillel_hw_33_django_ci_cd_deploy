@@ -19,10 +19,15 @@ FROM python:3.13-slim
 #   be written into the container layer and are lost on every restart.
 # PIP_NO_CACHE_DIR=1: pip doesn't keep downloaded archives, the image is smaller.
 # PIP_DISABLE_PIP_VERSION_CHECK=1: no "new pip version available" request.
+# DJANGO_SETTINGS_MODULE: every process of the image (gunicorn, celery,
+#   manage.py commands) uses the production settings (config/settings/
+#   production.py). Set here, not only in docker-compose.yml, so a hosting
+#   that runs the image (Railway) gets them without one more variable.
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    DJANGO_SETTINGS_MODULE=config.settings.production
 
 # All the next commands (COPY, RUN, CMD) work in /app
 WORKDIR /app
@@ -32,7 +37,7 @@ WORKDIR /app
 # packages) is taken from the cache, and a change in the code rebuilds only
 # the "COPY . ." layer below.
 # requirements.txt only, without requirements-dev.txt: no Debug Toolbar in
-# the image (settings.py turns it off when the package is missing).
+# the image (development.py turns it off when the package is missing).
 COPY requirements.txt .
 RUN pip install -r requirements.txt
 
@@ -50,7 +55,7 @@ COPY . .
 # Folders the app writes to, owned by the app user:
 #   staticfiles/ - collectstatic output (STATIC_ROOT), volume static_data
 #   media/       - uploaded covers (MEDIA_ROOT), volume media_data
-#   logs/        - logs/app.log (LOGGING), settings.py creates it on start,
+#   logs/        - logs/app.log (LOGGING), base.py creates it on start,
 #                  but /app belongs to root, so we create it here.
 # When docker compose mounts an EMPTY named volume over such a folder for
 # the first time, Docker copies the folder's owner into the volume. That is

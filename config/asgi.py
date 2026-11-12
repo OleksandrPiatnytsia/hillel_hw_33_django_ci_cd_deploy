@@ -11,6 +11,8 @@ import os
 
 from django.core.asgi import get_asgi_application
 
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
+# Servers: production by default, so a forgotten variable never means DEBUG.
+# (config/__init__.py imports config/celery.py first, which sets the same.)
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings.production")
 
 application = get_asgi_application()

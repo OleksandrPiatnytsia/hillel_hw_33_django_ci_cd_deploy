@@ -1,6 +1,6 @@
 """Integration: the cache of the book pages (books.cache, books.signals).
 
-The tests use LocMemCache (config/settings_test.py), emptied before every
+The tests use LocMemCache (config/settings/test.py), emptied before every
 test (conftest.py); the rules are the same as with Redis.
 
 What must hold:

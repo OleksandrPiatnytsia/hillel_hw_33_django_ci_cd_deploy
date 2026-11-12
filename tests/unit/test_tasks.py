@@ -1,6 +1,6 @@
 """Celery tasks: emails with retries, the periodic tasks, the daily report.
 
-CELERY_TASK_ALWAYS_EAGER=True in config/settings_test.py: task.delay()
+CELERY_TASK_ALWAYS_EAGER=True in config/settings/test.py: task.delay()
 runs the task here, at once, with its retries (without the pauses).
 """
 

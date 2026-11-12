@@ -7,7 +7,10 @@ import sys
 
 def main():
     """Run administrative tasks."""
-    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
+    # Local commands (runserver, makemigrations, shell): the development
+    # settings. In the Docker image DJANGO_SETTINGS_MODULE is set to
+    # config.settings.production (Dockerfile), and setdefault keeps it.
+    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings.development")
     try:
         from django.core.management import execute_from_command_line
     except ImportError as exc:

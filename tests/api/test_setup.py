@@ -140,7 +140,7 @@ def test_documentation_pages_open(api_client, url):
 
 
 # ---------------------------------------------------------------------------
-# CORS (settings_test.py: CORS_ALLOWED_ORIGINS = ["http://localhost:3000"])
+# CORS (config/settings/test.py: CORS_ALLOWED_ORIGINS = ["http://localhost:3000"])
 # ---------------------------------------------------------------------------
 
 

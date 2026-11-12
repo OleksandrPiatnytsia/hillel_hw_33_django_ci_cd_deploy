@@ -1,6 +1,6 @@
 """Sentry: errors of the site and of the Celery tasks go to sentry.io.
 
-Called once from the end of config/settings.py, so it runs in every process
+Called once from the end of config/settings/base.py, so it runs in every process
 that loads the settings: gunicorn workers (web), the Celery worker and
 Celery Beat (config/celery.py loads the settings too).
 
@@ -123,7 +123,7 @@ def init_sentry(dsn, *, environment=None, traces_sample_rate=0.0, **options):
     # logged as ERROR by Django). Not a bug of ours, just noise in Sentry.
     ignore_logger("django.security.DisallowedHost")
 
-    # No log line here: this runs inside settings.py, before Django sets up
+    # No log line here: this runs inside base.py, before Django sets up
     # LOGGING, so a logger.info() would go nowhere. To check that Sentry is
     # on: sentry_sdk.get_client().is_active() (see README).
     return True

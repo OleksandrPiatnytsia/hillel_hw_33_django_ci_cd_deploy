@@ -1,7 +1,7 @@
 """Language of the site: the cookie, and the user's saved language.
 
 The language of a request comes from the "django_language" cookie
-(LocaleMiddleware, see "Internationalization" in settings.py). The cookie
+(LocaleMiddleware, see "Internationalization" in config/settings/base.py). The cookie
 is set in two places:
 - the switcher in the navbar -> config.views.set_language;
 - the login -> users.views.UserLoginView: the language saved in the

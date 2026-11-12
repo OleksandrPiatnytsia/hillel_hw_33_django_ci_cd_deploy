@@ -23,8 +23,11 @@ from celery import Celery
 from django.db import transaction
 
 # Celery is started as its own program (celery -A config ...), not by
-# manage.py: it must know the settings module itself
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
+# manage.py: it must know the settings module itself. Production by default,
+# like asgi.py / wsgi.py. Careful: config/__init__.py imports this file, so
+# this line runs first in EVERY process that imports the config package
+# (gunicorn too); manage.py sets its own default before that.
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings.production")
 
 app = Celery("config")
 # Every Django setting that starts with CELERY_ is a Celery setting

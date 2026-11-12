@@ -1,7 +1,7 @@
 """Celery tasks of orders: the email, the hourly cleanup, the daily report.
 
 Run by the worker (service "celery"); the periodic ones are put into the
-queue by Celery Beat (CELERY_BEAT_SCHEDULE in settings.py).
+queue by Celery Beat (CELERY_BEAT_SCHEDULE in config/settings/base.py).
 """
 
 from datetime import date, timedelta

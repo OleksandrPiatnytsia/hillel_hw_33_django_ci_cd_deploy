@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Bookstore\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-12 12:09+0000\n"
+"POT-Creation-Date: 2026-11-12 12:29+0000\n"
 "PO-Revision-Date: 2026-11-10 16:00+0200\n"
 "Last-Translator: Bookstore\n"
 "Language-Team: English\n"
@@ -27,11 +27,11 @@ msgid ""
 "for a new order."
 msgstr ""
 
-#: api/filters.py:34 books/forms.py:217
+#: api/filters.py:33 books/forms.py:213
 msgid "“Price from” can't be greater than “Price to”."
 msgstr ""
 
-#: api/serializers/catalog.py:161 books/forms.py:111
+#: api/serializers/catalog.py:161 books/forms.py:107
 msgid "Only users with the “manage stock” permission can change it."
 msgstr ""
 
@@ -39,70 +39,70 @@ msgstr ""
 msgid "Every book may be in the list only once; use quantity."
 msgstr ""
 
-#: api/views/catalog.py:116
+#: api/views/catalog.py:123
 msgid "The book is in orders and can't be deleted."
 msgstr ""
 
-#: api/views/catalog.py:168
+#: api/views/catalog.py:175
 msgid "The author has books and can't be deleted."
 msgstr ""
 
-#: api/views/catalog.py:181
+#: api/views/catalog.py:188
 msgid "The category has books and can't be deleted."
 msgstr ""
 
-#: api/views/orders.py:186
+#: api/views/orders.py:189
 #, python-format
 msgid "At most %(max)s characters."
 msgstr ""
 
-#: books/admin.py:30 books/models.py:72 books/models.py:200
+#: books/admin.py:29 books/models.py:72 books/models.py:200
 msgid "category"
 msgstr ""
 
-#: books/admin.py:31 books/admin.py:184 books/models.py:73 books/models.py:117
+#: books/admin.py:30 books/admin.py:183 books/models.py:73 books/models.py:117
 msgid "categories"
 msgstr ""
 
-#: books/admin.py:39 books/models.py:129 books/models.py:199
-#: inventory/models.py:81 orders/models.py:208
+#: books/admin.py:38 books/models.py:129 books/models.py:199
+#: inventory/models.py:81 orders/models.py:205
 msgid "book"
 msgstr ""
 
-#: books/admin.py:40 books/admin.py:99 books/admin.py:115 books/models.py:130
+#: books/admin.py:39 books/admin.py:98 books/admin.py:114 books/models.py:130
 msgid "books"
 msgstr ""
 
-#: books/admin.py:53 books/admin.py:54 books/admin.py:188 books/forms.py:36
+#: books/admin.py:52 books/admin.py:53 books/admin.py:187 books/forms.py:36
 #: inventory/models.py:101 inventory/models.py:102
 msgid "stock"
 msgstr ""
 
-#: books/admin.py:72
+#: books/admin.py:71
 msgid "stock status"
 msgstr ""
 
-#: books/admin.py:146
+#: books/admin.py:145
 msgid "Cover"
 msgstr ""
 
-#: books/admin.py:147
+#: books/admin.py:146
 msgid "Sales"
 msgstr ""
 
-#: books/admin.py:149 orders/admin.py:104
+#: books/admin.py:148 orders/admin.py:104
 msgid "Timestamps"
 msgstr ""
 
-#: books/admin.py:176 books/models.py:114
+#: books/admin.py:175 books/models.py:114
 msgid "cover"
 msgstr ""
 
-#: books/admin.py:180
+#: books/admin.py:179
 msgid "current cover"
 msgstr ""
 
-#: books/admin.py:192
+#: books/admin.py:191
 msgid "available"
 msgstr ""
 
@@ -120,81 +120,81 @@ msgid ""
 "JPG, PNG or WebP, up to {size} MB. Without a cover a placeholder is shown."
 msgstr ""
 
-#: books/forms.py:100
+#: books/forms.py:96
 msgid "— Choose an author —"
 msgstr ""
 
-#: books/forms.py:144
+#: books/forms.py:140
 #, python-format
 msgid "The file is %(size).1f MB, the limit is %(limit)s MB."
 msgstr ""
 
-#: books/forms.py:154
+#: books/forms.py:150
 msgid "Title A→Z"
 msgstr ""
 
-#: books/forms.py:155
+#: books/forms.py:151
 msgid "Title Z→A"
 msgstr ""
 
-#: books/forms.py:156
+#: books/forms.py:152
 msgid "Author A→Z"
 msgstr ""
 
-#: books/forms.py:157
+#: books/forms.py:153
 msgid "Price: low to high"
 msgstr ""
 
-#: books/forms.py:158
+#: books/forms.py:154
 msgid "Price: high to low"
 msgstr ""
 
-#: books/forms.py:159
+#: books/forms.py:155
 msgid "Newest first"
 msgstr ""
 
-#: books/forms.py:164 templates/includes/navbar.html:48
+#: books/forms.py:160 templates/includes/navbar.html:48
 #: templates/includes/navbar.html:50
 msgid "Search"
 msgstr ""
 
-#: books/forms.py:166 templates/includes/navbar.html:47
+#: books/forms.py:162 templates/includes/navbar.html:47
 msgid "Title or author"
 msgstr ""
 
-#: books/forms.py:173
+#: books/forms.py:169
 msgid "Category"
 msgstr ""
 
-#: books/forms.py:174
+#: books/forms.py:170
 msgid "All categories"
 msgstr ""
 
-#: books/forms.py:180
+#: books/forms.py:176
 msgid "Author"
 msgstr ""
 
-#: books/forms.py:181
+#: books/forms.py:177
 msgid "All authors"
 msgstr ""
 
-#: books/forms.py:185
+#: books/forms.py:181
 msgid "Any"
 msgstr ""
 
-#: books/forms.py:187
+#: books/forms.py:183
 msgid "Availability"
 msgstr ""
 
-#: books/forms.py:193
+#: books/forms.py:189
 msgid "Price from"
 msgstr ""
 
-#: books/forms.py:199
+#: books/forms.py:195
 msgid "Price to"
 msgstr ""
 
-#: books/forms.py:205
+#: books/forms.py:201
 msgid "Sort by"
 msgstr ""
 
@@ -231,11 +231,11 @@ msgstr ""
 msgid "authors"
 msgstr ""
 
-#: books/models.py:97 orders/models.py:217
+#: books/models.py:97 orders/models.py:214
 msgid "title"
 msgstr ""
 
-#: books/models.py:105 orders/models.py:219
+#: books/models.py:105 orders/models.py:216
 msgid "price"
 msgstr ""
 
@@ -491,24 +491,24 @@ msgstr ""
 msgid "Upload a new one to replace it:"
 msgstr ""
 
-#: books/views.py:181
+#: books/views.py:178
 #, python-format
 msgid "Book “%(title)s” was created."
 msgstr ""
 
-#: books/views.py:203
+#: books/views.py:198
 #, python-format
 msgid "Book “%(title)s” was updated."
 msgstr ""
 
-#: books/views.py:265
+#: books/views.py:260
 #, python-format
 msgid ""
 "“%(title)s” is in orders and can't be deleted. Set its stock to 0 to stop "
 "selling it."
 msgstr ""
 
-#: books/views.py:281
+#: books/views.py:276
 #, python-format
 msgid "Book “%(title)s” was deleted."
 msgstr ""
@@ -624,20 +624,20 @@ msgstr ""
 msgid "“%(title)s”: %(quantity)s in the cart."
 msgstr ""
 
-#: cart/views.py:82
+#: cart/views.py:83
 #, python-format
 msgid "“%(title)s” removed from the cart."
 msgstr ""
 
-#: cart/views.py:94
+#: cart/views.py:95
 msgid "The cart is empty now."
 msgstr ""
 
-#: config/settings.py:345
+#: config/settings/base.py:346
 msgid "Ukrainian"
 msgstr ""
 
-#: config/settings.py:346
+#: config/settings/base.py:347
 msgid "English"
 msgstr ""
 
@@ -665,7 +665,7 @@ msgstr ""
 msgid "Another warehouse is already the default."
 msgstr ""
 
-#: inventory/models.py:97 orders/models.py:225
+#: inventory/models.py:97 orders/models.py:222
 msgid "quantity"
 msgstr ""
 
@@ -709,21 +709,21 @@ msgstr ""
 msgid "Manual payment %(amount)s UAH recorded, the order is %(status)s now."
 msgstr ""
 
-#: orders/admin.py:238
+#: orders/admin.py:239
 #, python-format
 msgid "%(order)s is cancelled, the books are back in stock."
 msgstr ""
 
-#: orders/admin.py:243
+#: orders/admin.py:244
 #, python-format
 msgid "%(order)s has payments: return the money to the customer."
 msgstr ""
 
-#: orders/admin.py:248
+#: orders/admin.py:250
 msgid "Cancel selected orders (books go back to stock)"
 msgstr ""
 
-#: orders/apps.py:8 users/tools.py:38
+#: orders/apps.py:8 users/tools.py:39
 msgid "Orders"
 msgstr ""
 
@@ -731,7 +731,7 @@ msgstr ""
 msgid "Save phone and address to my profile"
 msgstr ""
 
-#: orders/forms.py:41 users/forms.py:61
+#: orders/forms.py:48 users/forms.py:63
 msgid "City, street, house, flat or the post office number"
 msgstr ""
 
@@ -744,24 +744,24 @@ msgstr ""
 msgid "would cancel %(order)s from %(date)s (%(total)s UAH)"
 msgstr ""
 
-#: orders/management/commands/cancel_unpaid_orders.py:89
+#: orders/management/commands/cancel_unpaid_orders.py:93
 #, python-format
 msgid "%(count)s order, nothing changed (--dry-run)."
 msgid_plural "%(count)s orders, nothing changed (--dry-run)."
 msgstr[0] ""
 msgstr[1] ""
 
-#: orders/management/commands/cancel_unpaid_orders.py:106
+#: orders/management/commands/cancel_unpaid_orders.py:110
 #, python-format
 msgid "skipped: %(error)s"
 msgstr ""
 
-#: orders/management/commands/cancel_unpaid_orders.py:109
+#: orders/management/commands/cancel_unpaid_orders.py:113
 #, python-format
 msgid "cancelled: order #%(number)s"
 msgstr ""
 
-#: orders/management/commands/cancel_unpaid_orders.py:120
+#: orders/management/commands/cancel_unpaid_orders.py:124
 #, python-format
 msgid "Cancelled: %(cancelled)s, skipped: %(skipped)s."
 msgstr ""
@@ -831,7 +831,7 @@ msgstr ""
 msgid "idempotency key"
 msgstr ""
 
-#: orders/models.py:91 orders/models.py:201 payments/models.py:34
+#: orders/models.py:91 orders/models.py:198 payments/models.py:34
 msgid "order"
 msgstr ""
 
@@ -844,11 +844,11 @@ msgstr ""
 msgid "Order #%(number)s"
 msgstr ""
 
-#: orders/models.py:231
+#: orders/models.py:228
 msgid "order item"
 msgstr ""
 
-#: orders/models.py:232
+#: orders/models.py:229
 msgid "order items"
 msgstr ""
 
@@ -864,7 +864,7 @@ msgid_plural ""
 msgstr[0] ""
 msgstr[1] ""
 
-#: orders/services.py:189 payments/services.py:192
+#: orders/services.py:189 payments/services.py:196
 msgid "Order not found."
 msgstr ""
 
@@ -878,7 +878,7 @@ msgstr ""
 msgid "%(order)s is already cancelled."
 msgstr ""
 
-#: orders/services.py:198
+#: orders/services.py:197
 #, python-format
 msgid "%(order)s is not a new unpaid order any more."
 msgstr ""
@@ -1147,7 +1147,7 @@ msgid ""
 "“Pay” button."
 msgstr ""
 
-#: orders/views.py:154
+#: orders/views.py:153
 #, python-format
 msgid "%(order)s is cancelled. The books are back in stock."
 msgstr ""
@@ -1181,7 +1181,7 @@ msgstr ""
 msgid "add a manual payment (money received outside the site)"
 msgstr ""
 
-#: payments/apps.py:8 users/tools.py:61
+#: payments/apps.py:8 users/tools.py:79
 msgid "Payments"
 msgstr ""
 
@@ -1234,12 +1234,12 @@ msgstr ""
 msgid "%(provider)s %(amount)s UAH (%(status)s) for order #%(order)s"
 msgstr ""
 
-#: payments/providers/base.py:51
+#: payments/providers/base.py:52
 #, python-format
 msgid "%(provider)s: online payment is not supported."
 msgstr ""
 
-#: payments/providers/base.py:75
+#: payments/providers/base.py:78
 #, python-format
 msgid "%(provider)s: webhooks are not supported."
 msgstr ""
@@ -1248,20 +1248,20 @@ msgstr ""
 msgid "Online payment is not configured."
 msgstr ""
 
-#: payments/providers/stripe_checkout.py:82
+#: payments/providers/stripe_checkout.py:80
 #, python-format
 msgid "Bookstore: order #%(number)s"
 msgstr ""
 
-#: payments/providers/stripe_checkout.py:118
+#: payments/providers/stripe_checkout.py:119
 msgid "The payment service is not available now, please try again later."
 msgstr ""
 
-#: payments/providers/stripe_checkout.py:137
+#: payments/providers/stripe_checkout.py:140
 msgid "Can't check the payment now."
 msgstr ""
 
-#: payments/providers/stripe_checkout.py:155
+#: payments/providers/stripe_checkout.py:158
 msgid "Can't close the payment page now."
 msgstr ""
 
@@ -1269,27 +1269,27 @@ msgstr ""
 msgid "The amount must be greater than 0."
 msgstr ""
 
-#: payments/services.py:54
+#: payments/services.py:55
 #, python-format
 msgid "%(order)s is cancelled, payments can't be added."
 msgstr ""
 
-#: payments/services.py:58
+#: payments/services.py:60
 #, python-format
 msgid "%(order)s: only %(due)s UAH is due, %(amount)s UAH is too much."
 msgstr ""
 
-#: payments/services.py:194
+#: payments/services.py:198
 #, python-format
 msgid "%(order)s is cancelled."
 msgstr ""
 
-#: payments/services.py:197
+#: payments/services.py:201
 #, python-format
 msgid "%(order)s is already paid."
 msgstr ""
 
-#: payments/services.py:209
+#: payments/services.py:212
 msgid "The payment is being prepared, please try again in a minute."
 msgstr ""
 
@@ -1390,7 +1390,7 @@ msgstr ""
 msgid "Open %(order)s"
 msgstr ""
 
-#: payments/views.py:58
+#: payments/views.py:60
 msgid "The payment was not completed. You can pay later with the “Pay” button."
 msgstr ""
 
@@ -1522,7 +1522,7 @@ msgstr ""
 msgid "Language of the site and of the emails."
 msgstr ""
 
-#: users/phone.py:19
+#: users/phone.py:18
 msgid "Enter a phone number: 10–15 digits, e.g. +380 67 123 45 67."
 msgstr ""
 
@@ -1627,75 +1627,75 @@ msgstr ""
 msgid "Books, authors, users, groups"
 msgstr ""
 
-#: users/tools.py:38
+#: users/tools.py:41
 msgid "Statuses, cancellation, payments"
 msgstr ""
 
-#: users/tools.py:39
+#: users/tools.py:44
 msgid "Stock"
 msgstr ""
 
-#: users/tools.py:39
+#: users/tools.py:46
 msgid "Copies of every book in the warehouse"
 msgstr ""
 
-#: users/tools.py:42
+#: users/tools.py:50
 msgid "Browsable API"
 msgstr ""
 
-#: users/tools.py:42
+#: users/tools.py:50
 msgid "The API in the browser, with forms"
 msgstr ""
 
-#: users/tools.py:43
+#: users/tools.py:51
 msgid "API documentation, requests right from the page"
 msgstr ""
 
-#: users/tools.py:44
+#: users/tools.py:52
 msgid "API documentation for reading"
 msgstr ""
 
-#: users/tools.py:45
+#: users/tools.py:53
 msgid "OpenAPI schema"
 msgstr ""
 
-#: users/tools.py:45
+#: users/tools.py:53
 msgid "For Postman and client generators"
 msgstr ""
 
-#: users/tools.py:48
+#: users/tools.py:56
 msgid "Health check"
 msgstr ""
 
-#: users/tools.py:48
+#: users/tools.py:56
 msgid "PostgreSQL and Redis answer (JSON)"
 msgstr ""
 
-#: users/tools.py:49
+#: users/tools.py:57
 msgid "Celery tasks and workers, live"
 msgstr ""
 
-#: users/tools.py:53
+#: users/tools.py:64
 msgid "Errors of the site and of the tasks"
 msgstr ""
 
-#: users/tools.py:56
+#: users/tools.py:70
 msgid "Sentry test error"
 msgstr ""
 
-#: users/tools.py:56
+#: users/tools.py:72
 msgid "Raises an error on purpose: check that Sentry gets it"
 msgstr ""
 
-#: users/tools.py:58
+#: users/tools.py:75
 msgid "Site"
 msgstr ""
 
-#: users/tools.py:58
+#: users/tools.py:75
 msgid "Monitoring"
 msgstr ""
 
-#: users/tools.py:61
+#: users/tools.py:79
 msgid "Payments and webhooks"
 msgstr ""
 

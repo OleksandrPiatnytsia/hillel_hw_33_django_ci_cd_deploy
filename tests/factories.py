@@ -40,7 +40,7 @@ class UserFactory(DjangoModelFactory):
     first_name = "Ann"
     last_name = "Shevchenko"
     # Password(): hashes the text with set_password() (the fast MD5 hasher
-    # from config/settings_test.py), the same as create_user()
+    # from config/settings/test.py), the same as create_user()
     password = Password(DEFAULT_PASSWORD)
 
     @factory.post_generation
