@@ -1,5 +1,5 @@
 {% load i18n %}
-{# url_name of the current page, e.g. "list" / "create" — used to highlight the active link #}
+{# url_name of the current page, e.g. "list" / "author_list" — used to highlight the active link #}
 {% with current=request.resolver_match.url_name %}
 {# sticky-top: navbar stays at the top of the window while scrolling #}
 <nav class="navbar navbar-expand-lg bg-dark sticky-top" data-bs-theme="dark">
@@ -25,13 +25,6 @@
              {% if current == 'author_list' %}aria-current="page"{% endif %}
              href="{% url 'books:author_list' %}">{% translate "Authors" %}</a>
         </li>
-        {% if perms.books.add_book %}
-          <li class="nav-item">
-            <a class="nav-link {% if current == 'create' %}active{% endif %}"
-               {% if current == 'create' %}aria-current="page"{% endif %}
-               href="{% url 'books:create' %}">{% translate "Add book" %}</a>
-          </li>
-        {% endif %}
         {# "user" comes from the auth context processor (settings.TEMPLATES) #}
         {% if user.is_staff %}
           <li class="nav-item">
