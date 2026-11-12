@@ -4,7 +4,27 @@
 {# sticky-top: navbar stays at the top of the window while scrolling #}
 <nav class="navbar navbar-expand-lg bg-dark sticky-top" data-bs-theme="dark">
   <div class="container">
-    <a class="navbar-brand fw-semibold" href="{% url 'books:list' %}">📚 {% translate "Bookstore" %}</a>
+    {# The brand is the site menu: a click opens Catalog / Authors. #}
+    {# Outside the collapsing part, so on a phone it works without the #}
+    {# hamburger button. The admin is not here: superusers have it in the #}
+    {# profile (Tools block), other staff in the profile "Status" line. #}
+    <div class="dropdown">
+      <a class="navbar-brand fw-semibold dropdown-toggle" href="#" role="button"
+         data-bs-toggle="dropdown" aria-expanded="false">📚 {% translate "Bookstore" %}</a>
+      <ul class="dropdown-menu">
+        <li>
+          <a class="dropdown-item {% if current == 'list' %}active{% endif %}"
+             {% if current == 'list' %}aria-current="page"{% endif %}
+             href="{% url 'books:list' %}">{% translate "Catalog" %}</a>
+        </li>
+        <li>
+          {# "author_list" and "author_detail" both highlight "Authors" #}
+          <a class="dropdown-item {% if current == 'author_list' or current == 'author_detail' %}active{% endif %}"
+             {% if current == 'author_list' %}aria-current="page"{% endif %}
+             href="{% url 'books:author_list' %}">{% translate "Authors" %}</a>
+        </li>
+      </ul>
+    </div>
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse"
             data-bs-target="#mainNavbar" aria-controls="mainNavbar"
@@ -13,30 +33,12 @@
     </button>
 
     <div class="collapse navbar-collapse" id="mainNavbar">
-      <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-        <li class="nav-item">
-          <a class="nav-link {% if current == 'list' %}active{% endif %}"
-             {% if current == 'list' %}aria-current="page"{% endif %}
-             href="{% url 'books:list' %}">{% translate "Catalog" %}</a>
-        </li>
-        <li class="nav-item">
-          {# "author_list" and "author_detail" both highlight "Authors" #}
-          <a class="nav-link {% if current == 'author_list' or current == 'author_detail' %}active{% endif %}"
-             {% if current == 'author_list' %}aria-current="page"{% endif %}
-             href="{% url 'books:author_list' %}">{% translate "Authors" %}</a>
-        </li>
-        {# "user" comes from the auth context processor (settings.TEMPLATES) #}
-        {% if user.is_staff %}
-          <li class="nav-item">
-            <a class="nav-link" href="{% url 'admin:index' %}">{% translate "Admin" %}</a>
-          </li>
-        {% endif %}
-      </ul>
-
       {# Quick search: GET to the catalog with only ?q=... #}
       {# data-*: settings and texts for static/js/book_search.js (suggestions #}
       {# while typing, from the async view books:search) #}
-      <form class="d-flex me-lg-3 mb-2 mb-lg-0 position-relative" role="search" method="get"
+      {# ms-lg-auto: on a wide screen the search goes to the right, next to #}
+      {# the language / cart / user (the left links are in the brand menu now) #}
+      <form class="d-flex ms-lg-auto me-lg-3 mt-2 mt-lg-0 mb-2 mb-lg-0 position-relative" role="search" method="get"
             action="{% url 'books:list' %}" data-book-search
             data-search-url="{% url 'books:search' %}" data-min-length="2"
             data-empty-text="{% translate 'No books found' %}">

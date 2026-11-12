@@ -3,6 +3,8 @@
 Whole user flows (several requests in a row) are in tests/integration/.
 """
 
+import re
+
 import pytest
 from django.urls import reverse
 from pytest_django.asserts import assertRedirects, assertTemplateUsed
@@ -414,3 +416,37 @@ def test_tools_are_only_for_the_superuser(client_fixture, request):
 
     assert "tool_groups" not in response.context
     assert "Flower" not in response.content.decode()
+
+
+def test_staff_profile_links_to_the_admin(manager_client, customer_client):
+    """The navbar has no admin link: a manager (staff, not a superuser, so
+    without the Tools block) opens the admin from the profile "Status" line."""
+    admin_link = f'<a href="{reverse("admin:index")}">'
+
+    assert admin_link in manager_client.get(reverse("users:profile")).content.decode()
+    assert admin_link not in customer_client.get(reverse("users:profile")).content.decode()
+
+
+# ---------------------------------------------------------------------------
+# Navbar
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("url_name", "active_link"),
+    [("books:list", "books:list"), ("books:author_list", "books:author_list")],
+)
+def test_navbar_brand_menu_highlights_the_current_page(client, url_name, active_link):
+    html = client.get(reverse(url_name)).content.decode()
+
+    assert 'class="navbar-brand fw-semibold dropdown-toggle"' in html
+    # Whitespace between the attributes doesn't matter, only their order
+    active = rf'class="dropdown-item active"\s+aria-current="page"\s+href="{reverse(active_link)}"'
+    assert re.search(active, html)
+
+
+def test_navbar_has_no_admin_link_even_for_superuser(superuser_client):
+    html = superuser_client.get(reverse("books:list")).content.decode()
+    navbar = html[html.index("<nav class=\"navbar"):html.index("</nav>")]
+
+    assert reverse("admin:index") not in navbar

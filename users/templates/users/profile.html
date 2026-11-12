@@ -22,7 +22,9 @@
             {% if user.is_superuser %}
               <span class="badge text-bg-danger">{% translate "superuser" %}</span> {% translate "has every permission" %}
             {% elif user.is_staff %}
+              {# The navbar has no admin link: staff (managers, editors) open it from here #}
               <span class="badge text-bg-secondary">{% translate "staff" %}</span> {% translate "can open the admin" %}
+              · <a href="{% url 'admin:index' %}">{% translate "Admin" %}</a>
             {% else %}
               {% translate "regular user" %}
             {% endif %}

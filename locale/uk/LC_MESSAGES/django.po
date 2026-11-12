@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Bookstore\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-12 11:53+0000\n"
+"POT-Creation-Date: 2026-11-12 12:04+0000\n"
 "PO-Revision-Date: 2026-11-10 16:00+0200\n"
 "Last-Translator: Bookstore\n"
 "Language-Team: Ukrainian\n"
@@ -158,12 +158,12 @@ msgstr "Ціна: від дорожчих"
 msgid "Newest first"
 msgstr "Спершу нові"
 
-#: books/forms.py:164 templates/includes/navbar.html:46
-#: templates/includes/navbar.html:48
+#: books/forms.py:164 templates/includes/navbar.html:48
+#: templates/includes/navbar.html:50
 msgid "Search"
 msgstr "Пошук"
 
-#: books/forms.py:166 templates/includes/navbar.html:45
+#: books/forms.py:166 templates/includes/navbar.html:47
 msgid "Title or author"
 msgstr "Назва або автор"
 
@@ -275,7 +275,7 @@ msgstr "Навігаційний ланцюжок"
 
 #: books/templates/books/author_detail.html:9
 #: books/templates/books/author_list.html:4
-#: books/templates/books/author_list.html:8 templates/includes/navbar.html:26
+#: books/templates/books/author_list.html:8 templates/includes/navbar.html:24
 msgid "Authors"
 msgstr "Автори"
 
@@ -350,7 +350,7 @@ msgstr "Її зв'язки з категоріями теж буде видал�
 #: books/templates/books/book_confirm_delete.html:37
 #: books/templates/books/book_detail.html:89
 #: books/templates/books/book_form.html:18
-#: users/templates/users/profile.html:49
+#: users/templates/users/profile.html:51
 #: users/templates/users/profile_edit.html:12
 msgid "Edit"
 msgstr "Редагувати"
@@ -368,7 +368,7 @@ msgstr "Скасувати"
 #: books/templates/books/book_detail.html:18
 #: books/templates/books/book_form.html:15
 #: books/templates/books/book_list.html:4
-#: books/templates/books/book_list.html:10 templates/includes/navbar.html:20
+#: books/templates/books/book_list.html:10 templates/includes/navbar.html:18
 msgid "Catalog"
 msgstr "Каталог"
 
@@ -530,7 +530,7 @@ msgstr "Книгу «%(title)s» видалено."
 
 #: cart/apps.py:8 cart/templates/cart/cart_detail.html:4
 #: cart/templates/cart/cart_detail.html:7
-#: orders/templates/orders/checkout.html:9 templates/includes/navbar.html:82
+#: orders/templates/orders/checkout.html:9 templates/includes/navbar.html:84
 msgid "Cart"
 msgstr "Кошик"
 
@@ -1004,7 +1004,7 @@ msgstr "Подробиці — у вкладених CSV-файлах."
 #: payments/templates/payments/emails/payment_received.html:16
 #: payments/templates/payments/emails/payment_received.html:60
 #: payments/templates/payments/emails/payment_received.txt:12
-#: templates/base.html:9 templates/includes/navbar.html:7
+#: templates/base.html:9 templates/includes/navbar.html:13
 msgid "Bookstore"
 msgstr "Книгарня"
 
@@ -1133,7 +1133,7 @@ msgstr "Книгарня: %(order)s створено (%(total)s грн)"
 
 #: orders/templates/orders/order_detail.html:9
 #: orders/templates/orders/order_list.html:4
-#: orders/templates/orders/order_list.html:7 templates/includes/navbar.html:99
+#: orders/templates/orders/order_list.html:7 templates/includes/navbar.html:101
 msgid "My orders"
 msgstr "Мої замовлення"
 
@@ -1494,38 +1494,34 @@ msgstr "Книгарня · домашнє завдання Hillel з Django"
 msgid "Close"
 msgstr "Закрити"
 
-#: templates/includes/navbar.html:11
+#: templates/includes/navbar.html:31
 msgid "Toggle navigation"
 msgstr "Показати або сховати меню"
 
-#: templates/includes/navbar.html:31 users/tools.py:37
-msgid "Admin"
-msgstr "Адмінка"
-
-#: templates/includes/navbar.html:42
+#: templates/includes/navbar.html:44
 msgid "No books found"
 msgstr "Книг не знайдено"
 
-#: templates/includes/navbar.html:61 users/admin.py:21
-#: users/templates/users/profile.html:41
+#: templates/includes/navbar.html:63 users/admin.py:21
+#: users/templates/users/profile.html:43
 msgid "Language"
 msgstr "Мова"
 
-#: templates/includes/navbar.html:98 users/templates/users/profile.html:4
+#: templates/includes/navbar.html:100 users/templates/users/profile.html:4
 #: users/templates/users/profile_edit.html:11
 msgid "My profile"
 msgstr "Мій профіль"
 
-#: templates/includes/navbar.html:106
+#: templates/includes/navbar.html:108
 msgid "Log out"
 msgstr "Вийти"
 
-#: templates/includes/navbar.html:115 users/templates/users/auth_form.html:54
+#: templates/includes/navbar.html:117 users/templates/users/auth_form.html:54
 #: users/views.py:41
 msgid "Log in"
 msgstr "Увійти"
 
-#: templates/includes/navbar.html:119 users/templates/users/auth_form.html:52
+#: templates/includes/navbar.html:121 users/templates/users/auth_form.html:52
 #: users/views.py:73
 msgid "Sign up"
 msgstr "Зареєструватися"
@@ -1542,7 +1538,7 @@ msgstr "Попередня"
 msgid "Next"
 msgstr "Наступна"
 
-#: users/admin.py:20 users/templates/users/profile.html:48
+#: users/admin.py:20 users/templates/users/profile.html:50
 #: users/templates/users/profile_edit.html:18
 msgid "Delivery details"
 msgstr "Дані доставки"
@@ -1591,63 +1587,67 @@ msgstr "суперкористувач"
 msgid "has every permission"
 msgstr "має всі права"
 
-#: users/templates/users/profile.html:25
+#: users/templates/users/profile.html:26
 msgid "staff"
 msgstr "персонал"
 
-#: users/templates/users/profile.html:25
+#: users/templates/users/profile.html:26
 msgid "can open the admin"
 msgstr "може відкривати адмінку"
 
-#: users/templates/users/profile.html:27
+#: users/templates/users/profile.html:27 users/tools.py:37
+msgid "Admin"
+msgstr "Адмінка"
+
+#: users/templates/users/profile.html:29
 msgid "regular user"
 msgstr "звичайний користувач"
 
-#: users/templates/users/profile.html:31
+#: users/templates/users/profile.html:33
 msgid "Groups"
 msgstr "Групи"
 
-#: users/templates/users/profile.html:36 users/templates/users/profile.html:103
+#: users/templates/users/profile.html:38 users/templates/users/profile.html:105
 msgid "none"
 msgstr "немає"
 
-#: users/templates/users/profile.html:53
+#: users/templates/users/profile.html:55
 msgid "Name"
 msgstr "Ім'я"
 
-#: users/templates/users/profile.html:56
+#: users/templates/users/profile.html:58
 msgid "Phone"
 msgstr "Телефон"
 
-#: users/templates/users/profile.html:59
+#: users/templates/users/profile.html:61
 msgid "Address"
 msgstr "Адреса"
 
-#: users/templates/users/profile.html:66
+#: users/templates/users/profile.html:68
 msgid "What you can do in the catalog"
 msgstr "Що ви можете в каталозі"
 
-#: users/templates/users/profile.html:69
+#: users/templates/users/profile.html:71
 msgid "add books"
 msgstr "додавати книги"
 
-#: users/templates/users/profile.html:70
+#: users/templates/users/profile.html:72
 msgid "edit books"
 msgstr "редагувати книги"
 
-#: users/templates/users/profile.html:71
+#: users/templates/users/profile.html:73
 msgid "change stock"
 msgstr "змінювати залишки"
 
-#: users/templates/users/profile.html:72
+#: users/templates/users/profile.html:74
 msgid "delete books"
 msgstr "видаляти книги"
 
-#: users/templates/users/profile.html:77
+#: users/templates/users/profile.html:79
 msgid "Tools"
 msgstr "Інструменти"
 
-#: users/templates/users/profile.html:98
+#: users/templates/users/profile.html:100
 #, python-format
 msgid "All permissions (%(count)s)"
 msgstr "Усі права (%(count)s)"

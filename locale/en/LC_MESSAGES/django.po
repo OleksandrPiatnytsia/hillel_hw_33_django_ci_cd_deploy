@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Bookstore\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-12 11:53+0000\n"
+"POT-Creation-Date: 2026-11-12 12:04+0000\n"
 "PO-Revision-Date: 2026-11-10 16:00+0200\n"
 "Last-Translator: Bookstore\n"
 "Language-Team: English\n"
@@ -153,12 +153,12 @@ msgstr ""
 msgid "Newest first"
 msgstr ""
 
-#: books/forms.py:164 templates/includes/navbar.html:46
-#: templates/includes/navbar.html:48
+#: books/forms.py:164 templates/includes/navbar.html:48
+#: templates/includes/navbar.html:50
 msgid "Search"
 msgstr ""
 
-#: books/forms.py:166 templates/includes/navbar.html:45
+#: books/forms.py:166 templates/includes/navbar.html:47
 msgid "Title or author"
 msgstr ""
 
@@ -270,7 +270,7 @@ msgstr ""
 
 #: books/templates/books/author_detail.html:9
 #: books/templates/books/author_list.html:4
-#: books/templates/books/author_list.html:8 templates/includes/navbar.html:26
+#: books/templates/books/author_list.html:8 templates/includes/navbar.html:24
 msgid "Authors"
 msgstr ""
 
@@ -341,7 +341,7 @@ msgstr ""
 #: books/templates/books/book_confirm_delete.html:37
 #: books/templates/books/book_detail.html:89
 #: books/templates/books/book_form.html:18
-#: users/templates/users/profile.html:49
+#: users/templates/users/profile.html:51
 #: users/templates/users/profile_edit.html:12
 msgid "Edit"
 msgstr ""
@@ -359,7 +359,7 @@ msgstr ""
 #: books/templates/books/book_detail.html:18
 #: books/templates/books/book_form.html:15
 #: books/templates/books/book_list.html:4
-#: books/templates/books/book_list.html:10 templates/includes/navbar.html:20
+#: books/templates/books/book_list.html:10 templates/includes/navbar.html:18
 msgid "Catalog"
 msgstr ""
 
@@ -515,7 +515,7 @@ msgstr ""
 
 #: cart/apps.py:8 cart/templates/cart/cart_detail.html:4
 #: cart/templates/cart/cart_detail.html:7
-#: orders/templates/orders/checkout.html:9 templates/includes/navbar.html:82
+#: orders/templates/orders/checkout.html:9 templates/includes/navbar.html:84
 msgid "Cart"
 msgstr ""
 
@@ -968,7 +968,7 @@ msgstr ""
 #: payments/templates/payments/emails/payment_received.html:16
 #: payments/templates/payments/emails/payment_received.html:60
 #: payments/templates/payments/emails/payment_received.txt:12
-#: templates/base.html:9 templates/includes/navbar.html:7
+#: templates/base.html:9 templates/includes/navbar.html:13
 msgid "Bookstore"
 msgstr ""
 
@@ -1087,7 +1087,7 @@ msgstr ""
 
 #: orders/templates/orders/order_detail.html:9
 #: orders/templates/orders/order_list.html:4
-#: orders/templates/orders/order_list.html:7 templates/includes/navbar.html:99
+#: orders/templates/orders/order_list.html:7 templates/includes/navbar.html:101
 msgid "My orders"
 msgstr ""
 
@@ -1437,38 +1437,34 @@ msgstr ""
 msgid "Close"
 msgstr ""
 
-#: templates/includes/navbar.html:11
+#: templates/includes/navbar.html:31
 msgid "Toggle navigation"
 msgstr ""
 
-#: templates/includes/navbar.html:31 users/tools.py:37
-msgid "Admin"
-msgstr ""
-
-#: templates/includes/navbar.html:42
+#: templates/includes/navbar.html:44
 msgid "No books found"
 msgstr ""
 
-#: templates/includes/navbar.html:61 users/admin.py:21
-#: users/templates/users/profile.html:41
+#: templates/includes/navbar.html:63 users/admin.py:21
+#: users/templates/users/profile.html:43
 msgid "Language"
 msgstr ""
 
-#: templates/includes/navbar.html:98 users/templates/users/profile.html:4
+#: templates/includes/navbar.html:100 users/templates/users/profile.html:4
 #: users/templates/users/profile_edit.html:11
 msgid "My profile"
 msgstr ""
 
-#: templates/includes/navbar.html:106
+#: templates/includes/navbar.html:108
 msgid "Log out"
 msgstr ""
 
-#: templates/includes/navbar.html:115 users/templates/users/auth_form.html:54
+#: templates/includes/navbar.html:117 users/templates/users/auth_form.html:54
 #: users/views.py:41
 msgid "Log in"
 msgstr ""
 
-#: templates/includes/navbar.html:119 users/templates/users/auth_form.html:52
+#: templates/includes/navbar.html:121 users/templates/users/auth_form.html:52
 #: users/views.py:73
 msgid "Sign up"
 msgstr ""
@@ -1485,7 +1481,7 @@ msgstr ""
 msgid "Next"
 msgstr ""
 
-#: users/admin.py:20 users/templates/users/profile.html:48
+#: users/admin.py:20 users/templates/users/profile.html:50
 #: users/templates/users/profile_edit.html:18
 msgid "Delivery details"
 msgstr ""
@@ -1534,63 +1530,67 @@ msgstr ""
 msgid "has every permission"
 msgstr ""
 
-#: users/templates/users/profile.html:25
+#: users/templates/users/profile.html:26
 msgid "staff"
 msgstr ""
 
-#: users/templates/users/profile.html:25
+#: users/templates/users/profile.html:26
 msgid "can open the admin"
 msgstr ""
 
-#: users/templates/users/profile.html:27
+#: users/templates/users/profile.html:27 users/tools.py:37
+msgid "Admin"
+msgstr ""
+
+#: users/templates/users/profile.html:29
 msgid "regular user"
 msgstr ""
 
-#: users/templates/users/profile.html:31
+#: users/templates/users/profile.html:33
 msgid "Groups"
 msgstr ""
 
-#: users/templates/users/profile.html:36 users/templates/users/profile.html:103
+#: users/templates/users/profile.html:38 users/templates/users/profile.html:105
 msgid "none"
 msgstr ""
 
-#: users/templates/users/profile.html:53
+#: users/templates/users/profile.html:55
 msgid "Name"
 msgstr ""
 
-#: users/templates/users/profile.html:56
+#: users/templates/users/profile.html:58
 msgid "Phone"
 msgstr ""
 
-#: users/templates/users/profile.html:59
+#: users/templates/users/profile.html:61
 msgid "Address"
 msgstr ""
 
-#: users/templates/users/profile.html:66
+#: users/templates/users/profile.html:68
 msgid "What you can do in the catalog"
 msgstr ""
 
-#: users/templates/users/profile.html:69
+#: users/templates/users/profile.html:71
 msgid "add books"
 msgstr ""
 
-#: users/templates/users/profile.html:70
+#: users/templates/users/profile.html:72
 msgid "edit books"
 msgstr ""
 
-#: users/templates/users/profile.html:71
+#: users/templates/users/profile.html:73
 msgid "change stock"
 msgstr ""
 
-#: users/templates/users/profile.html:72
+#: users/templates/users/profile.html:74
 msgid "delete books"
 msgstr ""
 
-#: users/templates/users/profile.html:77
+#: users/templates/users/profile.html:79
 msgid "Tools"
 msgstr ""
 
-#: users/templates/users/profile.html:98
+#: users/templates/users/profile.html:100
 #, python-format
 msgid "All permissions (%(count)s)"
 msgstr ""
