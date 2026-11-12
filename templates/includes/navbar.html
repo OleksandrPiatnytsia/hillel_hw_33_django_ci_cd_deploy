@@ -51,6 +51,21 @@
       </form>
 
       <ul class="navbar-nav">
+        {# Theme switcher: no form, the choice lives in the browser #}
+        {# (localStorage), static/js/theme.js applies it. 🌓 until the #}
+        {# script shows the saved choice (the same as "System" by default). #}
+        <li class="nav-item dropdown" data-theme-switcher>
+          <a class="nav-link dropdown-toggle" href="#" role="button"
+             data-bs-toggle="dropdown" aria-expanded="false"
+             aria-label="{% translate 'Theme' %}" title="{% translate 'Theme' %}">
+            <span data-theme-icon>🌓</span>
+          </a>
+          <ul class="dropdown-menu dropdown-menu-end">
+            <li><button type="button" class="dropdown-item" data-theme-value="light" data-theme-icon="☀️">☀️ {% translate "Light" %}</button></li>
+            <li><button type="button" class="dropdown-item" data-theme-value="dark" data-theme-icon="🌙">🌙 {% translate "Dark" %}</button></li>
+            <li><button type="button" class="dropdown-item" data-theme-value="auto" data-theme-icon="🌓">🌓 {% translate "System" %}</button></li>
+          </ul>
+        </li>
         {# Language switcher: a POST form (it changes the cookie and the #}
         {# profile, like logout: not a plain link). Every button sends #}
         {# language=<code>; config.views.set_language returns to "next". #}

@@ -31,7 +31,7 @@
         <p class="mb-2"><a class="link-secondary" href="{{ book.author.get_absolute_url }}">{{ book.author.name }}</a></p>
         {% for category in book.categories.all %}
           {# Click on a category -> catalog filtered by it #}
-          <a class="badge rounded-pill text-bg-light border text-decoration-none"
+          <a class="badge rounded-pill bg-body-secondary text-body border text-decoration-none"
              href="{% url 'books:list' %}?category={{ category.slug }}">{{ category.name }}</a>
         {% endfor %}
       </div>

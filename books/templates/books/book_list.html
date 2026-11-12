@@ -123,7 +123,7 @@
               <div class="mb-3">
                 {# categories come from prefetch_related — no extra query per book #}
                 {% for category in book.categories.all %}
-                  <span class="badge rounded-pill text-bg-light border">{{ category.name }}</span>
+                  <span class="badge rounded-pill bg-body-secondary text-body border">{{ category.name }}</span>
                 {% endfor %}
               </div>
               {% endcache %}

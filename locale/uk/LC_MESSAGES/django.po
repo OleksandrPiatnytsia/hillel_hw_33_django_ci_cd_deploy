@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Bookstore\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-12 12:04+0000\n"
+"POT-Creation-Date: 2026-11-12 12:09+0000\n"
 "PO-Revision-Date: 2026-11-10 16:00+0200\n"
 "Last-Translator: Bookstore\n"
 "Language-Team: Ukrainian\n"
@@ -403,7 +403,7 @@ msgid "Added %(added)s · updated %(updated)s"
 msgstr "Додано %(added)s · оновлено %(updated)s"
 
 #: books/templates/books/book_detail.html:85 templates/403.html:27
-#: templates/404.html:20 templates/500.html:27
+#: templates/404.html:20 templates/500.html:42
 msgid "Back to catalog"
 msgstr "До каталогу"
 
@@ -530,7 +530,7 @@ msgstr "Книгу «%(title)s» видалено."
 
 #: cart/apps.py:8 cart/templates/cart/cart_detail.html:4
 #: cart/templates/cart/cart_detail.html:7
-#: orders/templates/orders/checkout.html:9 templates/includes/navbar.html:84
+#: orders/templates/orders/checkout.html:9 templates/includes/navbar.html:99
 msgid "Cart"
 msgstr "Кошик"
 
@@ -1133,7 +1133,7 @@ msgstr "Книгарня: %(order)s створено (%(total)s грн)"
 
 #: orders/templates/orders/order_detail.html:9
 #: orders/templates/orders/order_list.html:4
-#: orders/templates/orders/order_list.html:7 templates/includes/navbar.html:101
+#: orders/templates/orders/order_list.html:7 templates/includes/navbar.html:116
 msgid "My orders"
 msgstr "Мої замовлення"
 
@@ -1478,15 +1478,15 @@ msgstr "Сторінки не існує або вона вам недоступ
 msgid "Server error"
 msgstr "Помилка сервера"
 
-#: templates/500.html:22
+#: templates/500.html:37
 msgid "Something went wrong on our side"
 msgstr "Щось пішло не так на нашому боці"
 
-#: templates/500.html:24
+#: templates/500.html:39
 msgid "We already know about it. Please try again in a few minutes."
 msgstr "Ми вже знаємо про це. Спробуйте ще раз за кілька хвилин."
 
-#: templates/base.html:30
+#: templates/base.html:34
 msgid "Bookstore · Hillel Django homework"
 msgstr "Книгарня · домашнє завдання Hillel з Django"
 
@@ -1502,26 +1502,42 @@ msgstr "Показати або сховати меню"
 msgid "No books found"
 msgstr "Книг не знайдено"
 
-#: templates/includes/navbar.html:63 users/admin.py:21
+#: templates/includes/navbar.html:60
+msgid "Theme"
+msgstr "Тема"
+
+#: templates/includes/navbar.html:64
+msgid "Light"
+msgstr "Світла"
+
+#: templates/includes/navbar.html:65
+msgid "Dark"
+msgstr "Темна"
+
+#: templates/includes/navbar.html:66
+msgid "System"
+msgstr "Як у системі"
+
+#: templates/includes/navbar.html:78 users/admin.py:21
 #: users/templates/users/profile.html:43
 msgid "Language"
 msgstr "Мова"
 
-#: templates/includes/navbar.html:100 users/templates/users/profile.html:4
+#: templates/includes/navbar.html:115 users/templates/users/profile.html:4
 #: users/templates/users/profile_edit.html:11
 msgid "My profile"
 msgstr "Мій профіль"
 
-#: templates/includes/navbar.html:108
+#: templates/includes/navbar.html:123
 msgid "Log out"
 msgstr "Вийти"
 
-#: templates/includes/navbar.html:117 users/templates/users/auth_form.html:54
+#: templates/includes/navbar.html:132 users/templates/users/auth_form.html:54
 #: users/views.py:41
 msgid "Log in"
 msgstr "Увійти"
 
-#: templates/includes/navbar.html:121 users/templates/users/auth_form.html:52
+#: templates/includes/navbar.html:136 users/templates/users/auth_form.html:52
 #: users/views.py:73
 msgid "Sign up"
 msgstr "Зареєструватися"

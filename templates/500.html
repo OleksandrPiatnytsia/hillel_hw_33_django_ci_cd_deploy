@@ -16,14 +16,29 @@ No {% static %} either: a missing file would raise inside the error page.
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% translate "Server error" %}</title>
+  {# Inline styles (no static file, see above). No theme.js either: the #}
+  {# page follows the theme of the operating system only. #}
+  <style>
+    :root { color-scheme: light dark; --text: #212529; --muted: #6c757d; --bg: #ffffff; }
+    @media (prefers-color-scheme: dark) {
+      :root { --text: #dee2e6; --muted: #adb5bd; --bg: #212529; }
+    }
+    body { margin: 0; padding: 48px 16px; font-family: system-ui, Arial, sans-serif;
+           color: var(--text); background: var(--bg); text-align: center; }
+    .icon { font-size: 64px; }
+    h1 { font-size: 24px; margin: 16px 0 8px; }
+    p { color: var(--muted); margin: 0 0 24px; }
+    a { display: inline-block; padding: 10px 20px; background: #0d6efd; color: #ffffff;
+        text-decoration: none; border-radius: 6px; }
+  </style>
 </head>
-<body style="margin:0; padding:48px 16px; font-family:system-ui, Arial, sans-serif; color:#212529; text-align:center;">
-  <div style="font-size:64px;">🛠️</div>
-  <h1 style="font-size:24px; margin:16px 0 8px;">{% translate "Something went wrong on our side" %}</h1>
-  <p style="color:#6c757d; margin:0 0 24px;">
+<body>
+  <div class="icon">🛠️</div>
+  <h1>{% translate "Something went wrong on our side" %}</h1>
+  <p>
     {% translate "We already know about it. Please try again in a few minutes." %}
   </p>
-  <a href="/" style="display:inline-block; padding:10px 20px; background:#0d6efd; color:#ffffff; text-decoration:none; border-radius:6px;">
+  <a href="/">
     {% translate "Back to catalog" %}
   </a>
 </body>

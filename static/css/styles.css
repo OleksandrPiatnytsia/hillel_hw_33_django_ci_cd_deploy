@@ -75,3 +75,20 @@ main {
         overflow-y: auto;
     }
 }
+
+/* ---------- Dark theme (static/js/theme.js sets data-bs-theme) ---------- */
+
+/* The placeholder cover (img/no-cover.svg) is a light grey picture: an <img>
+   doesn't see the page theme, so in the dark theme it is turned around here.
+   invert: light grey -> dark grey; hue-rotate(180deg) brings the tint back,
+   so the result stays a neutral grey.
+   *= (contains), not $= (ends with): in Docker ManifestStaticFilesStorage
+   serves it as no-cover.<hash>.svg. */
+[data-bs-theme="dark"] .book-cover[src*="/no-cover."] {
+    filter: invert(1) hue-rotate(180deg);
+}
+
+/* A black shadow is invisible on a dark page: a lighter, wider one instead */
+[data-bs-theme="dark"] .book-card:hover {
+    box-shadow: 0 0.5rem 1.25rem rgba(0, 0, 0, 0.5) !important;
+}

@@ -450,3 +450,21 @@ def test_navbar_has_no_admin_link_even_for_superuser(superuser_client):
     navbar = html[html.index("<nav class=\"navbar"):html.index("</nav>")]
 
     assert reverse("admin:index") not in navbar
+
+
+# Generated with AI
+def test_every_page_loads_the_theme_script_before_the_page_is_drawn(client):
+    """static/js/theme.js sets data-bs-theme in <head>: without defer / async,
+    otherwise a dark page flashes white on every click."""
+    html = client.get(reverse("books:list")).content.decode()
+    head = html[: html.index("</head>")]
+
+    assert re.search(r'<script src="[^"]*js/theme\.js"></script>', head)
+
+
+def test_navbar_has_theme_switcher_with_three_choices(client):
+    html = client.get(reverse("books:list")).content.decode()
+
+    assert "data-theme-switcher" in html
+    for choice in ("light", "dark", "auto"):
+        assert f'data-theme-value="{choice}"' in html

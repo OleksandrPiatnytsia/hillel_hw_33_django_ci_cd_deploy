@@ -8,6 +8,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}{% translate "Bookstore" %}{% endblock %} · {% translate "Bookstore" %}</title>
   <link rel="icon" type="image/svg+xml" href="{% static 'img/favicon.svg' %}">
+  {# Light / dark theme. Without defer and before the styles on purpose: #}
+  {# it sets data-bs-theme on <html> before the page is drawn, so a dark #}
+  {# page doesn't flash white. A tiny file, cached by the browser. #}
+  <script src="{% static 'js/theme.js' %}"></script>
 
   <link rel="stylesheet"
         href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css"
