@@ -79,6 +79,49 @@ def test_book_list_order_always_ends_with_pk(client, params, expected_order):
     assert response.context["paginator"].object_list.query.order_by == expected_order
 
 
+@pytest.mark.parametrize(
+    ("per_page", "expected"),
+    [
+        (None, 12),  # no parameter: the default
+        ("24", 24),
+        ("48", 48),
+        ("100000", 12),  # not in the list: the whole catalog in one page is not allowed
+        ("abc", 12),  # an old or broken link: the default page, not an error
+    ],
+)
+def test_book_list_per_page(client, per_page, expected):
+    BookFactory.create_batch(50)
+    params = {"per_page": per_page} if per_page else {}
+
+    response = client.get(reverse("books:list"), params)
+
+    assert response.status_code == 200
+    assert response.context["per_page"] == expected
+    assert len(response.context["books"]) == expected
+
+
+def test_book_list_per_page_is_kept_by_filters_and_pagination(client):
+    """The chosen "Per page" survives "Apply" in the filters (hidden field)
+    and the page links ({% querystring %}); the dropdown keeps the filters
+    and drops "page" (page 3 of 12 books may not exist with 48)."""
+    BookFactory.create_batch(30, title="Kobzar")
+
+    response = client.get(reverse("books:list"), {"q": "kobzar", "per_page": "24", "page": "2"})
+    html = response.content.decode()
+
+    assert '<input type="hidden" name="per_page" value="24">' in html  # filters form
+    assert "?q=kobzar&amp;per_page=24&amp;page=1" in html  # pagination link
+    assert '<input type="hidden" name="q" value="kobzar">' in html  # dropdown form
+    assert '<input type="hidden" name="page"' not in html
+    assert '<option value="24" selected>' in html
+
+
+def test_book_list_default_per_page_adds_no_hidden_field(client):
+    response = client.get(reverse("books:list"))
+
+    assert 'name="per_page" value=' not in response.content.decode()
+
+
 def test_book_detail_shows_quantity_in_cart(client):
     book = BookFactory()
     client.post(reverse("cart:add", args=[book.pk]), {"quantity": 2})

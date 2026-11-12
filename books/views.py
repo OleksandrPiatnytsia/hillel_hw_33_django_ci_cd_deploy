@@ -52,7 +52,24 @@ class BookListView(ElidedPaginationMixin, ListView):
 
     model = Book
     context_object_name = "books"
-    paginate_by = 10
+    # Books per page, chosen in the "Per page" dropdown (?per_page=24).
+    # Multiples of 2 and 3: the grid has 2 columns (md) and 3 (xl), so every
+    # row of the page is full. The first one is the default.
+    PER_PAGE_CHOICES = (12, 24, 48)
+
+    def get_paginate_by(self, queryset):
+        """?per_page=<n> if n is one of PER_PAGE_CHOICES, else the default.
+
+        Only the listed values: ?per_page=100000 would load the whole catalog
+        in one page, and a wrong value (?per_page=abc, an old link) shows the
+        default page instead of an error.
+        """
+        value = self.request.GET.get("per_page", "")
+        if value.isdigit() and int(value) in self.PER_PAGE_CHOICES:
+            self.per_page = int(value)
+        else:
+            self.per_page = self.PER_PAGE_CHOICES[0]
+        return self.per_page
 
     def get_queryset(self):
         queryset = (
@@ -97,6 +114,9 @@ class BookListView(ElidedPaginationMixin, ListView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["filter_form"] = self.filter_form
+        # For the "Per page" dropdown and the hidden field of the filter form
+        context["per_page"] = self.per_page
+        context["per_page_choices"] = self.PER_PAGE_CHOICES
         # Timeout of the {% cache %} fragments of the book cards
         context["cache_timeout"] = settings.BOOK_CACHE_TIMEOUT
         return context

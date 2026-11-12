@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load i18n cache %}
+{% load i18n cache static %}
 
 {% block title %}{% translate "Catalog" %}{% endblock %}
 
@@ -23,6 +23,10 @@
       <div class="card-body">
         {# GET, not POST: filters are part of the URL, so the page can be bookmarked/shared #}
         <form method="get" action="{% url 'books:list' %}">
+          {# "Apply" keeps the chosen "Per page" (the default needs no parameter) #}
+          {% if per_page != per_page_choices.0 %}
+            <input type="hidden" name="per_page" value="{{ per_page }}">
+          {% endif %}
 
           {% if filter_form.non_field_errors %}
             <div class="alert alert-danger py-2 small">
@@ -54,20 +58,49 @@
 
   {# ---------- Results ---------- #}
   <section class="col-lg-9">
-    <p class="text-body-secondary small mb-3">
-      {# |pluralize knows only English ("book" / "books"); blocktranslate count #}
-      {# picks one of the Ukrainian forms: 1 книга, 2 книги, 5 книг #}
-      {% blocktranslate trimmed count count=paginator.count %}
-        Found: {{ count }} book
-      {% plural %}
-        Found: {{ count }} books
-      {% endblocktranslate %}
-      {% if is_paginated %}
-        {% blocktranslate trimmed with number=page_obj.number pages=paginator.num_pages %}
-          · page {{ number }} of {{ pages }}
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+      <p class="text-body-secondary small mb-0">
+        {# |pluralize knows only English ("book" / "books"); blocktranslate count #}
+        {# picks one of the Ukrainian forms: 1 книга, 2 книги, 5 книг #}
+        {% blocktranslate trimmed count count=paginator.count %}
+          Found: {{ count }} book
+        {% plural %}
+          Found: {{ count }} books
         {% endblocktranslate %}
-      {% endif %}
-    </p>
+        {% if is_paginated %}
+          {% blocktranslate trimmed with number=page_obj.number pages=paginator.num_pages %}
+            · page {{ number }} of {{ pages }}
+          {% endblocktranslate %}
+        {% endif %}
+      </p>
+
+      {# "Per page": GET to the same catalog. The hidden fields repeat the #}
+      {# current filters and sort; "page" is left out on purpose: page 5 of #}
+      {# 12 books doesn't exist with 48, so the list starts from page 1. #}
+      {# data-auto-submit: static/js/auto_submit.js sends the form on change; #}
+      {# without JavaScript the "Show" button in <noscript> does it. #}
+      <form class="d-flex align-items-center gap-2" method="get"
+            action="{% url 'books:list' %}" data-auto-submit>
+        {% for name, values in request.GET.lists %}
+          {% if name != "page" and name != "per_page" %}
+            {% for value in values %}
+              <input type="hidden" name="{{ name }}" value="{{ value }}">
+            {% endfor %}
+          {% endif %}
+        {% endfor %}
+        <label class="small text-body-secondary text-nowrap" for="per-page">
+          {% translate "Per page" %}
+        </label>
+        <select class="form-select form-select-sm w-auto" id="per-page" name="per_page">
+          {% for choice in per_page_choices %}
+            <option value="{{ choice }}" {% if choice == per_page %}selected{% endif %}>{{ choice }}</option>
+          {% endfor %}
+        </select>
+        <noscript>
+          <button class="btn btn-sm btn-outline-secondary" type="submit">{% translate "Show" %}</button>
+        </noscript>
+      </form>
+    </div>
 
     <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-3">
       {% for book in books %}
@@ -133,4 +166,8 @@
   </section>
 
 </div>
+{% endblock %}
+
+{% block scripts %}
+  <script src="{% static 'js/auto_submit.js' %}" defer></script>
 {% endblock %}
