@@ -30,6 +30,21 @@ from .base import ALLOWED_HOSTS, MIDDLEWARE, STORAGES
 
 DEBUG = False
 
+# Railway: the host names it gives, without writing them by hand.
+# - RAILWAY_PUBLIC_DOMAIN: the address of the service, e.g.
+#   hillel-bookstore.up.railway.app (Railway sets it once the service has
+#   a domain: Settings -> Networking -> Generate Domain);
+# - healthcheck.railway.app: the Host of Railway's health check requests
+#   (/health/). Not allowed = 400, the check fails, the deploy never goes
+#   live. Added only on Railway (RAILWAY_ENVIRONMENT_NAME is set there).
+# Docs: https://docs.railway.com/reference/variables
+#       https://docs.railway.com/reference/healthchecks
+RAILWAY_PUBLIC_DOMAIN = os.getenv("RAILWAY_PUBLIC_DOMAIN", "")
+if RAILWAY_PUBLIC_DOMAIN:
+    ALLOWED_HOSTS.append(RAILWAY_PUBLIC_DOMAIN)
+if os.getenv("RAILWAY_ENVIRONMENT_NAME"):
+    ALLOWED_HOSTS.append("healthcheck.railway.app")
+
 if not ALLOWED_HOSTS:
     # With DEBUG off and an empty list Django answers 400 to EVERY request,
     # the site looks down with no hint why. Better stop at start.

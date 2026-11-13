@@ -3,7 +3,8 @@ project in one place. Only for a superuser (users/templates/users/profile.html).
 
 Internal pages are built with reverse(): a changed URL can't leave a dead
 link. External services (Flower, Sentry, Stripe) come from the settings:
-a service that isn't set up (no SENTRY_ISSUES_URL, no Stripe key) has no link.
+a service that isn't set up (no FLOWER_URL, no SENTRY_ISSUES_URL, no Stripe
+key) has no link.
 """
 
 from dataclasses import dataclass
@@ -54,8 +55,12 @@ def admin_tools():
     ]
     monitoring = [
         Tool(_("Health check"), reverse("health"), _("PostgreSQL and Redis answer (JSON)")),
-        Tool("Flower", settings.FLOWER_URL, _("Celery tasks and workers, live"), external=True),
     ]
+    # Railway runs no Flower (FLOWER_URL=""): no link to a dashboard that isn't there
+    if settings.FLOWER_URL:
+        monitoring.append(
+            Tool("Flower", settings.FLOWER_URL, _("Celery tasks and workers, live"), external=True)
+        )
     if settings.SENTRY_ISSUES_URL:
         monitoring.append(
             Tool(

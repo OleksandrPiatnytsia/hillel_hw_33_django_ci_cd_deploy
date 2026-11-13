@@ -17,6 +17,20 @@
 # ignored and gunicorn would start on a database with a wrong schema.
 set -e
 
+# Started as root: only on Railway, with RAILWAY_RUN_UID=0 on the web
+# service. Railway mounts its Volume (the covers, /app/media) owned by
+# root, and the "app" user of the image (Dockerfile USER app) couldn't
+# write uploaded covers there. So as root: give the folder to "app", then
+# run THIS script again as "app" (setpriv, from util-linux, is in the
+# image) and everything below, the server included, runs without root.
+# Locally (docker compose) the container starts as "app": skipped.
+# Docs: https://docs.railway.com/reference/volumes
+if [ "$(id -u)" = "0" ]; then
+    echo "Started as root: chown of the media folder, then running as app"
+    chown app:app /app/media
+    exec setpriv --reuid=app --regid=app --init-groups "$0" "$@"
+fi
+
 # celery worker / celery beat: no migrate, no collectstatic. Three
 # containers running migrate at the same moment could apply the same
 # migration twice ("relation already exists"); web does it alone, and the

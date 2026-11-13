@@ -418,11 +418,13 @@ def test_superuser_sees_the_tools_and_every_link_works(superuser_client, setting
 
 # Generated with AI
 def test_services_that_are_not_set_up_have_no_link(superuser_client, settings):
+    settings.FLOWER_URL = ""  # Railway: no Flower
     settings.SENTRY_ISSUES_URL = ""
     settings.STRIPE_SECRET_KEY = ""
 
     links = tool_links(superuser_client.get(reverse("users:profile")))
 
+    assert "Flower" not in links
     assert "Sentry" not in links
     assert "Stripe" not in links
 

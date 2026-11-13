@@ -166,6 +166,7 @@ SETTINGS_TO_JSON = (
     "'SECURE_HSTS_SECONDS': s.SECURE_HSTS_SECONDS, "
     "'SECURE_REDIRECT_EXEMPT': s.SECURE_REDIRECT_EXEMPT, "
     "'MIDDLEWARE': s.MIDDLEWARE, 'SERVE_MEDIA': s.SERVE_MEDIA, "
+    "'ALLOWED_HOSTS': s.ALLOWED_HOSTS, "
     "'STATICFILES': s.STORAGES['staticfiles']['BACKEND']}))"
 )
 
@@ -198,10 +199,30 @@ def test_deploy_check_reports_missing_email_settings():
     assert "mail.E001" in result.stderr
 
 
+def test_production_settings_allow_the_railway_hosts():
+    """On Railway: its domain and the Host of its health check, from the
+    variables Railway sets itself; DJANGO_ALLOWED_HOSTS may stay empty."""
+    values = production_settings(
+        DJANGO_ALLOWED_HOSTS="",
+        RAILWAY_PUBLIC_DOMAIN="bookstore.up.railway.app",
+        RAILWAY_ENVIRONMENT_NAME="production",
+    )
+
+    assert values["ALLOWED_HOSTS"] == ["bookstore.up.railway.app", "healthcheck.railway.app"]
+
+
+def test_worker_on_railway_starts_without_a_domain():
+    """The Celery worker has no public domain, but runs on Railway too."""
+    values = production_settings(DJANGO_ALLOWED_HOSTS="", RAILWAY_ENVIRONMENT_NAME="production")
+
+    assert values["ALLOWED_HOSTS"] == ["healthcheck.railway.app"]
+
+
 def test_production_settings_have_https_and_no_debug():
     values = production_settings(DJANGO_DEBUG="True")  # ignored by production
 
     assert values["DEBUG"] is False
+    assert values["ALLOWED_HOSTS"] == ["bookstore.example.com"]  # no Railway hosts off Railway
     assert values["SECURE_SSL_REDIRECT"] is True
     assert values["SESSION_COOKIE_SECURE"] is True
     assert values["SECURE_HSTS_SECONDS"] == 3600
