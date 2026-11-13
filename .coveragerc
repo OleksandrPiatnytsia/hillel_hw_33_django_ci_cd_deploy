@@ -18,6 +18,9 @@ omit =
 exclude_also =
     if TYPE_CHECKING:
     raise NotImplementedError
+    # A script started from the command line (.github/scripts/); the tests
+    # call its main() directly
+    if __name__ == .__main__.:
 
 [html]
 # pytest --cov-report=html -> htmlcov/index.html (in .gitignore)

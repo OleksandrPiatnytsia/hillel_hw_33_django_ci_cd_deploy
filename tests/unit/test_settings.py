@@ -128,8 +128,13 @@ def run_with_production_settings(*args, **env):
     """Runs a command of manage.py with the production settings.
 
     The environment of this test process (POSTGRES_* or DATABASE_URL from
-    .env / CI) + the given variables. SENTRY_DSN is emptied: a real DSN from
-    .env must not get the errors these tests cause on purpose.
+    .env / CI) + fixed values + the given variables. Fixed, so the result
+    doesn't depend on the local .env (GitHub Actions has none):
+    - SENTRY_DSN emptied: a real DSN from .env must not get the errors
+      these tests cause on purpose;
+    - a fake Gmail login: with it the settings choose the SMTP mailer, as
+      on a server (without it: the console mailer, which check --deploy
+      reports as mail.E001). Nothing is sent: the commands send no email.
     """
     # Without DJANGO_HTTPS of this process: the default (True) unless a test
     # sets it
@@ -140,6 +145,8 @@ def run_with_production_settings(*args, **env):
         "DJANGO_SECRET_KEY": PRODUCTION_KEY,
         "DJANGO_ALLOWED_HOSTS": "bookstore.example.com",
         "SENTRY_DSN": "",
+        "EMAIL_HOST_USER": "bookstore@example.com",
+        "EMAIL_HOST_PASSWORD": "test-only-password",
         **env,
     }
     return subprocess.run(
@@ -177,6 +184,18 @@ def test_production_settings_pass_the_deploy_check():
 
     assert result.returncode == 0, result.stderr
     assert "no issues" in result.stdout
+
+
+def test_deploy_check_reports_missing_email_settings():
+    """Without EMAIL_HOST_USER / EMAIL_HOST_PASSWORD the emails only go to
+    the console (the log). Fine for a local run, but on a server customers
+    would get nothing: check --deploy says so (Django 6.1, mail.E001)."""
+    result = run_with_production_settings(
+        "check", "--deploy", EMAIL_HOST_USER="", EMAIL_HOST_PASSWORD=""
+    )
+
+    assert result.returncode == 1
+    assert "mail.E001" in result.stderr
 
 
 def test_production_settings_have_https_and_no_debug():

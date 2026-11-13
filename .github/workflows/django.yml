@@ -1,0 +1,213 @@
+# CI/CD of the bookstore: GitHub runs this file on every push and pull request.
+#
+#   lint ──┐
+#          ├──> docker (build the image; push it to Docker Hub from main only)
+#   test ──┘
+#
+# lint and test run in parallel; docker starts only when both passed, so a
+# broken commit never becomes an image. On main the test job also draws the
+# coverage badge and pushes it to the "badges" branch (README).
+#
+# Settings of the repository (GitHub -> Settings -> Secrets and variables ->
+# Actions), needed by the docker job on main only:
+#   Variables: DOCKERHUB_USERNAME - the Docker Hub account (not secret: it is
+#              a part of the image name, and a secret would be masked as ***
+#              in every log line with the name)
+#   Secrets:   DOCKERHUB_TOKEN    - Docker Hub -> Account settings ->
+#              Personal access tokens, "Read & Write" (not the password)
+# Docs: https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  # The "Run workflow" button on the Actions tab
+  workflow_dispatch:
+
+# A new push to the same branch cancels the run that is still going for the
+# old commit: only the latest commit matters
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Least rights by default: the jobs only read the code. The test job asks
+# for more below (the badge push), only for itself.
+permissions:
+  contents: read
+
+env:
+  PYTHON_VERSION: "3.13"  # the same as the Docker image (Dockerfile FROM)
+
+jobs:
+  lint:
+    name: Lint (black, flake8)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      # Only the two linters, not all of requirements-dev.txt (Django etc.
+      # are not needed to check the style). The versions are taken from
+      # requirements-dev.txt, so they are pinned in one place:
+      # "black==26.10.1" "flake8==7.5.0"
+      - name: Install black and flake8
+        run: pip install $(grep -E '^(black|flake8)==' requirements-dev.txt)
+
+      # --check: change nothing, fail if any file would be reformatted;
+      # --diff: show what would change (settings in pyproject.toml)
+      - name: black
+        run: black --check --diff .
+
+      # Settings in .flake8
+      - name: flake8
+        run: flake8
+
+  test:
+    name: Tests (pytest, coverage)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write  # push of the badge to the "badges" branch
+
+    # PostgreSQL next to the job, as the db service of docker-compose.yml.
+    # The tests need nothing else: the cache is in memory and Celery tasks
+    # run at once, without Redis (config/settings/test.py).
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: bookstore
+          POSTGRES_USER: bookstore
+          POSTGRES_PASSWORD: bookstore
+        ports:
+          - 5432:5432
+        # The job starts only when the database accepts connections
+        options: >-
+          --health-cmd "pg_isready -U bookstore -d bookstore"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    # The settings read these instead of .env (the repository has no .env).
+    # Not real secrets: a throwaway key and the database of this job only.
+    env:
+      DJANGO_SECRET_KEY: ci-only-not-a-secret
+      DATABASE_URL: postgresql://bookstore:bookstore@localhost:5432/bookstore
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          # Keeps the downloaded packages between runs; a new cache when a
+          # requirements file changes
+          cache: pip
+          cache-dependency-path: requirements*.txt
+
+      - name: Install requirements
+        run: pip install -r requirements-dev.txt
+
+      # A model changed but its migration is missing -> fail here, not on
+      # the server after the deploy
+      - name: No missing migrations
+        run: python manage.py makemigrations --check --dry-run
+        env:
+          DJANGO_SETTINGS_MODULE: config.settings.test
+
+      # pytest.ini: coverage, the terminal report, htmlcov/, at least 70%
+      - name: pytest
+        run: pytest
+
+      # The total percent for the badge, e.g. "98.43" (from .coverage)
+      - name: Coverage percent
+        id: coverage
+        if: ${{ !cancelled() }}
+        run: echo "percent=$(coverage report --format=total --precision=2)" >> "$GITHUB_OUTPUT"
+
+      # The HTML report to download from the page of the run (Artifacts):
+      # every file with its missed lines highlighted
+      - name: Upload the coverage report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-html
+          path: htmlcov/
+          retention-days: 14
+
+      # On main only: the badge shows the coverage of main, not of a PR.
+      # The "badges" branch holds only coverage.svg: an orphan branch (no
+      # common history with the code) with one commit, replaced every time
+      # (--force), so it never grows. The README shows
+      # https://raw.githubusercontent.com/<owner>/<repo>/badges/coverage.svg
+      # GITHUB_TOKEN can push (permissions above); a push made with it
+      # doesn't start another workflow run.
+      - name: Push the coverage badge
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PERCENT: ${{ steps.coverage.outputs.percent }}
+        run: |
+          mkdir badge && cd badge
+          python ../.github/scripts/coverage_badge.py "$PERCENT" coverage.svg
+          git init --quiet --initial-branch=badges
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add coverage.svg
+          git commit --quiet -m "Coverage ${PERCENT}% (${GITHUB_SHA::7})"
+          git push --force --quiet \
+            "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" badges
+
+  docker:
+    name: Docker image
+    needs: [lint, test]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      # Push from main only. A pull request still builds the image, so a
+      # broken Dockerfile shows up before the merge, but pushes nothing
+      # (and a PR from a fork has no access to the secrets anyway).
+      PUSH: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    steps:
+      # Buildx: the builder that can use the GitHub Actions cache below
+      - uses: docker/setup-buildx-action@v4
+
+      - name: Log in to Docker Hub
+        if: env.PUSH == 'true'
+        uses: docker/login-action@v4
+        with:
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # The names of the image:
+      #   <user>/hillel-bookstore:latest      - the newest main
+      #   <user>/hillel-bookstore:sha-1a2b3c4 - this exact commit (a rollback
+      #                                         = deploy an older sha tag)
+      # + labels with the repository and the commit (org.opencontainers.*)
+      - name: Image tags
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ vars.DOCKERHUB_USERNAME || 'local' }}/hillel-bookstore
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha
+
+      # No checkout step: build-push-action takes the code of this commit
+      # from git itself (.dockerignore still applies).
+      # cache-from/to: the layers (pip install) are reused between runs
+      # while requirements.txt is unchanged.
+      - name: Build and push
+        uses: docker/build-push-action@v7
+        with:
+          push: ${{ env.PUSH == 'true' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

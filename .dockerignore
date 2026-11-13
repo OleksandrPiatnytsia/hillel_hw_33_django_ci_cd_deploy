@@ -12,8 +12,9 @@
 .venv
 venv
 
-# Git history and IDE settings
+# Git history, CI settings (GitHub Actions) and IDE settings
 .git
+.github
 .gitignore
 .idea
 .vscode
