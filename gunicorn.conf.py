@@ -16,7 +16,9 @@ import os
 # in an event loop; the sync views keep working as before (Django runs them
 # in a thread). Every gunicorn worker process runs uvicorn (package
 # uvicorn-worker): gunicorn restarts crashed workers, uvicorn speaks ASGI.
-worker_class = "uvicorn_worker.UvicornWorker"
+# Our subclass turns off the ASGI "lifespan" events, which Django doesn't
+# support (a ValueError in Sentry on every start): config/uvicorn_worker.py.
+worker_class = "config.uvicorn_worker.DjangoUvicornWorker"
 
 # Listen on all interfaces of the container (127.0.0.1 would be reachable
 # only from inside it). The port: $PORT when the hosting sets it (Railway

@@ -56,7 +56,20 @@ def test_gunicorn_listens_on_the_port_of_the_hosting(monkeypatch):
 
     assert conf["bind"] == "0.0.0.0:4321"
     assert conf["workers"] == 2
-    assert conf["worker_class"] == "uvicorn_worker.UvicornWorker"
+    assert conf["worker_class"] == "config.uvicorn_worker.DjangoUvicornWorker"
+
+
+def test_gunicorn_worker_turns_off_lifespan():
+    """Django answers the ASGI "lifespan" events with a ValueError, which
+    Sentry reported on every start; uvicorn must not send them."""
+    from uvicorn_worker import UvicornWorker
+
+    from config.uvicorn_worker import DjangoUvicornWorker
+
+    assert issubclass(DjangoUvicornWorker, UvicornWorker)
+    assert DjangoUvicornWorker.CONFIG_KWARGS["lifespan"] == "off"
+    # The parent's settings are kept
+    assert DjangoUvicornWorker.CONFIG_KWARGS["loop"] == UvicornWorker.CONFIG_KWARGS["loop"]
 
 
 def test_gunicorn_defaults_for_docker_compose(monkeypatch):
