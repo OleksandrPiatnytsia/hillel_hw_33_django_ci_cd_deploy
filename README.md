@@ -1,27 +1,36 @@
-# hillel_hw_31 — Redis, Celery, nginx
+# hillel_hw_33 — CI/CD і деплой
 
-Навчальний Django-проєкт (Hillel). Продовження ДЗ №28 (книгарня з REST API).
-У цьому ДЗ:
+[![CI](https://github.com/OleksandrPiatnytsia/hillel_hw_33_django_ci_cd_deploy/actions/workflows/django.yml/badge.svg?branch=main)](https://github.com/OleksandrPiatnytsia/hillel_hw_33_django_ci_cd_deploy/actions/workflows/django.yml)
+![Coverage](https://raw.githubusercontent.com/OleksandrPiatnytsia/hillel_hw_33_django_ci_cd_deploy/badges/coverage.svg)
 
-- **склад** — окремий застосунок `inventory`: таблиці `Warehouse` і `Stock` замість
-  поля `Book.stock`, тож дані книги більше не змінюються з кожною покупкою (див. «Склад»);
-- **кеш у Redis**: об'єкт книги, фрагменти шаблонів, відповіді API авторів і
-  категорій; очищення через сигнали (див. «Кешування»);
-- **Celery + Celery Beat** (брокер — Redis): листи у фоні з повторними спробами,
-  щоденний CSV-звіт менеджерам, очищення сесій, скасування неоплачених замовлень
-  за розкладом з листом покупцю (див. «Celery»); **Flower** — панель задач;
-- **nginx** перед gunicorn: static і media з volumes, `DEBUG=False` у Docker,
-  справжня IP-адреса клієнта (див. «nginx»);
-- **Sentry**: помилки сайту й задач без персональних даних (див. «Sentry»);
-- блок «Інструменти» в профілі суперкористувача: адмінка, документація API, Flower, Sentry, Stripe;
-- 362 тести, покриття 98.36%, код цього ДЗ — 100% ([`COVERAGE.md`](COVERAGE.md)).
+**Сайт:** https://web-production-8fd24010.up.railway.app/
+(стан сервісів: [`/health/`](https://web-production-8fd24010.up.railway.app/health/),
+API: [`/api/docs/`](https://web-production-8fd24010.up.railway.app/api/docs/))
+
+Навчальний Django-проєкт (Hillel). Продовження ДЗ №31 (книгарня з REST API,
+Redis, Celery, nginx). У цьому ДЗ:
+
+- **GitHub Actions** (`.github/workflows/django.yml`): black і flake8, тести на
+  PostgreSQL з покриттям, бейдж покриття без зовнішніх сервісів, Docker-образ
+  у Docker Hub після злиття в `main` (див. «CI/CD»);
+- **налаштування за середовищами**: пакет `config/settings/` — `base`,
+  `development`, `production`, `test`; у production `DEBUG=False`, HTTPS,
+  захищені cookies, HSTS, `DATABASE_URL` і `REDIS_URL` (див. «Налаштування»);
+- **деплой на Railway**: web (gunicorn + uvicorn) і worker (Celery з Beat),
+  PostgreSQL, Redis, Volume для обкладинок; статика через **WhiteNoise**,
+  перевірка здоров'я `/health/` (див. «Деплой на Railway»);
+- єдиний стиль коду: black + flake8 (`pyproject.toml`, `.flake8`);
+- 426 тестів, покриття 98.45%.
 
 ## Стек
 
 - Python 3.13, Django 6.1
 - PostgreSQL 17 (`psycopg` 3), Redis 8 (вбудований у Django `RedisCache`)
-- Docker, docker compose; gunicorn + uvicorn (ASGI); nginx 1.30 (static, media, проксі)
-- Celery 5.7 (брокер Redis), Celery Beat (розклад у `settings.py`), Flower 2.2
+- Docker, docker compose; gunicorn + uvicorn (ASGI); nginx 1.30 (static, media, проксі — локально)
+- WhiteNoise 6.12: статика на Railway, де немає nginx
+- GitHub Actions (CI/CD), Docker Hub (образ), Railway (хостинг)
+- black 26.10 і flake8 7.5 (`requirements-dev.txt`): стиль коду, перевіряється в CI
+- Celery 5.7 (брокер Redis), Celery Beat (розклад у `config/settings/base.py`), Flower 2.2
 - Sentry (`sentry-sdk` 2.74): інтеграції Django, Celery, logging
 - `psycopg-pool`: пул з'єднань з базою
 - gettext (`makemessages` / `compilemessages`), Django i18n
@@ -156,7 +165,7 @@ ViewSets і права працюють з моделями `books` і `orders` 
 ### Автентифікація: JWT і сесія
 
 ```python
-# config/settings.py
+# config/settings/base.py
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework_simplejwt.authentication.JWTAuthentication",  # Authorization: Bearer <access>
@@ -377,9 +386,17 @@ CORS_URLS_REGEX = r"^/api/.*$"
 ## Структура
 
 ```
+.github/
+├── workflows/django.yml     # CI/CD: lint -> test -> docker (див. «CI/CD»)
+└── scripts/coverage_badge.py  # coverage.xml -> coverage.svg для гілки badges
 config/
-├── settings.py              # PostgreSQL, Redis, кеш, Celery і розклад Beat, Sentry, LOGGING
-├── settings_test.py         # налаштування для pytest: швидкий хеш паролів, LocMemCache, без пулу
+├── settings/                # див. «Налаштування»
+│   ├── base.py              # спільне: PostgreSQL, Redis, кеш, Celery і розклад Beat, Sentry, LOGGING
+│   ├── development.py       # runserver: DEBUG, Debug Toolbar (типово для manage.py)
+│   ├── production.py        # Docker і Railway: без DEBUG, HTTPS, WhiteNoise (типово для asgi/wsgi/celery)
+│   └── test.py              # pytest: швидкий хеш паролів, LocMemCache, без файлу логів
+├── env.py                   # env_bool(), env_list(), DATABASE_URL або POSTGRES_*, redis_url()
+├── uvicorn_worker.py        # воркер gunicorn: uvicorn без подій lifespan
 ├── urls.py                  # admin + books + accounts/ + cart/ + orders/ + payments/ + api/ + health/ + sentry-debug/ + i18n/
 ├── celery.py                # Celery-застосунок, enqueue_on_commit() (задача після COMMIT)
 ├── sentry.py                # init_sentry(): що відправляється в Sentry, а що ні
@@ -504,14 +521,17 @@ static/                      # статика проєкту
 media/                       # завантажені обкладинки (не в git)
 logs/                        # app.log і його ротації (не в git)
 requirements.txt             # залежності проєкту
-requirements-dev.txt         # + django-debug-toolbar і пакети для тестів
+requirements-dev.txt         # + django-debug-toolbar, пакети для тестів, black, flake8
 tests/                       # див. «Тести»
 pytest.ini                   # налаштування pytest, звіти покриття, мінімум 70%
 .coveragerc                  # що рахується в покритті
-nginx/default.conf           # nginx: /static/, /media/ з volumes, решта -> gunicorn
-Dockerfile                   # образ web: python:3.13-slim, користувач app, gunicorn + uvicorn
+pyproject.toml               # black: рядок 100, Python 3.13
+.flake8                      # flake8: рядок 100, винятки, сумісні з black
+nginx/default.conf           # nginx: /static/, /media/ з volumes, решта -> gunicorn (лише локально)
+Dockerfile                   # образ: python:3.13-slim, користувач app, production-налаштування
 .dockerignore                # що не потрапляє в образ (.env, .venv, бази, media)
-docker-entrypoint.sh         # migrate + collectstatic (не для celery), потім exec команди
+gunicorn.conf.py             # порт з $PORT, воркери з WEB_CONCURRENCY, воркер uvicorn
+docker-entrypoint.sh         # root на Railway -> chown media і далі як app; migrate + collectstatic (не для celery); exec команди
 docker-compose.yml           # nginx + web + db + redis + celery + celery-beat + flower + stripe-cli
 .gitattributes               # *.sh завжди з LF
 ```
@@ -524,7 +544,7 @@ docker-compose.yml           # nginx + web + db + redis + celery + celery-beat +
 пароль, імена, `is_staff`, групи, права) лишається, змінено тільки email.
 
 ```python
-# config/settings.py
+# config/settings/base.py
 AUTH_USER_MODEL = "users.User"
 ```
 
@@ -665,7 +685,7 @@ ENABLE_DEBUG_TOOLBAR = (
 
 ## Логування
 
-`LOGGING` у `config/settings.py`: вивід у консоль і у файл `logs/app.log`
+`LOGGING` у `config/settings/base.py`: вивід у консоль і у файл `logs/app.log`
 (`RotatingFileHandler`: 1 МБ, 5 архівних файлів, `utf-8`). Формат:
 
 ```
@@ -786,18 +806,26 @@ INFO config.middleware GET /create/ 403 3.6ms user=ann
 | Що це | CSS, JS, іконки, заглушка обкладинки | обкладинки, завантажені через форму |
 | Де лежить | `static/` (у git) | `media/covers/<рік>/<місяць>/` (не в git) |
 | Налаштування | `STATIC_URL`, `STATICFILES_DIRS`, `STATIC_ROOT` | `MEDIA_URL`, `MEDIA_ROOT` |
-| Хто роздає локально (`runserver`, `DEBUG=True`) | `runserver` сам | `static()` у `config/urls.py` |
+| Хто роздає локально (`runserver`, `DEBUG=True`) | `runserver` сам | `serve_media` у `config/views.py` |
 | Хто роздає в Docker (`DEBUG=False`) | nginx з volume `static_data` | nginx з volume `hillel_bookstore_media_data` |
+| Хто роздає на Railway (nginx немає) | WhiteNoise (middleware) | `serve_media` з Volume, бо `DJANGO_SERVE_MEDIA=True` |
 
 - У шаблонах статика підключається через `{% load static %}` і `{% static '...' %}`.
 - `collectstatic` запускає `docker-entrypoint.sh` при кожному старті `web`.
-- `ManifestStaticFilesStorage`: `collectstatic` записує кожен файл ще й з хешем
-  вмісту в імені (`styles.css` → `styles.5a5d728b941a.css`), а `{% static %}`
-  дає саме це ім'я. Змінений файл = нове ім'я, тому nginx дозволяє браузеру
-  тримати статику рік (`Cache-Control: immutable`), і після оновлення ніхто
-  не бачить старий CSS. Тести працюють зі звичайним `StaticFilesStorage`
-  (`config/settings_test.py`): вони йдуть з `DEBUG=False` без `collectstatic`.
-- Подробиці — у розділі «nginx».
+- **Хеш в імені файлу** (production: `CompressedManifestStaticFilesStorage` від
+  WhiteNoise): `collectstatic` записує кожен файл ще й з хешем вмісту в імені
+  (`styles.css` → `styles.5a5d728b941a.css`) і стиснуті копії (`.gz`),
+  а `{% static %}` дає ім'я з хешем. Змінений файл = нове ім'я, тому nginx
+  і WhiteNoise дозволяють браузеру тримати статику рік (`immutable`), і після
+  оновлення ніхто не бачить старий CSS. Тести працюють зі звичайним
+  `StaticFilesStorage` (`config/settings/test.py`): без `collectstatic`.
+- **WhiteNoise** стоїть одразу після `SecurityMiddleware` (спершу редирект на
+  HTTPS, потім статика без решти middleware). Під ASGI він віддає файл у потоці;
+  для кількох CSS і JS цього досить, а nginx локально лишається.
+- **`serve_media`** (`config/views.py`) роздає лише `/media/`, лише при `DEBUG`
+  або `SERVE_MEDIA`, лише GET і HEAD, з `Cache-Control` на 7 днів. Так зроблено
+  для Railway: окремого сервера для файлів там немає, а обкладинок мало.
+- Подробиці — у розділах «nginx» і «Деплой на Railway».
 
 ### Обкладинки книг
 
@@ -1081,7 +1109,7 @@ MAILERS = {
 інтерфейс; дані (книги, автори) — ні, див. «Відомі обмеження».
 
 ```python
-# config/settings.py
+# config/settings/base.py
 LANGUAGE_CODE = "uk"
 LANGUAGES = [("uk", _("Ukrainian")), ("en", _("English"))]
 LOCALE_PATHS = [BASE_DIR / "locale"]
@@ -1200,14 +1228,23 @@ async def order_status(request, pk):
 
 ```
 gunicorn (керує процесами, перезапускає впалі)
-  └─ 3 воркери uvicorn_worker.UvicornWorker (event loop, протокол ASGI)
+  └─ 3 воркери DjangoUvicornWorker (uvicorn: event loop, протокол ASGI)
        └─ config.asgi:application → middleware → view
 ```
 
 ```dockerfile
-CMD ["gunicorn", "config.asgi:application", "-k", "uvicorn_worker.UvicornWorker",
-     "--bind", "0.0.0.0:8000", "--workers", "3", "--forwarded-allow-ips=*", "--no-control-socket"]
+CMD ["gunicorn", "config.asgi:application"]
 ```
+
+Решту налаштувань gunicorn читає сам із `gunicorn.conf.py` (з коментарем до кожного):
+
+| Налаштування | Значення | Навіщо |
+|---|---|---|
+| `bind` | `0.0.0.0:$PORT`, типово 8000 | Railway сам вибирає порт і передає його в `PORT` |
+| `workers` | `WEB_CONCURRENCY`, типово 3 | на малому тарифі менше пам'яті: на Railway `WEB_CONCURRENCY=2` |
+| `worker_class` | `config.uvicorn_worker.DjangoUvicornWorker` | uvicorn з `lifespan: off`: Django не підтримує подію lifespan і відповідав на неї `ValueError`, який Sentry записував при кожному старті |
+| `forwarded_allow_ips` | `*` | довіряти `X-Forwarded-*` від проксі (nginx, Railway) |
+| `control_socket_disable` | `True` | з версії 25.1 gunicorn відкриває сокет у `$HOME`, а в користувача `app` домашньої папки немає |
 
 - **Async view** виконуються прямо в event loop; поки view чекає на базу, воркер
   обслуговує інші запити. **Звичайні (sync) view** працюють як і раніше: Django
@@ -1216,7 +1253,7 @@ CMD ["gunicorn", "config.asgi:application", "-k", "uvicorn_worker.UvicornWorker"
   Django під ASGI запускає його й усе нижче в потоці на кожен запит, і
   асинхронність втрачається. Тому `RequestTimingMiddleware` має `__call__` і
   `__acall__` (`sync_capable = async_capable = True`). Статику під ASGI Django
-  не роздає зовсім: її віддає nginx (див. «nginx»).
+  сам не роздає: локально її віддає nginx, на Railway — WhiteNoise.
 - **Пул з'єднань** замість `CONN_MAX_AGE`:
   ```python
   "CONN_MAX_AGE": 0,
@@ -1242,13 +1279,14 @@ open htmlcov/index.html               # непокриті рядки підсв
 
 | | Кількість | Що перевіряють |
 |---|---|---|
-| `tests/unit/` | 194 | одна функція, модель, форма або один запит; склад, задачі Celery, Sentry |
+| `tests/unit/` | 258 | одна функція, модель, форма або один запит; склад, задачі Celery, Sentry, налаштування production, gunicorn |
 | `tests/integration/` | 76 | сценарії з кількох кроків: кошик → замовлення → Stripe → webhook → лист; кеш |
 | `tests/api/` | 85 | REST API через `APIClient`: токени, права кожної ролі, фільтри, замовлення, CORS, throttling, кеш |
 | `tests/test_setup.py` | 7 | сама інфраструктура: налаштування, фабрики, фейки |
 
-Покриття **98.36%** (таблиця по файлах — [`COVERAGE.md`](COVERAGE.md)); `--cov-fail-under=70` у `pytest.ini`: якщо покриття впаде
-нижче 70%, `pytest` завершиться з помилкою.
+Покриття **98.45%** (426 тестів); `--cov-fail-under=70` у `pytest.ini`: якщо покриття впаде
+нижче 70%, `pytest` завершиться з помилкою. Ті самі тести запускає CI на кожен push
+і pull request, а звіт `htmlcov` лежить в артефактах запуску (див. «CI/CD»).
 
 ### Структура
 
@@ -1296,7 +1334,7 @@ tests/
 - **Email** — `mailoutbox` (pytest-django, бекенд `locmem`): листи нікуди не
   йдуть. Листи після COMMIT — через `django_capture_on_commit_callbacks(execute=True)`.
   `failing_mailer` імітує падіння SMTP: замовлення має зберегтися.
-- **Налаштування тестів** (`config/settings_test.py`): MD5-хеш паролів (швидко),
+- **Налаштування тестів** (`config/settings/test.py`): MD5-хеш паролів (швидко),
   `LocMemCache` замість Redis, фейкові ключі Stripe, без пулу з'єднань і без запису в `logs/app.log`,
   `CELERY_TASK_ALWAYS_EAGER=True` (задача виконується одразу, разом з повторними спробами, без брокера),
   Sentry не запускається.
@@ -1409,15 +1447,15 @@ docker compose exec web python manage.py cancel_unpaid_orders --dry-run
 - `.env` не потрапляє в образ (`.dockerignore`), compose передає змінні через
   `env_file`. Хости в `.env` — `localhost` (для локального запуску);
   `docker-compose.yml` перевизначає їх: `POSTGRES_HOST=db`,
-  `REDIS_URL=redis://redis:6379/0`, `CELERY_BROKER_URL=redis://redis:6379/1`
-  (сервіси бачать один одного за іменем), а також `DJANGO_DEBUG=False` і
-  `SENTRY_ENVIRONMENT=docker`.
+  `REDIS_URL=redis://redis:6379` (сервіси бачать один одного за іменем;
+  кеш бере базу 0, черга Celery — базу 1), `DJANGO_HTTPS=False` (локально
+  немає сертифіката) і `SENTRY_ENVIRONMENT=docker`. `DEBUG` у Docker вимкнено
+  завжди: образ працює з `config.settings.production`.
 - **`$` у значеннях `.env`.** Docker compose сприймає `$abc` як змінну й підставляє
   порожній рядок (`WARN The "abc" variable is not set`). Ключ від
   `get_random_secret_key()` може містити `$`, тому його беремо в **одинарні**
   лапки: `DJANGO_SECRET_KEY='...'`. Подвійні лапки не допомагають.
-- gunicorn запускається з `--no-control-socket`: з версії 25.1 він відкриває сокет
-  для `gunicornc` у `$HOME`, а в користувача `app` немає домашньої папки.
+- Налаштування gunicorn — у `gunicorn.conf.py` (див. «ASGI у Docker»).
 
 ### Спільні volume
 
@@ -1511,15 +1549,20 @@ docker compose exec -u root web chown -R app:app /app/media
 | Змінна | Опис | Приклад |
 |---|---|---|
 | `DJANGO_SECRET_KEY` | секретний ключ (обов'язковий), в одинарних лапках | `'change-me'` |
-| `DJANGO_DEBUG` | режим налагодження для `runserver`; у Docker завжди `False` (compose) | `True` |
-| `DJANGO_ALLOWED_HOSTS` | хости через кому (`localhost` потрібен і для healthcheck) | `127.0.0.1,localhost` |
+| `DJANGO_DEBUG` | режим налагодження, лише для `development` (runserver); production його ігнорує | `True` |
+| `DJANGO_ALLOWED_HOSTS` | хости через кому (`localhost` потрібен і для healthcheck); на Railway домен додається сам | `127.0.0.1,localhost` |
+| `DJANGO_CSRF_TRUSTED_ORIGINS` | production: додаткові адреси для перевірки CSRF (через кому) | `https://shop.example.com` |
+| `DJANGO_HTTPS` | production: редирект на HTTPS, secure cookies, HSTS; compose ставить `False` | `True` |
+| `DJANGO_HSTS_SECONDS` | production: скільки браузер пам'ятає «лише HTTPS» | `3600` |
+| `DJANGO_SERVE_MEDIA` | production: Django сам роздає `/media/` (Railway, де немає nginx) | `False` |
+| `DATABASE_URL` | база однією адресою (Railway, CI); якщо задана — `POSTGRES_*` не потрібні | `postgresql://user:pass@host:5432/db` |
 | `POSTGRES_DB` | назва бази (обов'язкова); контейнер `db` створює її при першому старті | `bookstore` |
 | `POSTGRES_USER` | користувач бази (обов'язковий) | `bookstore` |
 | `POSTGRES_PASSWORD` | пароль (обов'язковий) | |
 | `POSTGRES_HOST` | `localhost` для runserver; у Docker compose ставить `db` | `localhost` |
 | `POSTGRES_PORT` | порт | `5432` |
-| `REDIS_URL` | Redis для кешу й сесій; у Docker compose ставить `redis://redis:6379/0` | `redis://localhost:6379/0` |
-| `CELERY_BROKER_URL` | черга Celery (база 1 того самого Redis); у Docker — `redis://redis:6379/1` | `redis://localhost:6379/1` |
+| `REDIS_URL` | сервер Redis: кеш і сесії в базі 0, черга Celery в базі 1; у Docker compose — `redis://redis:6379` | `redis://localhost:6379` |
+| `CELERY_BROKER_URL` | лише щоб винести чергу на інший сервер; порожня — `REDIS_URL`, база 1 | |
 | `FLOWER_BASIC_AUTH` | логін і пароль Flower `user:password`, без коми; **обов'язкова** для `docker compose` | `'admin:change-me'` |
 | `FLOWER_URL` | адреса Flower для посилання в профілі | `http://localhost:5555` |
 | `SENTRY_DSN` | адреса проєкту Sentry; порожня — Sentry вимкнено | `https://...@o....ingest.sentry.io/...` |
@@ -1536,6 +1579,163 @@ docker compose exec -u root web chown -R app:app /app/media
 `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` читають і Django, і образ
 `postgres`, тому один `.env` обслуговує обидва. Змінювати їх після першого старту
 `db` марно: база вже створена у volume.
+
+## Налаштування
+
+Пакет `config/settings/`: спільна частина і по файлу на кожне середовище.
+Кожен файл починається з `from .base import *` і змінює лише своє.
+
+| Файл | Де працює | Хто його вибирає | Що змінює |
+|---|---|---|---|
+| `base.py` | — (лише основа) | — | усе спільне: застосунки, база, кеш, Celery, LOGGING, Sentry; `DEBUG=False` |
+| `development.py` | `runserver`, команди `manage.py` на Mac | типове значення в `manage.py` | `DEBUG` (можна вимкнути `DJANGO_DEBUG=False`), Debug Toolbar, логи DEBUG |
+| `production.py` | Docker (локально й на Railway) | `ENV DJANGO_SETTINGS_MODULE` у `Dockerfile`; типове в `asgi.py`, `wsgi.py`, `celery.py` | без `DEBUG`, HTTPS, WhiteNoise, хости Railway |
+| `test.py` | `pytest` | `pytest.ini` | швидкий хеш паролів, кеш у пам'яті, фейкові ключі Stripe |
+
+**Production** (`config/settings/production.py`):
+
+- `DEBUG = False` без жодної змінної, яка могла б його ввімкнути.
+- Без `DJANGO_ALLOWED_HOSTS` сервер не стартує (`ImproperlyConfigured`), а не
+  відповідає 400 на кожен запит. На Railway домен сервісу (`RAILWAY_PUBLIC_DOMAIN`)
+  і хост його перевірки здоров'я (`healthcheck.railway.app`) додаються самі.
+- **HTTPS** (`DJANGO_HTTPS`, типово `True`): редирект з `http://` (крім `/health/`:
+  Railway перевіряє його звичайним HTTP), cookies сесії, CSRF і мови лише через
+  HTTPS, HSTS на годину (`DJANGO_HSTS_SECONDS`). `SECURE_PROXY_SSL_HEADER`:
+  HTTPS закінчується на проксі Railway, а Django дізнається про нього з
+  `X-Forwarded-Proto`. Локальний `docker compose` ставить `DJANGO_HTTPS=False`:
+  сертифіката на `localhost` немає.
+- Перевірка: `python manage.py check --deploy` без жодного попередження
+  (`tests/unit/test_settings.py` запускає її з production-налаштуваннями).
+
+**Змінні з однієї адреси** (`config/env.py`):
+
+- `DATABASE_URL=postgresql://user:password@host:5432/name` (так базу дають
+  Railway і CI); без неї — `POSTGRES_*` з `.env`, як раніше.
+- `REDIS_URL=redis://host:6379` — один сервер: кеш і сесії в базі 0, черга Celery
+  в базі 1 (`redis_url()` дописує номер). Railway дає одну адресу без номера бази.
+
+## CI/CD
+
+`.github/workflows/django.yml` запускається на кожен push у `main`, на кожен
+pull request і вручну (`workflow_dispatch`).
+
+```
+push / pull request
+  ├─ lint     black --check, flake8                         ─┐
+  └─ test     PostgreSQL 17 (service) → makemigrations --check ├─► docker   збірка образу
+              → pytest + покриття → htmlcov в артефакти       ─┘            push у Docker Hub (лише main)
+              → coverage.svg у гілку badges (лише main)
+```
+
+- **lint:** ставить лише black і flake8 тих самих версій, що в
+  `requirements-dev.txt`, і перевіряє весь код без змін (`--check --diff`).
+- **test:** PostgreSQL — справжній контейнер (`services`), як локально; Redis
+  не потрібен: тести беруть кеш у пам'яті, а задачі Celery виконуються одразу.
+  `makemigrations --check` падає, якщо модель змінено без міграції. Покриття
+  нижче 70% — теж помилка.
+- **Бейдж покриття без Codecov:** `.github/scripts/coverage_badge.py` малює
+  `coverage.svg` з відсотком (колір від червоного до зеленого), а крок CI кладе
+  його в окрему гілку `badges` (одна версія, `--force`). README показує файл з
+  `raw.githubusercontent.com`. Потрібен лише `permissions: contents: write`,
+  жодних зовнішніх акаунтів і токенів.
+- **docker:** чекає на `lint` і `test`. У pull request лише збирає образ (Dockerfile
+  не зламано), у `main` — ще й відправляє `<DOCKERHUB_USERNAME>/hillel-bookstore`
+  з тегами `latest` і `sha-<7 символів коміту>`. Шари кешуються між запусками (`gha`).
+- **Налаштування репозиторію** (Settings → Secrets and variables → Actions):
+  змінна `DOCKERHUB_USERNAME` і секрет `DOCKERHUB_TOKEN` (Docker Hub → Account
+  settings → Personal access tokens, право Read & Write). Без них крок
+  «Check the Docker Hub settings» пише, чого саме бракує.
+- `concurrency`: новий push у ту саму гілку скасовує попередній запуск.
+
+**CD:** Railway збирає образ із того самого репозиторію сам і чекає на CI
+(«Wait for CI»): якщо тести впали, деплою не буде (див. «Деплой на Railway»).
+
+## Деплой на Railway
+
+```
+GitHub (main) ── CI зелений ──► Railway: збірка з Dockerfile
+                                   ├─ web      gunicorn + uvicorn, домен *.up.railway.app, Volume /app/media
+                                   ├─ worker   celery worker -B (Beat усередині)
+                                   ├─ Postgres
+                                   └─ Redis    кеш, сесії, черга Celery
+```
+
+Конфігурація — в інтерфейсі Railway, а не у файлі: `railway.json` / `railway.toml`
+Railway оголосив застарілими (нові сервіси вже не можуть їх увімкнути).
+
+**Сервіси:**
+
+| Сервіс | Звідки | Команда запуску | Що ще |
+|---|---|---|---|
+| `web` | GitHub-репозиторій | з Dockerfile (`gunicorn config.asgi:application`) | Generate Domain; Healthcheck Path `/health/`; Volume → `/app/media`; Wait for CI |
+| `worker` | той самий репозиторій | `celery -A config worker -B --loglevel=info --concurrency=2 --schedule=/tmp/celerybeat-schedule` | без домену, healthcheck і Volume; Wait for CI |
+| `Postgres` | шаблон Railway | — | дає `DATABASE_URL` |
+| `Redis` | шаблон Railway | — | дає `REDIS_URL` |
+
+- **Один образ — два сервіси.** `web` і `worker` збираються з того самого коду,
+  відрізняється лише команда, як `web` і `celery` у `docker-compose.yml`.
+- **Beat усередині worker** (`-B`): окремий сервіс для розкладу не потрібен.
+  Beat має бути рівно один, тому у worker 1 репліка; інакше кожна задача за
+  розкладом виконувалась би двічі. Перевірка в логах worker: `mingle: all alone`.
+- **Міграції** робить лише `web`: `docker-entrypoint.sh` перед стартом gunicorn.
+  Railway-команда worker замінює entrypoint, тож worker міграцій не запускає.
+- **Volume і права.** Railway монтує Volume від імені root, а образ працює як
+  `app`. Тому у web `RAILWAY_RUN_UID=0`: entrypoint стартує як root, віддає
+  `/app/media` користувачу `app` і перезапускає себе вже як `app` (`setpriv`).
+  Worker файлів не пише, тож працює одразу як `app`.
+
+**Змінні** (Variables → Raw Editor; `${{...}}` — посилання Railway на інший сервіс):
+
+| Змінна | web | worker |
+|---|---|---|
+| `DJANGO_SECRET_KEY` | новий ключ (не локальний) | той самий, що у web |
+| `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` | те саме |
+| `REDIS_URL` | `${{Redis.REDIS_URL}}` | те саме |
+| `SITE_URL` | `https://${{RAILWAY_PUBLIC_DOMAIN}}` | `https://${{web.RAILWAY_PUBLIC_DOMAIN}}` — домен **web**, у worker свого немає |
+| `DJANGO_SERVE_MEDIA` | `True` | — |
+| `RAILWAY_RUN_UID` | `0` | — |
+| `WEB_CONCURRENCY` | `2` | — |
+| `FLOWER_URL` | порожньо (Flower на Railway немає — немає й посилання) | — |
+| `STRIPE_SECRET_KEY` | `sk_test_...` | те саме |
+| `STRIPE_WEBHOOK_SECRET` | `whsec_...` від webhook у Stripe Dashboard (не від Stripe CLI) | — |
+| `SENTRY_DSN`, `SENTRY_ENVIRONMENT=production` | так | так |
+| `SENTRY_ISSUES_URL` | посилання в профілі | — |
+
+**Перший запуск:**
+
+```bash
+brew install railway
+railway login
+railway link                                       # проєкт, середовище production, сервіс web
+railway ssh --service web                          # shell у контейнері web, далі:
+python manage.py createsuperuser
+python manage.py seed_books                        # демо-каталог, якщо даних немає
+```
+
+- **Stripe:** Dashboard (Test mode) → Developers → Webhooks → Add destination:
+  Your account, payload **Snapshot** (код читає `event.data.object`), 4 події
+  `checkout.session.*` (`completed`, `async_payment_succeeded`,
+  `async_payment_failed`, `expired`), URL `https://<домен>/payments/webhook/stripe/`.
+  Signing secret → `STRIPE_WEBHOOK_SECRET` у web.
+- **Перенесення каталогу з локальної бази** (замість `seed_books`):
+  ```bash
+  docker compose exec -T web python manage.py dumpdata books.Category books.Author books.Book books.BookCategory inventory.Warehouse inventory.Stock --indent 2 > catalog.json
+  railway ssh --service web -- python manage.py loaddata --format=json - < catalog.json
+  docker compose exec -T web tar -czf - -C /app/media covers | railway ssh --service web -- tar --no-same-owner -xzf - -C /app/media
+  railway ssh --service web -- chown -R app:app /app/media
+  ```
+  `railway ssh` передає stdin у контейнер, тому файли не треба окремо копіювати.
+  `loaddata` зберігає `id` книжок і сам скидає sequences PostgreSQL. Каталог на
+  Railway перед цим має бути порожнім (інакше `id` перетнуться). Після
+  завантаження варто очистити кеш (`cache.clear()`).
+
+**Перевірка після деплою:**
+
+- `https://<домен>/health/` → `{"status": "ok", "database": "ok", "cache": "ok"}`;
+- логи worker: `celery@... ready.`, `beat: Starting...`, `mingle: all alone`;
+- обкладинка після Redeploy на місці (файли у Volume, а не в контейнері);
+- тестова оплата карткою `4242 4242 4242 4242` → «Оплачено», у Stripe подія з відповіддю 200;
+- `/sentry-debug/` (суперкористувач) → помилка в Sentry з `environment: production`.
 
 ## Redis
 
@@ -1631,7 +1831,7 @@ celery-beat ── за розкладом ────────────�
 - **Звіт** (`orders/reports.py`): 3 CSV у вкладенні (UTF-8 з BOM, відкриваються
   в Excel): замовлення дня, топ книг, книги з залишком ≤ 5. Менеджери в `bcc`,
   кожному — його мовою.
-- Розклад — у `CELERY_BEAT_SCHEDULE` (`settings.py`), а не в адмінці
+- Розклад — у `CELERY_BEAT_SCHEDULE` (`config/settings/base.py`), а не в адмінці
   (django-celery-beat): його видно й рев'юють у git. Час — UTC.
 - Ручний запуск задачі:
   `docker compose exec web python manage.py shell -c "from orders.tasks import send_daily_report; send_daily_report.delay()"`.
@@ -1673,11 +1873,12 @@ http://localhost:5555/ — панель Celery: воркери, кожна за�
 - **`DEBUG=False` у Docker:** немає сторінок з traceback і Debug Toolbar.
   Помилки показують `404.html`, `403.html`, `500.html`; `500.html` не наслідує
   `base.html` — він рендериться без контексту запиту й не повинен сам упасти.
-- WhiteNoise прибрано: статику роздає nginx, `runserver` — сам.
+- nginx лише для локального `docker compose`. На Railway його немає: статику
+  роздає WhiteNoise, обкладинки — `serve_media` (див. «Статичні файли і media»).
 
 ## Sentry
 
-`config/sentry.py`, викликається в кінці `settings.py`, тож працює в `web`,
+`config/sentry.py`, викликається в кінці `config/settings/base.py`, тож працює в `web`,
 `celery` і `celery-beat`. Без `SENTRY_DSN` (і в тестах) не запускається.
 
 **Що потрапляє в Sentry:**
@@ -1702,8 +1903,9 @@ http://localhost:5555/ — панель Celery: воркери, кожна за�
 `ZeroDivisionError` (для інших 404). Чи ввімкнено Sentry у контейнері:
 
 ```bash
-docker compose exec web python -c "import django,os;os.environ.setdefault('DJANGO_SETTINGS_MODULE','config.settings');django.setup();import sentry_sdk as s;c=s.get_client();print(c.is_active(),c.options['environment'],bool(c.dsn))"
-# True docker True
+docker compose exec web python manage.py shell --no-imports -c "import sentry_sdk as s; c = s.get_client(); print(c.is_active(), c.options['environment'])"
+# True docker
+# на Railway те саме: railway ssh --service web, потім команда без "docker compose exec web" -> True production
 ```
 
 `tests/unit/test_sentry.py` шле запит через справжній `config.asgi.application`
@@ -1832,8 +2034,15 @@ ORDER BY:  андрій, Андрій, Борис, Гліб, Ґанна, Євг�
   Такі файли лишаються в `media/` (у Docker — у volume `media_data`).
 - **IP у логах — це адреса Mac з погляду Docker** (`192.168.65.1`): nginx
   передає справжню адресу клієнта, але на локальній машині клієнт — сам Docker Desktop.
-- **Лише HTTP.** HTTPS (сертифікат, `SECURE_PROXY_SSL_HEADER`, HSTS) потрібен на
-  справжньому сервері; nginx уже передає `X-Forwarded-Proto`.
+- **Локально лише HTTP.** HTTPS увімкнено на Railway (сертифікат дає Railway,
+  див. «Налаштування»); локальний `docker compose` працює з `DJANGO_HTTPS=False`.
+- **Листи на Railway не відправляються.** На тарифах Free / Trial / Hobby Railway
+  блокує вихідний SMTP (дозволено лише на Pro), а `EMAIL_HOST_*` там не задано:
+  задачі Celery виконуються, а текст листа друкується в лог worker. Справжня
+  відправка — через поштовий сервіс з HTTP API (див. «Плани»).
+- **Обкладинки на Railway роздає Django** (`serve_media`), а не окремий сервер
+  файлів: для кількох десятків обкладинок досить, для великого каталогу краще
+  сховище на кшталт S3.
 - **Історія Flower і розклад Beat не зберігаються** між перестворенням контейнерів:
   Flower тримає задачі в пам'яті, Beat — час останніх запусків у `/tmp`
   (пропущений запуск не повторюється, просто чекає наступного).
@@ -1866,7 +2075,8 @@ ORDER BY:  андрій, Андрій, Борис, Гліб, Ґанна, Євг�
 
 ## Плани
 
-- обмеження частоти запитів у nginx (`limit_req`) для сторінок сайту, HTTPS;
+- обмеження частоти запитів у nginx (`limit_req`) для сторінок сайту;
+- листи з Railway через поштовий сервіс з HTTP API (Resend, Brevo) замість SMTP;
 - переклад даних: назви й описи книг, автори, категорії українською та англійською
   (django-modeltranslation або django-parler);
 - валюти: модель `Currency` (UAH, USD);
