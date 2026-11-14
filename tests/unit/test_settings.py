@@ -218,6 +218,30 @@ def test_worker_on_railway_starts_without_a_domain():
     assert values["ALLOWED_HOSTS"] == ["healthcheck.railway.app"]
 
 
+# What the worker does at start (app.log.setup), then one line of Celery's
+# own logger "celery.apps.worker", the one that prints "celery@... ready.".
+# The file handler is removed first: the test must not write logs/app.log.
+CELERY_LOG_LINE = (
+    "import logging; from config.celery import app; "
+    "celery_logger = logging.getLogger('celery'); "
+    "celery_logger.handlers = [h for h in celery_logger.handlers "
+    "if not isinstance(h, logging.FileHandler)]; "
+    "app.log.setup(loglevel='INFO'); "
+    "logging.getLogger('celery.apps.worker').info('celery@test ready.')"
+)
+
+
+def test_celery_worker_keeps_our_log_handlers():
+    """Celery by default removes the handlers of the "celery" logger at
+    start; with our propagate=False its lines ("ready.", "beat: Starting...",
+    "Task ... succeeded") then went nowhere. They must reach the console,
+    in our format (logger name after the level)."""
+    result = run_with_production_settings("shell", "--no-imports", "-c", CELERY_LOG_LINE)
+
+    assert result.returncode == 0, result.stderr
+    assert "INFO celery.apps.worker celery@test ready." in result.stderr
+
+
 def test_production_settings_have_https_and_no_debug():
     values = production_settings(DJANGO_DEBUG="True")  # ignored by production
 

@@ -274,6 +274,14 @@ CELERY_TASK_TIME_LIMIT = 6 * 60
 #                            is visible too (state PENDING -> RECEIVED ...)
 CELERY_WORKER_SEND_TASK_EVENTS = True
 CELERY_TASK_SEND_SENT_EVENT = True
+# Logging of the worker stays with LOGGING below (logger "celery").
+# By default Celery "hijacks" logging at start: it removes the handlers of
+# the root logger AND of the "celery" logger. Our "celery" logger has
+# propagate=False, so without handlers its records went nowhere: the worker
+# printed no "ready.", "beat: Starting...", "Task ... received / succeeded"
+# and not a single error of a task. False = Celery keeps our handlers and
+# only adds its own to the root logger, if that one has none.
+CELERY_WORKER_HIJACK_ROOT_LOGGER = False
 # Where the browser opens Flower: the link in the profile ("Tools").
 # docker-compose.yml publishes it on this Mac only.
 FLOWER_URL = os.getenv("FLOWER_URL", "http://localhost:5555")
