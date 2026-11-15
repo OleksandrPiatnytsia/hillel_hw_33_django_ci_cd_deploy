@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load i18n %}
+{% load i18n money %}
 
 {% block title %}{{ order }}{% endblock %}
 
@@ -39,16 +39,22 @@
               <tr>
                 {# item.title / item.price: copies from the moment of ordering #}
                 <td><a class="text-decoration-none" href="{{ item.book.get_absolute_url }}">{{ item.title }}</a></td>
-                <td class="text-end text-nowrap">{{ item.price }} ₴</td>
+                <td class="text-end text-nowrap">
+                  {{ item.price|money:order.currency_id }}
+                  {# Converted from the book's own currency: the price it had then #}
+                  {% if item.original_currency_id != order.currency_id %}
+                    <div class="small text-body-secondary">{{ item.original_price|money:item.original_currency_id }}</div>
+                  {% endif %}
+                </td>
                 <td class="text-end">{{ item.quantity }}</td>
-                <td class="text-end text-nowrap">{{ item.cost }} ₴</td>
+                <td class="text-end text-nowrap">{{ item.cost|money:order.currency_id }}</td>
               </tr>
             {% endfor %}
           </tbody>
           <tfoot>
             <tr>
               <th scope="row" colspan="3" class="text-end">{% translate "Total" %}</th>
-              <td class="text-end text-nowrap fs-5 fw-semibold">{{ order.total }} ₴</td>
+              <td class="text-end text-nowrap fs-5 fw-semibold">{{ order.total|money:order.currency_id }}</td>
             </tr>
           </tfoot>
         </table>
@@ -72,8 +78,8 @@
           {# paid_amount / paid_percent: calculated from the payments, not stored #}
           <hr>
           <p class="small mb-1">
-            {% blocktranslate trimmed with paid=order.paid_amount total=order.total percent=order.paid_percent %}
-              Paid {{ paid }} of {{ total }} ₴ ({{ percent }}%)
+            {% blocktranslate trimmed with paid=order.paid_amount|money:order.currency_id total=order.total|money:order.currency_id percent=order.paid_percent %}
+              Paid {{ paid }} of {{ total }} ({{ percent }}%)
             {% endblocktranslate %}
           </p>
           <div class="progress" role="progressbar" aria-label="{% translate 'Paid' %}"
@@ -84,11 +90,11 @@
       </div>
       {% if order.status != "cancelled" and order.payment_status != "paid" %}
         {# amount_due: total minus succeeded payments (partial manual ones too) #}
-        {% with due=order.amount_due %}
+        {% with due=order.amount_due|money:order.currency_id %}
           <div class="card-footer">
             <form method="post" action="{% url 'payments:pay' order.pk %}">
               {% csrf_token %}
-              <button class="btn btn-success w-100" type="submit">{% blocktranslate %}Pay {{ due }} ₴{% endblocktranslate %}</button>
+              <button class="btn btn-success w-100" type="submit">{% blocktranslate %}Pay {{ due }}{% endblocktranslate %}</button>
             </form>
             <div class="form-text text-center">{% translate "Card payment on the Stripe page" %}</div>
           </div>

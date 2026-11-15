@@ -19,6 +19,7 @@ SynchronousOnlyOperation inside the event loop).
 """
 
 import asyncio
+from datetime import date
 from decimal import Decimal
 
 import pytest
@@ -29,6 +30,7 @@ from django.test import AsyncClient
 from django.urls import reverse
 
 from config import views as config_views
+from currencies.models import ExchangeRate
 from orders.models import Order
 from payments.models import Payment
 
@@ -119,7 +121,7 @@ async def test_book_search_returns_at_most_eight_sorted_by_title():
     assert titles == [f"Poems {number:02}" for number in range(8)]
 
 
-@pytest.mark.parametrize(("language", "price"), [("uk", "250,50"), ("en", "250.50")])
+@pytest.mark.parametrize(("language", "price"), [("uk", "250,50 ₴"), ("en", "250.50 ₴")])
 async def test_book_search_price_in_the_language_of_the_request(language, price):
     await sync_to_async(BookFactory)(title="Kobzar", price=Decimal("250.50"))
     client = AsyncClient()
@@ -128,6 +130,24 @@ async def test_book_search_price_in_the_language_of_the_request(language, price)
     response = await client.get(reverse("books:search"), {"q": "kobzar"})
 
     assert response.json()["results"][0]["price"] == price
+
+
+# Generated with AI
+async def test_book_search_price_in_the_chosen_currency(monkeypatch):
+    # Created through sync_to_async: the view reads the rates in the worker
+    # thread, which sees only committed data (see the top of the file)
+    monkeypatch.setattr("currencies.services.today", lambda: date(2026, 11, 16))
+    await sync_to_async(ExchangeRate.objects.create)(
+        currency_id="USD", date=date(2026, 11, 16), rate=Decimal("45.4274")
+    )
+    await sync_to_async(BookFactory)(title="Kobzar", price=Decimal("650.00"))
+    client = AsyncClient()
+    await client.post(reverse("set_currency"), {"currency": "USD", "next": "/"})
+    client.cookies[COOKIE] = "en"
+
+    response = await client.get(reverse("books:search"), {"q": "kobzar"})
+
+    assert response.json()["results"][0]["price"] == "$14.31"
 
 
 # ---------------------------------------------------------------------------

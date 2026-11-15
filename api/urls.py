@@ -12,6 +12,7 @@
     /api/books/<pk>/        one book: read, update, delete
     /api/authors/[<pk>/]    authors, the same actions
     /api/categories/[<pk>/] categories, the same actions
+    /api/currencies/[<code>/] the currencies offered, with today's rate
     /api/orders/            my orders (staff: all); POST a new order with items
     /api/orders/<pk>/       one order
     /api/orders/<pk>/cancel/  POST: cancel my new unpaid order
@@ -35,6 +36,7 @@ from .views.auth import (
     ThrottledTokenObtainPairView,
 )
 from .views.catalog import AuthorViewSet, BookViewSet, CategoryViewSet
+from .views.currencies import CurrencyViewSet
 from .views.orders import OrderViewSet
 
 app_name = "api"
@@ -51,6 +53,8 @@ router = Router()
 router.register("books", BookViewSet)
 router.register("authors", AuthorViewSet)
 router.register("categories", CategoryViewSet)
+# basename: a ViewSet without a queryset -> "api:currency-list"
+router.register("currencies", CurrencyViewSet, basename="currency")
 # basename: OrderViewSet has get_queryset() instead of a queryset attribute,
 # the router can't take the name from the model -> "api:order-list"
 router.register("orders", OrderViewSet, basename="order")

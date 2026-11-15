@@ -19,6 +19,7 @@ from django.utils import timezone
 from django.utils.translation import gettext as _
 
 from config.celery import enqueue_on_commit
+from currencies.display import format_money
 from orders.models import Order
 
 from .models import Payment
@@ -57,14 +58,20 @@ def record_manual_payment(order_id, amount, *, note="", recorded_by=None):
         due = order.amount_due
         if amount > due:
             raise PaymentError(
-                _("%(order)s: only %(due)s UAH is due, %(amount)s UAH is too much.")
-                % {"order": order, "due": due, "amount": amount}
+                _("%(order)s: only %(due)s is due, %(amount)s is too much.")
+                % {
+                    "order": order,
+                    "due": format_money(due, order.currency_id),
+                    "amount": format_money(amount, order.currency_id),
+                }
             )
 
         payment = Payment.objects.create(
             order=order,
             provider=Payment.Provider.MANUAL,
             amount=amount,
+            # A manager enters the sum in the currency of the order
+            currency_id=order.currency_id,
             status=Payment.Status.SUCCEEDED,
             paid_at=timezone.now(),
             details={
@@ -79,7 +86,11 @@ def record_manual_payment(order_id, amount, *, note="", recorded_by=None):
             enqueue_on_commit(send_payment_received_email_task, payment.pk)
 
     logger.info(
-        "Manual payment %s UAH for order #%s recorded (%s)", amount, order.pk, order.payment_status
+        "Manual payment %s %s for order #%s recorded (%s)",
+        amount,
+        order.currency_id,
+        order.pk,
+        order.payment_status,
     )
     return payment
 
@@ -221,6 +232,7 @@ def start_online_payment(order_id, user, request):
             order=order,
             provider=provider.name,
             amount=due,
+            currency_id=order.currency_id,
             status=Payment.Status.PENDING,
         )
 

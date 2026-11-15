@@ -65,10 +65,11 @@ def test_books_are_paginated_by_20(api_client):
 def test_book_list_takes_the_same_number_of_queries_for_any_page_size(
     api_client, django_assert_num_queries
 ):
-    # COUNT for the paginator + the books with their authors (JOIN) + the
+    # COUNT for the paginator + the books with their authors and currencies (JOIN) + the
     # categories of the whole page (prefetch): 3, not 1 + 2 per book
     category = CategoryFactory()
     BookFactory.create_batch(15, categories=[category])
+    api_client.get("/api/books/")  # the rates and the currencies go to the cache
 
     with django_assert_num_queries(3):
         response = api_client.get("/api/books/")
@@ -384,7 +385,7 @@ def test_category_and_author_with_books_cannot_be_deleted(as_user, manager):
 def test_api_root_lists_the_sections(api_client):
     response = api_client.get("/api/")
 
-    assert set(response.json()) == {"books", "authors", "categories", "orders"}
+    assert set(response.json()) == {"books", "authors", "categories", "currencies", "orders"}
 
 
 def test_api_errors_come_in_the_language_of_the_request(as_user, manager):

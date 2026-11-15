@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load i18n %}
+{% load i18n money %}
 
 {% block title %}{{ author.name }}{% endblock %}
 
@@ -51,7 +51,7 @@
           </div>
         </div>
         <div class="text-end">
-          <div class="fw-semibold">{{ book.price }} ₴</div>
+          <div class="fw-semibold">{% book_price book %}</div>
           {% include "books/includes/stock_badge.html" with book=book %}
         </div>
       </a>

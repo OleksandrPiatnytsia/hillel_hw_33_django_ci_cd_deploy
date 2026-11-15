@@ -28,8 +28,20 @@ logger = logging.getLogger(__name__)  # "payments.providers.stripe_checkout"
 # exactly 30 minutes could be rejected: one extra minute of margin.
 SESSION_LIFETIME_SECONDS = 31 * 60
 
-# UAH has two decimal places: Stripe wants the amount in kopiyky, 250.50 -> 25050
-CURRENCY = "uah"
+# The currency of the session = the currency of the payment (of the order),
+# lowercase for Stripe: "uah", "usd", "eur". The amount goes in the minor
+# units (kopiyky, cents): 250.50 -> 25050. That works for the currencies
+# with 2 decimal places (UAH, USD, EUR and most others). Stripe counts
+# these ones differently (https://docs.stripe.com/currencies): without
+# decimals (JPY: 250 -> 250) or with 3 (KWD). Our prices have exactly
+# 2 places, so a payment in them is refused before Stripe is asked.
+NOT_TWO_DECIMAL_CURRENCIES = {
+    # zero-decimal
+    "BIF", "CLP", "DJF", "GNF", "JPY", "KMF", "KRW", "MGA",
+    "PYG", "RWF", "UGX", "VND", "VUV", "XAF", "XOF", "XPF",
+    # three-decimal
+    "BHD", "JOD", "KWD", "OMR", "TND",
+}  # fmt: skip
 
 # Language of the Stripe page: our language code -> Stripe's "locale".
 # Stripe has no Ukrainian (its list: the "locale" parameter of
@@ -47,6 +59,28 @@ def to_minor_units(amount):
     return int((Decimal(amount) * 100).quantize(Decimal("1")))
 
 
+def session_matches(payment, session):
+    """Did Stripe take exactly the amount and the currency of the payment?
+
+    They are set by us when the session is created, so a difference means
+    something went wrong (a session changed by hand, a bug): the payment is
+    NOT marked succeeded, the error goes to the log and to Sentry, and a
+    manager decides (the money is in the Stripe Dashboard).
+    """
+    expected = (to_minor_units(payment.amount), payment.currency_id.lower())
+    received = (session.amount_total, (session.currency or "").lower())
+    if received == expected:
+        return True
+    logger.error(
+        "Stripe session %s of payment %s: paid %s %s, expected %s %s",
+        session.id,
+        payment.pk,
+        *received,
+        *expected,
+    )
+    return False
+
+
 class StripeProvider(PaymentProvider):
     name = "stripe"
     customer_facing = True
@@ -60,6 +94,11 @@ class StripeProvider(PaymentProvider):
 
     def start(self, payment, request):
         order = payment.order
+        if payment.currency_id in NOT_TWO_DECIMAL_CURRENCIES:
+            raise PaymentProviderError(
+                _("Online payment in %(currency)s is not available.")
+                % {"currency": payment.currency_id}
+            )
         titles = ", ".join(f"{item.title} × {item.quantity}" for item in order.items.all())
         try:
             session = self._client().v1.checkout.sessions.create(
@@ -72,7 +111,7 @@ class StripeProvider(PaymentProvider):
                         {
                             "quantity": 1,
                             "price_data": {
-                                "currency": CURRENCY,
+                                "currency": payment.currency_id.lower(),
                                 "unit_amount": to_minor_units(payment.amount),
                                 "product_data": {
                                     # In the language of the customer
@@ -140,6 +179,9 @@ class StripeProvider(PaymentProvider):
             raise PaymentProviderError(_("Can't check the payment now.")) from error
 
         if session.payment_status == "paid":
+            if not session_matches(payment, session):
+                # Not counted: stays pending, a manager checks it (log, Sentry)
+                return Payment.Status.PENDING
             return Payment.Status.SUCCEEDED
         if session.status == "expired":
             return Payment.Status.EXPIRED
@@ -226,6 +268,8 @@ class StripeProvider(PaymentProvider):
         elif event.type == "checkout.session.async_payment_failed":
             mark_payment_unsuccessful(payment.pk, Payment.Status.FAILED, details=details)
         elif session.payment_status == "paid":
-            # completed (cards) or async_payment_succeeded
-            mark_payment_succeeded(payment.pk, details=details)
+            # completed (cards) or async_payment_succeeded. The money is
+            # counted only if it's the sum and the currency we asked for.
+            if session_matches(payment, session):
+                mark_payment_succeeded(payment.pk, details=details)
         return HttpResponse(status=200)

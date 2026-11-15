@@ -28,6 +28,7 @@ from django.db.models import Count, ProtectedError
 from django.utils.decorators import method_decorator
 from django.utils.translation import gettext_lazy as _
 from rest_framework import viewsets
+from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import (
     SAFE_METHODS,
     AllowAny,
@@ -37,6 +38,8 @@ from rest_framework.permissions import (
 )
 
 from books.models import Author, Book, Category
+from currencies.models import BASE_CURRENCY
+from currencies.services import available_currencies, price_in
 
 from ..cache import cache_api_response
 from ..docs import author_schema, book_schema, category_schema
@@ -102,12 +105,14 @@ class BookViewSet(LoggedModelViewSet):
     ?price_min=, ?price_max=, ?stock=in_stock|low|out.
     ?search=kobz  — in the title and the author's name.
     ?ordering=price | -price | title | -created_at | author__name.
+    ?currency=USD — display_price in this currency (UAH by default); the
+    price filters and the price ordering use display_price too.
     """
 
     queryset = (
         Book.objects
-        # ForeignKey: the author in the same SQL query (JOIN)
-        .select_related("author")
+        # ForeignKey: the author and the currency in the same SQL query (JOIN)
+        .select_related("author", "currency")
         # ManyToMany: the categories of the whole page in one extra query
         .prefetch_related("categories")
         # "stock" of the default warehouse in the same SQL query; also
@@ -119,8 +124,42 @@ class BookViewSet(LoggedModelViewSet):
     filterset_class = BookFilter
     search_fields = ["title", "author__name"]
     ordering_fields = ["title", "price", "created_at", "author__name"]
+    # ?ordering=price: by the converted price (api.filters.StableOrderingFilter)
+    ordering_aliases = {"price": "display_price"}
     log_name = "Book"
     protected_message = _("The book is in orders and can't be deleted.")
+
+    def display_currency(self):
+        """The checked code of ?currency= (UAH without it); 400 for others.
+
+        Only the currencies of the site's switcher: active, with a rate
+        today. A client asking for "GBP" gets an error, not prices in UAH
+        it would take for pounds.
+        """
+        if getattr(self, "swagger_fake_view", False):  # building /api/docs/
+            return BASE_CURRENCY
+        if not hasattr(self, "_display_currency"):
+            code = self.request.query_params.get("currency", BASE_CURRENCY).strip().upper()
+            offered = [currency.code for currency in available_currencies()]
+            if code not in offered:
+                raise ValidationError(
+                    {
+                        "currency": [
+                            _("“%(code)s” is not offered. Choose one of: %(offered)s.")
+                            % {"code": code, "offered": ", ".join(offered)}
+                        ]
+                    }
+                )
+            self._display_currency = code
+        return self._display_currency
+
+    def get_queryset(self):
+        # display_price: calculated by the database (CASE ... ROUND), so the
+        # filters and the ordering can use it like a column
+        return super().get_queryset().annotate(display_price=price_in(self.display_currency()))
+
+    def get_serializer_context(self):
+        return {**super().get_serializer_context(), "display_currency": self.display_currency()}
 
 
 class StaffWriteMixin:

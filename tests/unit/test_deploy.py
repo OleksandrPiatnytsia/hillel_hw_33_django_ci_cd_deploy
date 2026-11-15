@@ -97,7 +97,9 @@ def cover(settings):
     return "/media/covers/kobzar.png"
 
 
-def test_media_is_not_served_without_the_flag(client, settings, cover):
+# db: the 404 page has the navbar, and its currency switcher reads the
+# currencies (cached, but the first read is a query)
+def test_media_is_not_served_without_the_flag(client, db, settings, cover):
     """Local Docker: nginx serves /media/, Django answers 404."""
     settings.DEBUG = False
     settings.SERVE_MEDIA = False
@@ -142,7 +144,7 @@ def test_media_answers_only_get_and_head(client, settings, cover):
 
 
 @pytest.mark.parametrize("url", ["/static/css/styles.css", "/media/covers/kobzar.png"])
-def test_static_and_media_requests_are_not_logged(client, settings, cover, caplog, url):
+def test_static_and_media_requests_are_not_logged(client, db, settings, cover, caplog, url):
     """On Railway every CSS / JS / cover goes through Django: no log line for
     each of them (the timing header is still added)."""
     settings.SERVE_MEDIA = True

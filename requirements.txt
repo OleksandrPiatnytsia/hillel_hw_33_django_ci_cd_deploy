@@ -17,6 +17,9 @@ whitenoise==6.12.0
 stripe==16.1.0
 # Emails through the HTTP API of Brevo (Railway blocks SMTP): config/settings/base.py
 django-anymail==15.2
+# HTTP client for the NBU exchange rates API (currencies/nbu.py); stripe and
+# django-anymail install it anyway, pinned here because our code imports it
+requests==2.34.2
 # Background tasks: emails, the daily report, cleanup (config/celery.py);
 # [redis]: the Redis broker transport. Worker: celery -A config worker,
 # schedule: celery -A config beat (services celery / celery-beat)

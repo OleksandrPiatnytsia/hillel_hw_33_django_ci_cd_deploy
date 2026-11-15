@@ -7,6 +7,8 @@ from django.urls import reverse
 from django.utils.translation import gettext
 from django.utils.translation import gettext_lazy as _
 
+from currencies.models import BASE_CURRENCY
+
 
 class Order(models.Model):
     """An order of one user: delivery data, two statuses and the total.
@@ -66,8 +68,34 @@ class Order(models.Model):
     phone = models.CharField(_("phone"), max_length=30)
     address = models.TextField(_("delivery address"))
 
-    # Sum of the items (price * quantity), in UAH. Stored: the price of a book
-    # may change later, the order must keep the sum the user agreed to pay.
+    # The currency of the order: chosen at checkout (the currency of the
+    # switcher), never changed afterwards. The prices of the items, the
+    # total and the payments are in it.
+    # default=UAH: the orders made before currencies existed were in UAH
+    # (the migration fills them), and so is an order of the API without
+    # a currency.
+    currency = models.ForeignKey(
+        "currencies.Currency",
+        verbose_name=_("currency"),
+        on_delete=models.PROTECT,
+        default=BASE_CURRENCY,
+        related_name="orders",
+    )
+    # How many UAH for 1 unit of the order currency on the day of the order
+    # (1 for UAH). Reports add up orders of different currencies in UAH with
+    # it: the revenue of an order stays the same when the rates change later.
+    exchange_rate = models.DecimalField(
+        _("exchange rate"),
+        max_digits=12,
+        decimal_places=6,
+        default=Decimal("1"),
+        validators=[MinValueValidator(Decimal("0.000001"))],
+        help_text=_("UAH for 1 unit of the order currency on the day of the order"),
+    )
+
+    # Sum of the items (price * quantity), in the order currency. Stored:
+    # the price of a book may change later, the order must keep the sum the
+    # user agreed to pay.
     total = models.DecimalField(
         _("total"),
         max_digits=10,
@@ -115,6 +143,11 @@ class Order(models.Model):
         # language: "Замовлення #5" / "Order #5" in messages and emails
         return gettext("Order #%(number)s") % {"number": self.pk}
 
+    @property
+    def total_uah(self):
+        """The total in UAH at the rate of the day of the order (for reports)."""
+        return (self.total * self.exchange_rate).quantize(Decimal("0.01"))
+
     def get_absolute_url(self):
         return reverse("orders:detail", kwargs={"pk": self.pk})
 
@@ -133,7 +166,7 @@ class Order(models.Model):
 
     @property
     def paid_amount(self):
-        """Sum of the succeeded payments, in UAH. One SQL query (SUM)."""
+        """Sum of the succeeded payments, in the order currency. One SQL query (SUM)."""
         # Imported here: payments.models points to orders by the string
         # "orders.Order", orders.models doesn't import payments at the top,
         # so the two apps don't import each other at load time
@@ -212,11 +245,39 @@ class OrderItem(models.Model):
     # price of the book changes later, the old order still shows what was
     # actually bought and for how much
     title = models.CharField(_("title"), max_length=255)
+    # The price of one copy in the ORDER currency: the book's price converted
+    # at the rate of the day of the order, rounded to 0.01. cost and the
+    # order total are calculated from it.
     price = models.DecimalField(
         _("price"),
         max_digits=10,
         decimal_places=2,
         validators=[MinValueValidator(Decimal("0.00"))],
+    )
+    # The price of the book in ITS currency at the moment of ordering
+    # (Book.price, Book.currency): 650.00 UAH -> price 14.31 in a USD order.
+    # The same as price + order currency when nothing was converted.
+    original_price = models.DecimalField(
+        _("original price"),
+        max_digits=10,
+        decimal_places=2,
+        validators=[MinValueValidator(Decimal("0.00"))],
+    )
+    original_currency = models.ForeignKey(
+        "currencies.Currency",
+        verbose_name=_("original currency"),
+        on_delete=models.PROTECT,
+        related_name="+",  # no currency.orderitem_set: nobody needs it
+    )
+    # original_price * exchange_rate = price (before rounding): how many
+    # units of the order currency for 1 unit of the book's currency. Not
+    # rounded to 6 places like the NBU rates: a cross rate UAH -> USD is
+    # 0.022013..., 10 places keep it exact enough for any price.
+    exchange_rate = models.DecimalField(
+        _("exchange rate"),
+        max_digits=20,
+        decimal_places=10,
+        validators=[MinValueValidator(Decimal("0.0000000001"))],
     )
     quantity = models.PositiveIntegerField(
         _("quantity"),

@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load i18n %}
+{% load i18n money %}
 
 {% block title %}{% blocktranslate with title=book.title %}Delete “{{ title }}”{% endblocktranslate %}{% endblock %}
 
@@ -10,7 +10,7 @@
       <div class="card-header text-bg-danger fw-semibold">{% translate "Delete book" %}</div>
       <div class="card-body">
         <p class="fw-semibold mb-1">{{ book.title }}</p>
-        <p class="text-body-secondary small">{{ book.author.name }} · {{ book.price }} ₴</p>
+        <p class="text-body-secondary small">{{ book.author.name }} · {{ book.price|money:book.currency_id }}</p>
         {% if orders_count %}
           {# OrderItem.book: on_delete=PROTECT, the order history must stay #}
           <div class="alert alert-warning mb-0">

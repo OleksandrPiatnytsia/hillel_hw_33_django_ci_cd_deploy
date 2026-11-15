@@ -1,11 +1,11 @@
-{% load i18n %}{% autoescape off %}{# Plain text: no HTML escaping #}
+{% load i18n money %}{% autoescape off %}{# Plain text: no HTML escaping #}
 {% if order.full_name %}{% blocktranslate with name=order.full_name %}Hello, {{ name }}!{% endblocktranslate %}{% else %}{% translate "Hello!" %}{% endif %}
 
-{% blocktranslate with amount=payment.amount %}We received your payment of {{ amount }} UAH for {{ order }}.{% endblocktranslate %}
+{% blocktranslate with amount=payment.amount|money:payment.currency_id %}We received your payment of {{ amount }} for {{ order }}.{% endblocktranslate %}
 
-{% blocktranslate with total=order.total %}Order total: {{ total }} UAH{% endblocktranslate %}
-{% blocktranslate with paid=order.paid_amount percent=order.paid_percent %}Paid: {{ paid }} UAH ({{ percent }}%){% endblocktranslate %}
-{% if order.payment_status == "paid" %}{% translate "The order is fully paid. We'll let you know when it's shipped." %}{% else %}{% blocktranslate with due=order.amount_due %}Still due: {{ due }} UAH.{% endblocktranslate %}{% endif %}
+{% blocktranslate with total=order.total|money:order.currency_id %}Order total: {{ total }}{% endblocktranslate %}
+{% blocktranslate with paid=order.paid_amount|money:order.currency_id percent=order.paid_percent %}Paid: {{ paid }} ({{ percent }}%){% endblocktranslate %}
+{% if order.payment_status == "paid" %}{% translate "The order is fully paid. We'll let you know when it's shipped." %}{% else %}{% blocktranslate with due=order.amount_due|money:order.currency_id %}Still due: {{ due }}.{% endblocktranslate %}{% endif %}
 
 {% blocktranslate %}Order page: {{ order_url }}{% endblocktranslate %}
 

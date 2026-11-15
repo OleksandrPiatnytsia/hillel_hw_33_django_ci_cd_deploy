@@ -1,11 +1,11 @@
-{% load i18n %}{% autoescape off %}{# Plain text: no HTML escaping, "&" stays "&" #}
+{% load i18n money %}{% autoescape off %}{# Plain text: no HTML escaping, "&" stays "&" #}
 {% if order.full_name %}{% blocktranslate with name=order.full_name %}Hello, {{ name }}!{% endblocktranslate %}{% else %}{% translate "Hello!" %}{% endif %}
 
 {% blocktranslate %}{{ order }} was not paid in time, so we cancelled it and returned the reserved books to the store.{% endblocktranslate %}
 
-{% for item in order.items.all %}- {% blocktranslate with title=item.title quantity=item.quantity price=item.price cost=item.cost %}{{ title }}: {{ quantity }} x {{ price }} = {{ cost }} UAH{% endblocktranslate %}
+{% for item in order.items.all %}- {% blocktranslate with title=item.title quantity=item.quantity price=item.price|money:order.currency_id cost=item.cost|money:order.currency_id %}{{ title }}: {{ quantity }} x {{ price }} = {{ cost }}{% endblocktranslate %}
 {% endfor %}
-{% blocktranslate with total=order.total %}Total: {{ total }} UAH{% endblocktranslate %}
+{% blocktranslate with total=order.total|money:order.currency_id %}Total: {{ total }}{% endblocktranslate %}
 
 {% translate "If you still want these books, please place a new order:" %}
 {{ site_url }}
