@@ -6,6 +6,7 @@ from django.db.models.functions import Coalesce
 from django.utils.translation import gettext
 from django.utils.translation import gettext_lazy as _
 
+from currencies.display import format_money
 from payments.admin import ManualPaymentFormSet, ManualPaymentInline, PaymentInline
 from payments.models import Payment
 from payments.services import PaymentError, record_manual_payment
@@ -27,13 +28,14 @@ class OrderItemInline(admin.TabularInline):
     """
 
     model = OrderItem
-    fields = ["book", "title", "price", "quantity", "cost"]
+    fields = ["book", "title", "price_display", "original", "quantity", "cost"]
     readonly_fields = fields
     extra = 0
 
     def get_queryset(self, request):
-        # book is shown as a link with its __str__ (title + author)
-        return super().get_queryset(request).select_related("book__author")
+        # book is shown as a link with its __str__ (title + author);
+        # order: its currency for the amounts
+        return super().get_queryset(request).select_related("book__author", "order")
 
     def has_add_permission(self, request, obj=None):
         return False
@@ -44,10 +46,20 @@ class OrderItemInline(admin.TabularInline):
     def has_delete_permission(self, request, obj=None):
         return False
 
+    # The amounts with their currency: "14,31 $", not a bare 14.31
+    @admin.display(description=_("price"))
+    def price_display(self, obj):
+        return format_money(obj.price, obj.order.currency_id) if obj.pk else ""
+
+    @admin.display(description=_("original price"))
+    def original(self, obj):
+        """The book's price in its own currency when the order was made."""
+        return format_money(obj.original_price, obj.original_currency_id) if obj.pk else ""
+
     @admin.display(description=_("cost"))
     def cost(self, obj):
         # An empty (unsaved) row has no price yet
-        return obj.cost if obj.pk else ""
+        return format_money(obj.cost, obj.order.currency_id) if obj.pk else ""
 
 
 # ---------------------------------------------------------------------------
@@ -63,10 +75,10 @@ class OrderAdmin(admin.ModelAdmin):
         "status",
         "payment_status",
         "paid_percent_column",
-        "total",
+        "total_display",
         "created_at",
     ]
-    list_filter = ["status", "payment_status", "created_at"]
+    list_filter = ["status", "payment_status", "currency", "created_at"]
     # id__exact: "15" finds order #15; a text term is skipped for this field
     # (not an error), so one search box works for numbers and emails
     search_fields = ["id__exact", "user__email", "user__username", "full_name", "phone"]
@@ -79,7 +91,9 @@ class OrderAdmin(admin.ModelAdmin):
     readonly_fields = [
         "user",
         "payment_status",
-        "total",
+        "currency",
+        "exchange_rate",
+        "total_display",
         "paid_amount_display",
         "amount_due_display",
         "paid_percent_display",
@@ -93,7 +107,9 @@ class OrderAdmin(admin.ModelAdmin):
             {
                 "fields": [
                     "payment_status",
-                    "total",
+                    # Chosen at checkout, never changed (read-only)
+                    ("currency", "exchange_rate"),
+                    "total_display",
                     "paid_amount_display",
                     "amount_due_display",
                     "paid_percent_display",
@@ -153,13 +169,19 @@ class OrderAdmin(admin.ModelAdmin):
             return "100%"
         return f"{min(int(obj.paid_sum * 100 / obj.total), 100)}%"
 
+    @admin.display(description=_("total"), ordering="total")
+    def total_display(self, obj):
+        # Sorting by the number: orders of different currencies mix, a
+        # sort by the real value would need the UAH total (total * rate)
+        return format_money(obj.total, obj.currency_id)
+
     @admin.display(description=_("paid amount"))
     def paid_amount_display(self, obj):
-        return gettext("%(amount)s UAH") % {"amount": obj.paid_amount}
+        return format_money(obj.paid_amount, obj.currency_id)
 
     @admin.display(description=_("amount due"))
     def amount_due_display(self, obj):
-        return gettext("%(amount)s UAH") % {"amount": obj.amount_due}
+        return format_money(obj.amount_due, obj.currency_id)
 
     @admin.display(description=_("paid, %"))
     def paid_percent_display(self, obj):
@@ -216,9 +238,9 @@ class OrderAdmin(admin.ModelAdmin):
                 formset.new_objects.append(payment)
                 messages.success(
                     request,
-                    gettext("Manual payment %(amount)s UAH recorded, the order is %(status)s now.")
+                    gettext("Manual payment %(amount)s recorded, the order is %(status)s now.")
                     % {
-                        "amount": payment.amount,
+                        "amount": format_money(payment.amount, payment.order.currency_id),
                         "status": payment.order.get_payment_status_display().lower(),
                     },
                 )

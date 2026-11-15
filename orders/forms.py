@@ -2,9 +2,15 @@ from django import forms
 
 from django.utils.translation import gettext_lazy as _
 
+from currencies.services import available_currencies
 from users.phone import normalize_phone
 
 from .models import Order
+
+
+def currency_choices():
+    """Only the currencies offered now (active, with a rate)."""
+    return [(currency.code, currency.code) for currency in available_currencies()]
 
 
 class CheckoutForm(forms.ModelForm):
@@ -24,6 +30,16 @@ class CheckoutForm(forms.ModelForm):
         label=_("Save phone and address to my profile"),
         widget=forms.CheckboxInput(attrs={"class": "form-check-input"}),
     )
+
+    # The order currency: the one the page showed the cart in (the switcher),
+    # sent back in a hidden field. Not taken from the session at POST time:
+    # the switcher changed in another tab would make an order in a currency
+    # the customer didn't see on this page. Not in Meta.fields: the view
+    # passes it to create_order(), like the delivery data. Not required: a
+    # POST without it (an old page, a script) gets the currency of the cart.
+    # Choices: a function, read only when the field is checked or shown, so
+    # the currencies are not read from the database for an empty value.
+    currency = forms.ChoiceField(required=False, choices=currency_choices, widget=forms.HiddenInput)
 
     class Meta:
         model = Order

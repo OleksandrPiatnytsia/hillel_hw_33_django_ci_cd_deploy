@@ -22,7 +22,8 @@ from decimal import Decimal
 
 from django.conf import settings
 from django.core.mail import EmailMessage
-from django.db.models import Count, F, Max, Sum
+from django.db.models import Count, DecimalField, F, Max, Sum
+from django.db.models.functions import Round
 from django.template.loader import render_to_string
 from django.utils import timezone, translation
 
@@ -44,8 +45,10 @@ class DailyReport:
     orders_count: int  # not cancelled
     cancelled_count: int
     paid_count: int
+    # In UAH: orders of different currencies are added up at the rate of
+    # the day of each order (Order.exchange_rate)
     revenue: Decimal  # sum of the totals of not cancelled orders
-    top_books: list  # dicts: book_id, title, copies, revenue
+    top_books: list  # dicts: book_id, title, copies, revenue (UAH)
     low_stock: list  # Book objects with .stock (with_stock())
 
     def csv_files(self):
@@ -62,7 +65,9 @@ class DailyReport:
                         "email",
                         "status",
                         "payment_status",
+                        "currency",
                         "total",
+                        "total_uah",
                     ],
                     [
                         [
@@ -72,7 +77,9 @@ class DailyReport:
                             order.user.email,
                             order.status,
                             order.payment_status,
+                            order.currency_id,
                             order.total,
+                            order.total_uah,
                         ]
                         for order in self.orders
                     ],
@@ -81,7 +88,7 @@ class DailyReport:
             (
                 f"top_books_{day}.csv",
                 _csv(
-                    ["book_id", "title", "copies", "revenue"],
+                    ["book_id", "title", "copies", "revenue_uah"],
                     [[b["book_id"], b["title"], b["copies"], b["revenue"]] for b in self.top_books],
                 ),
             ),
@@ -130,7 +137,14 @@ def build_daily_report(day):
         .annotate(
             title=Max("title"),
             copies=Sum("quantity"),
-            revenue=Sum(F("price") * F("quantity")),
+            # In UAH: price in the order currency * the rate of the order
+            revenue=Round(
+                Sum(
+                    F("price") * F("quantity") * F("order__exchange_rate"),
+                    output_field=DecimalField(max_digits=20, decimal_places=8),
+                ),
+                2,
+            ),
             orders=Count("order", distinct=True),
         )
         .order_by("-copies", "title")[:TOP_BOOKS_LIMIT]
@@ -149,7 +163,7 @@ def build_daily_report(day):
         orders_count=len(active),
         cancelled_count=len(orders) - len(active),
         paid_count=sum(order.payment_status == Order.PaymentStatus.PAID for order in active),
-        revenue=sum((order.total for order in active), start=Decimal("0.00")),
+        revenue=sum((order.total_uah for order in active), start=Decimal("0.00")),
         top_books=top_books,
         low_stock=low_stock,
     )

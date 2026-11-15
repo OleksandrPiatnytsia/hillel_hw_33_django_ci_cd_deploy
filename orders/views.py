@@ -47,6 +47,7 @@ def checkout(request):
                     full_name=data["full_name"],
                     phone=data["phone"],
                     address=data["address"],
+                    currency=data["currency"] or cart.currency.code,
                 )
             except OrderError as error:
                 for text in error.messages:
@@ -81,6 +82,8 @@ def checkout(request):
         # address. Empty for a new user; the checkbox then saves them.
         form = CheckoutForm(
             initial={
+                # The order currency = the currency the cart is shown in
+                "currency": cart.currency.code,
                 "full_name": request.user.get_full_name(),
                 "phone": request.user.phone,
                 "address": request.user.address,

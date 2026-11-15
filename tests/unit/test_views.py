@@ -302,6 +302,7 @@ def test_checkout_form_is_prefilled_from_profile(customer, customer_client):
     response = customer_client.get(reverse("orders:checkout"))
 
     assert response.context["form"].initial == {
+        "currency": "UAH",  # the currency of the cart
         "full_name": "Ann Shevchenko",
         "phone": "+380671234567",
         "address": "Kyiv",

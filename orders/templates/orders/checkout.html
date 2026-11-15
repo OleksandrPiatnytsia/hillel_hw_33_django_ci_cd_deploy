@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load i18n money %}
+{% load i18n money static %}
 
 {% block title %}{% translate "Checkout" %}{% endblock %}
 
@@ -22,8 +22,16 @@
         <h2 class="h5 mb-3">{% translate "Delivery" %}</h2>
         <form method="post" novalidate>
           {% csrf_token %}
+          {# The order currency (hidden): the one of the summary on the right. #}
+          {# Its error is shown: the currency may be turned off meanwhile. #}
+          {% for field in form.hidden_fields %}
+            {{ field }}
+            {% for error in field.errors %}
+              <div class="alert alert-danger py-2">{% translate "This currency is not accepted any more, choose another one." %}</div>
+            {% endfor %}
+          {% endfor %}
           {# The three text fields; the checkbox is rendered below (other markup) #}
-          {% for field in form %}
+          {% for field in form.visible_fields %}
             {% if field.name != "save_to_profile" %}
               <div class="mb-3">
                 <label class="form-label" for="{{ field.id_for_label }}">
@@ -69,7 +77,31 @@
   {# ---------- Order summary ---------- #}
   <div class="col-lg-5">
     <div class="card shadow-sm">
-      <div class="card-header fw-semibold">{% translate "Your order" %}</div>
+      <div class="card-header d-flex justify-content-between align-items-center gap-2">
+        <span class="fw-semibold">{% translate "Your order" %}</span>
+        {# The order currency: the same switcher as in the navbar, here as #}
+        {# a select. The page comes back in the new currency; the order is #}
+        {# made in the currency this summary shows (hidden field above). #}
+        {# data-auto-submit: static/js/auto_submit.js sends it on change. #}
+        <form class="d-flex align-items-center gap-2" method="post"
+              action="{% url 'set_currency' %}" data-auto-submit>
+          {% csrf_token %}
+          <input type="hidden" name="next" value="{{ request.get_full_path }}">
+          <label class="small text-body-secondary text-nowrap" for="order-currency">
+            {% translate "Currency" %}
+          </label>
+          <select class="form-select form-select-sm w-auto" id="order-currency" name="currency">
+            {% for currency in currency_choices %}
+              <option value="{{ currency.code }}" {% if currency.code == cart.currency.code %}selected{% endif %}>
+                {{ currency.symbol }} {{ currency.code }}
+              </option>
+            {% endfor %}
+          </select>
+          <noscript>
+            <button class="btn btn-sm btn-outline-secondary" type="submit">{% translate "Show" %}</button>
+          </noscript>
+        </form>
+      </div>
       <ul class="list-group list-group-flush">
         {# "cart" from the context processor; one SQL query for all books #}
         {% for item in cart %}
@@ -102,4 +134,8 @@
   </div>
 
 </div>
+{% endblock %}
+
+{% block scripts %}
+  <script src="{% static 'js/auto_submit.js' %}" defer></script>
 {% endblock %}
