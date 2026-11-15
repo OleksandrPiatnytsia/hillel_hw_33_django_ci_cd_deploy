@@ -37,9 +37,17 @@ main {
     background-color: var(--bs-secondary-bg);
 }
 
+/* In the catalog cards: the whole cover, never cropped. Covers have
+   different proportions, so the box has one fixed height and the picture
+   is fitted inside it (contain); the free space on the sides shows the
+   background colour of .book-cover. aspect-ratio is turned off here: with
+   width 100% it would make the box as tall as a 2:3 page. */
 .book-card .book-cover {
     width: 100%;
-    max-height: 220px;
+    height: 260px;
+    aspect-ratio: auto;
+    object-fit: contain;
+    padding: 0.5rem;
 }
 
 /* Small preview of the current cover in the edit form */
@@ -70,9 +78,20 @@ main {
         position: sticky;
         /* below the sticky navbar + 1rem gap, otherwise it hides under the navbar */
         top: calc(var(--app-navbar-height) + 1rem);
-        /* on low screens the filters scroll inside the card instead of being cut off */
-        max-height: calc(100vh - var(--app-navbar-height) - 2rem);
+        /* Never taller than the window, so the buttons in the footer are
+           always on the screen. 10rem, not just the navbar: at the top of
+           the page the card is not stuck yet and starts lower, under the
+           "Catalog" heading (~8.6rem from the top of the window). */
+        max-height: calc(100vh - 10rem);
+    }
+
+    /* Only the fields scroll when the window is low; the header and the
+       footer with "Apply" / "Reset" always stay visible. .card is a flex
+       column, so the body takes the free height; min-height: 0 lets it
+       shrink below its content (a flex item doesn't by default). */
+    .filters-sidebar .card-body {
         overflow-y: auto;
+        min-height: 0;
     }
 }
 
