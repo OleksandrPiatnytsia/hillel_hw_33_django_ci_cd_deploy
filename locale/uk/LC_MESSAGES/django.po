@@ -170,6 +170,10 @@ msgstr "Спершу нові"
 msgid "Most popular"
 msgstr "Спершу популярні"
 
+#: books/templates/books/book_list.html
+msgid "Out of stock last"
+msgstr "Відсутні в кінці"
+
 #: books/forms.py:174 templates/includes/navbar.html:48
 #: templates/includes/navbar.html:50
 msgid "Search"

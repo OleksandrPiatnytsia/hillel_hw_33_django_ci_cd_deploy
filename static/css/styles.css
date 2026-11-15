@@ -95,6 +95,22 @@ main {
     }
 }
 
+/* ---------- "Out of stock last" in the "Sort by" menu ---------- */
+
+/* A link that looks like a Bootstrap checkbox: a <span> with the classes of
+   one (an <input> inside a link is not valid HTML). Bootstrap draws the
+   tick only for :checked, so .is-checked repeats that look. */
+.sort-checkbox {
+    flex-shrink: 0;
+    border-radius: 0.25em;
+}
+
+.sort-checkbox.is-checked {
+    border-color: var(--bs-primary);
+    background-color: var(--bs-primary);
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3e%3cpath fill='none' stroke='%23fff' stroke-linecap='round' stroke-linejoin='round' stroke-width='3' d='m6 10 3 3 6-6'/%3e%3c/svg%3e");
+}
+
 /* ---------- Price filter: two fields on one row and a two-handle slider ---------- */
 
 /* The two number fields share the row; min-width: 0 lets them shrink
