@@ -19,8 +19,9 @@ Redis, Celery, nginx). У цьому ДЗ:
 - **деплой на Railway**: web (gunicorn + uvicorn) і worker (Celery з Beat),
   PostgreSQL, Redis, Volume для обкладинок; статика через **WhiteNoise**,
   перевірка здоров'я `/health/` (див. «Деплой на Railway»);
-- єдиний стиль коду: black + flake8 (`pyproject.toml`, `.flake8`);
-- 426 тестів, покриття 98.45%.
+- єдиний стиль коду: black + flake8 (`pyproject.toml`, `.flake8`), перевіряються
+  ще до коміту хуком pre-commit (`.pre-commit-config.yaml`);
+- 434 тести, покриття 98.45%.
 
 ## Стек
 
@@ -30,6 +31,7 @@ Redis, Celery, nginx). У цьому ДЗ:
 - WhiteNoise 6.12: статика на Railway, де немає nginx
 - GitHub Actions (CI/CD), Docker Hub (образ), Railway (хостинг)
 - black 26.10 і flake8 7.5 (`requirements-dev.txt`): стиль коду, перевіряється в CI
+  і хуком pre-commit 4.7 перед кожним комітом
 - Celery 5.7 (брокер Redis), Celery Beat (розклад у `config/settings/base.py`), Flower 2.2
 - Sentry (`sentry-sdk` 2.74): інтеграції Django, Celery, logging
 - `psycopg-pool`: пул з'єднань з базою
@@ -528,6 +530,7 @@ pytest.ini                   # налаштування pytest, звіти по�
 .coveragerc                  # що рахується в покритті
 pyproject.toml               # black: рядок 100, Python 3.13
 .flake8                      # flake8: рядок 100, винятки, сумісні з black
+.pre-commit-config.yaml      # pre-commit: black і flake8 на кожен git commit
 nginx/default.conf           # nginx: /static/, /media/ з volumes, решта -> gunicorn (лише локально)
 Dockerfile                   # образ: python:3.13-slim, користувач app, production-налаштування
 .dockerignore                # що не потрапляє в образ (.env, .venv, бази, media)
@@ -1322,7 +1325,7 @@ open htmlcov/index.html               # непокриті рядки підсв
 | `tests/api/` | 85 | REST API через `APIClient`: токени, права кожної ролі, фільтри, замовлення, CORS, throttling, кеш |
 | `tests/test_setup.py` | 7 | сама інфраструктура: налаштування, фабрики, фейки |
 
-Покриття **98.45%** (426 тестів); `--cov-fail-under=70` у `pytest.ini`: якщо покриття впаде
+Покриття **98.45%** (434 тести); `--cov-fail-under=70` у `pytest.ini`: якщо покриття впаде
 нижче 70%, `pytest` завершиться з помилкою. Ті самі тести запускає CI на кожен push
 і pull request, а звіт `htmlcov` лежить в артефактах запуску (див. «CI/CD»).
 
@@ -1686,6 +1689,21 @@ push / pull request
   settings → Personal access tokens, право Read & Write). Без них крок
   «Check the Docker Hub settings» пише, чого саме бракує.
 - `concurrency`: новий push у ту саму гілку скасовує попередній запуск.
+
+**pre-commit:** ті самі black і flake8 запускаються локально на кожен
+`git commit` (лише для змінених файлів), тож помилку стилю видно ще до push.
+Один раз після клонування:
+
+```bash
+pip install -r requirements-dev.txt
+pre-commit install            # ставить хук у .git/hooks/pre-commit
+pre-commit run --all-files    # перевірити весь проєкт
+```
+
+Якщо black щось переформатував, коміт зупиняється: перегляньте зміни,
+`git add` і повторіть коміт. Помилки flake8 виправляються вручну. Версії в
+`.pre-commit-config.yaml` збігаються з `requirements-dev.txt` (на це є тест
+у `tests/unit/test_deploy.py`), тож хук і CI перевіряють однаково.
 
 **CD:** Railway збирає образ із того самого репозиторію сам і чекає на CI
 («Wait for CI»): якщо тести впали, деплою не буде (див. «Деплой на Railway»).

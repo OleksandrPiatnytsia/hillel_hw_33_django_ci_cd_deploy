@@ -235,3 +235,6 @@ data.json
 
 # Log files (LOGGING in config/settings.py)
 logs/
+
+# Claude Code: local session settings
+.claude/

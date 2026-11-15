@@ -2,6 +2,7 @@
 gunicorn settings and covers served by Django on Railway (hw_33, stage 3)."""
 
 import logging
+import re
 import runpy
 from pathlib import Path
 
@@ -151,3 +152,28 @@ def test_static_and_media_requests_are_not_logged(client, settings, cover, caplo
 
     assert "X-Request-Duration" in response
     assert not [record for record in caplog.records if record.name == "config.middleware"]
+
+
+# ---------- pre-commit (.pre-commit-config.yaml) ----------
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+
+
+def test_pre_commit_uses_the_same_black_and_flake8_as_ci():
+    # CI installs black and flake8 from requirements-dev.txt; the hook builds
+    # its own from the tag in .pre-commit-config.yaml. Different versions
+    # could format differently: the hook passes, CI fails (or the other way).
+    requirements = (PROJECT_ROOT / "requirements-dev.txt").read_text()
+    config = (PROJECT_ROOT / ".pre-commit-config.yaml").read_text()
+
+    # "black==26.10.1" -> {"black": "26.10.1"}
+    required = dict(re.findall(r"^(black|flake8)==(\S+)", requirements, re.MULTILINE))
+    # "repo: https://github.com/psf/black-pre-commit-mirror" + "rev: 26.10.1"
+    # -> black-pre-commit-mirror -> black; ".../PyCQA/flake8" -> flake8
+    hooks = {
+        repo.removesuffix("-pre-commit-mirror"): rev
+        for repo, rev in re.findall(r"repo: \S+/([\w-]+)\s+rev: (\S+)", config)
+    }
+
+    assert set(required) == {"black", "flake8"}
+    assert hooks == required

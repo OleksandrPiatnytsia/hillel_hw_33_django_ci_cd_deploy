@@ -124,6 +124,44 @@ def test_book_list_default_per_page_adds_no_hidden_field(client):
     assert 'name="per_page" value=' not in response.content.decode()
 
 
+def test_book_list_sort_dropdown_keeps_the_filters(client):
+    """The sort is a dropdown of links next to "Per page", not a field of
+    the filters: every link keeps the filters and "Per page", drops the page
+    number and marks the current sort."""
+    BookFactory.create_batch(30, title="Kobzar")
+
+    response = client.get(
+        reverse("books:list"), {"q": "kobzar", "per_page": "24", "sort": "-price", "page": "2"}
+    )
+    html = response.content.decode()
+
+    assert response.context["sort"] == "-price"
+    # The button shows the current sort (in the language of the page)
+    assert f": {response.context['sort_label']}\n" in html
+    assert 'href="?q=kobzar&amp;per_page=24&amp;sort=price"' in html  # page dropped
+    assert re.search(r'class="dropdown-item active"\s+href="\?[^"]*sort=-price"', html)
+    assert 'name="sort"' not in html.replace('<input type="hidden" name="sort"', "")
+
+
+def test_book_list_apply_keeps_the_sort_and_reset_keeps_it_too(client):
+    """ "Apply" sends the current sort in a hidden field; "Reset" clears only
+    the filters, the sort and "Per page" stay."""
+    response = client.get(
+        reverse("books:list"), {"q": "kobzar", "stock": "in", "per_page": "24", "sort": "-price"}
+    )
+    html = response.content.decode()
+
+    assert '<input type="hidden" name="sort" value="-price">' in html
+    assert 'href="?per_page=24&amp;sort=-price">' in html  # Reset
+
+
+def test_book_list_default_sort_adds_no_hidden_field(client):
+    response = client.get(reverse("books:list"))
+
+    assert response.context["sort"] == "title"
+    assert '<input type="hidden" name="sort"' not in response.content.decode()
+
+
 def test_book_detail_shows_quantity_in_cart(client):
     book = BookFactory()
     client.post(reverse("cart:add", args=[book.pk]), {"quantity": 2})

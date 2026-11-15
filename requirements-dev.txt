@@ -22,3 +22,6 @@ polib==1.2.0
 black==26.10.1
 # flake8 finds errors black doesn't fix (settings in .flake8): flake8
 flake8==7.5.0
+# Runs black and flake8 on every "git commit" (.pre-commit-config.yaml).
+# Once per clone: pre-commit install
+pre-commit==4.7.0
