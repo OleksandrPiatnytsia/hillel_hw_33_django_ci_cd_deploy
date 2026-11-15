@@ -17,24 +17,30 @@
 <div class="row g-4">
 
   {# ---------- Filters (sidebar) ---------- #}
+  {# The whole card is the form: the buttons sit in the card footer, which #}
+  {# stays in place while the fields scroll (styles.css, .filters-sidebar). #}
   <aside class="col-lg-3">
-    <div class="card shadow-sm filters-sidebar">
+    {# GET, not POST: filters are part of the URL, so the page can be bookmarked/shared #}
+    <form class="card shadow-sm filters-sidebar" method="get" action="{% url 'books:list' %}">
       <div class="card-header fw-semibold">{% translate "Filters" %}</div>
       <div class="card-body">
-        {# GET, not POST: filters are part of the URL, so the page can be bookmarked/shared #}
-        <form method="get" action="{% url 'books:list' %}">
-          {# "Apply" keeps the chosen "Per page" (the default needs no parameter) #}
-          {% if per_page != per_page_choices.0 %}
-            <input type="hidden" name="per_page" value="{{ per_page }}">
-          {% endif %}
+        {# "Apply" keeps the chosen "Per page" and sort (the defaults need no parameter) #}
+        {% if per_page != per_page_choices.0 %}
+          <input type="hidden" name="per_page" value="{{ per_page }}">
+        {% endif %}
+        {% if sort != "title" %}
+          <input type="hidden" name="sort" value="{{ sort }}">
+        {% endif %}
 
-          {% if filter_form.non_field_errors %}
-            <div class="alert alert-danger py-2 small">
-              {% for error in filter_form.non_field_errors %}{{ error }}{% endfor %}
-            </div>
-          {% endif %}
+        {% if filter_form.non_field_errors %}
+          <div class="alert alert-danger py-2 small">
+            {% for error in filter_form.non_field_errors %}{{ error }}{% endfor %}
+          </div>
+        {% endif %}
 
-          {% for field in filter_form %}
+        {% for field in filter_form %}
+          {# The sort has its own dropdown above the results #}
+          {% if field.name != "sort" %}
             <div class="mb-3">
               <label class="form-label small fw-semibold" for="{{ field.id_for_label }}">
                 {{ field.label }}
@@ -44,16 +50,16 @@
                 <div class="invalid-feedback d-block">{{ error }}</div>
               {% endfor %}
             </div>
-          {% endfor %}
-
-          <div class="d-grid gap-2">
-            <button class="btn btn-primary" type="submit">{% translate "Apply" %}</button>
-            {# Link without GET params = all filters reset #}
-            <a class="btn btn-outline-secondary" href="{% url 'books:list' %}">{% translate "Reset" %}</a>
-          </div>
-        </form>
+          {% endif %}
+        {% endfor %}
       </div>
-    </div>
+      <div class="card-footer d-grid gap-2">
+        <button class="btn btn-primary" type="submit">{% translate "Apply" %}</button>
+        {# Only the filters are reset: the sort and "Per page" stay #}
+        <a class="btn btn-outline-secondary"
+           href="{% querystring q=None category=None author=None stock=None price_min=None price_max=None page=None %}">{% translate "Reset" %}</a>
+      </div>
+    </form>
   </aside>
 
   {# ---------- Results ---------- #}
@@ -79,6 +85,27 @@
       {# 12 books doesn't exist with 48, so the list starts from page 1. #}
       {# data-auto-submit: static/js/auto_submit.js sends the form on change; #}
       {# without JavaScript the "Show" button in <noscript> does it. #}
+      <div class="d-flex flex-wrap align-items-center gap-2">
+      {# "Sort by": links that keep the filters and "Per page" and start from #}
+      {# page 1 ({% querystring %} with page=None drops the page number) #}
+      <div class="dropdown">
+        {# Looks like the "Per page" select next to it: page background, #}
+        {# normal text colour, the same border (btn-outline-secondary is pale) #}
+        <button class="btn btn-sm bg-body text-body border dropdown-toggle" type="button"
+                data-bs-toggle="dropdown" aria-expanded="false">
+          {% translate "Sort by" %}: {{ sort_label }}
+        </button>
+        <ul class="dropdown-menu dropdown-menu-end">
+          {% for value, label in sort_choices %}
+            <li>
+              <a class="dropdown-item{% if value == sort %} active{% endif %}"
+                 href="{% querystring sort=value page=None %}"
+                 {% if value == sort %}aria-current="true"{% endif %}>{{ label }}</a>
+            </li>
+          {% endfor %}
+        </ul>
+      </div>
+
       <form class="d-flex align-items-center gap-2" method="get"
             action="{% url 'books:list' %}" data-auto-submit>
         {% for name, values in request.GET.lists %}
@@ -100,6 +127,7 @@
           <button class="btn btn-sm btn-outline-secondary" type="submit">{% translate "Show" %}</button>
         </noscript>
       </form>
+      </div>
     </div>
 
     <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-3">

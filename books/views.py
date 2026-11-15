@@ -108,7 +108,9 @@ class BookListView(ElidedPaginationMixin, ListView):
         # Always with "pk" as a tie-breaker, the default sort (Book.Meta.ordering
         # = title) too: books with an equal title or price keep a stable order,
         # so the same book doesn't jump between pages
-        return queryset.order_by(data.get("sort") or "title", "pk")
+        # The sort the list is shown with (for the "Sort by" dropdown)
+        self.sort = data.get("sort") or "title"
+        return queryset.order_by(self.sort, "pk")
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -116,6 +118,11 @@ class BookListView(ElidedPaginationMixin, ListView):
         # For the "Per page" dropdown and the hidden field of the filter form
         context["per_page"] = self.per_page
         context["per_page_choices"] = self.PER_PAGE_CHOICES
+        # "Sort by" dropdown next to "Per page": every choice is a link,
+        # the current one is marked; the button shows its label
+        context["sort_choices"] = BookFilterForm.SORT_CHOICES
+        context["sort"] = self.sort
+        context["sort_label"] = dict(BookFilterForm.SORT_CHOICES)[self.sort]
         # Timeout of the {% cache %} fragments of the book cards
         context["cache_timeout"] = settings.BOOK_CACHE_TIMEOUT
         return context
