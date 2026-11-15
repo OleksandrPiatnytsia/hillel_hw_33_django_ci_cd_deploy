@@ -46,6 +46,68 @@ def test_book_list_sorts_by_price(client):
     assert [book.title for book in response.context["books"]] == ["Expensive", "Cheap"]
 
 
+# Generated with AI
+def test_book_list_sorts_by_popularity_without_cancelled_orders(client):
+    poetry = CategoryFactory(name="Poetry", slug="poetry")
+    hit = BookFactory(title="Hit", categories=[poetry])
+    steady = BookFactory(title="Steady", categories=[poetry])
+    BookFactory(title="A never ordered", categories=[poetry])
+    cancelled_only = BookFactory(title="B cancelled", categories=[poetry])
+    OrderFactory(items=[(hit, 3), (steady, 1)])
+    OrderFactory(items=[(steady, 1)])
+    OrderFactory(items=[(cancelled_only, 10)], status=Order.Status.CANCELLED)
+
+    # With a category filter too: its JOIN must not count the copies twice
+    response = client.get(reverse("books:list"), {"sort": "-sold", "category": "poetry"})
+
+    books = response.context["books"]
+    # 0 sold: by title; the cancelled order counts for nothing
+    assert [book.title for book in books] == ["Hit", "Steady", "A never ordered", "B cancelled"]
+    assert [book.sold for book in books] == [3, 2, 0, 0]
+    assert "Спершу популярні" in response.text
+
+
+# Generated with AI
+def test_book_list_puts_out_of_stock_books_last_by_default(client):
+    BookFactory(title="A gone", price=50, stock=0)
+    BookFactory(title="B cheap", price=100, stock=3)
+    BookFactory(title="C dear", price=500, stock=1)
+    BookFactory(title="D gone too", price=900, stock=0)
+
+    by_price = client.get(reverse("books:list"), {"sort": "price"})
+    switched_off = client.get(reverse("books:list"), {"sort": "price", "out_last": "0"})
+
+    # The sort works inside both groups: in stock by price, then the rest by price
+    assert [book.title for book in by_price.context["books"]] == [
+        "B cheap",
+        "C dear",
+        "A gone",
+        "D gone too",
+    ]
+    assert [book.title for book in switched_off.context["books"]] == [
+        "A gone",
+        "B cheap",
+        "C dear",
+        "D gone too",
+    ]
+
+
+# Generated with AI
+def test_out_of_stock_last_checkbox_is_a_link_that_keeps_the_other_parameters(client):
+    BookFactory()
+
+    on = client.get(reverse("books:list"), {"sort": "-price", "page": "1"}).text
+    off = client.get(reverse("books:list"), {"sort": "-price", "out_last": "0"}).text
+
+    assert 'aria-checked="true"' in on
+    assert 'href="?sort=-price&amp;out_last=0"' in on  # page dropped
+    assert 'aria-checked="false"' in off
+    assert 'href="?sort=-price"' in off
+    # "Apply" of the filters keeps it off
+    assert '<input type="hidden" name="out_last" value="0">' in off
+    assert "Відсутні в кінці" in on
+
+
 def test_book_list_wrong_parameter_keeps_the_other_filters(client):
     """AI review (AI_REVIEW.md, BookListView): an invalid ?category= used to
     drop ALL filters and show the whole catalog."""
@@ -72,7 +134,8 @@ def test_book_list_price_from_greater_than_to_ignores_only_prices(client):
 
 def test_book_list_order_always_ends_with_pk(client):
     """Books with an equal title / price must not jump between pages."""
-    response = client.get(reverse("books:list"))
+    # out_last=0: only the sort itself (by default "out of stock last" goes first)
+    response = client.get(reverse("books:list"), {"out_last": "0"})
 
     assert response.context["paginator"].object_list.query.order_by == ("title", "pk")
 
@@ -82,7 +145,10 @@ def test_book_list_sorts_by_the_converted_price_then_pk(client):
 
     # "-price" in the URL: the database sorts by the price in the currency
     # of the switcher (annotation display_price), books without it last
-    by_price, tie_breaker = response.context["paginator"].object_list.query.order_by
+    out_of_stock_last, by_price, tie_breaker = response.context[
+        "paginator"
+    ].object_list.query.order_by
+    assert "stock" in str(out_of_stock_last)  # CASE WHEN stock = 0 THEN 1 ELSE 0
     assert (by_price.expression.name, by_price.descending, by_price.nulls_last) == (
         "display_price",
         True,

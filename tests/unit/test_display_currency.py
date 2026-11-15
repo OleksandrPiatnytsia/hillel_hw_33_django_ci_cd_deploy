@@ -237,6 +237,32 @@ def test_catalog_price_filter_is_in_the_chosen_currency(client, mixed_books):
 
 
 # Generated with AI
+def test_catalog_price_slider_spans_the_whole_catalog_in_the_chosen_currency(client, mixed_books):
+    choose(client, "USD")
+
+    # The filter narrows the list, not the slider: its scale stays
+    response = client.get(reverse("books:list"), {"price_max": "12"})
+
+    # 11.08 .. 20.00 USD, whole numbers outward
+    assert response.context["price_range"] == {"min": 11, "max": 20}
+    assert [book.title for book in response.context["books"]] == ["Euro book"]
+    assert 'data-min="11" data-max="20"' in response.text
+    assert "Ціна, $" in response.text  # one label for "from" and "to"
+
+
+# Generated with AI
+def test_catalog_has_no_price_slider_when_all_books_cost_the_same(client):
+    BookFactory(price=Decimal("100.00"))
+    BookFactory(price=Decimal("100.00"))
+
+    response = client.get(reverse("books:list"))
+
+    assert response.context["price_range"] is None
+    assert "price-slider" not in response.text
+    assert 'name="price_min"' in response.text  # the fields stay
+
+
+# Generated with AI
 def test_book_page_shows_the_original_price_and_the_rate_date(client, mixed_books):
     choose(client, "USD")
 

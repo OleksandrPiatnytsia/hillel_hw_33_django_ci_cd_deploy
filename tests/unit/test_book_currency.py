@@ -36,7 +36,6 @@ def form_data(**changes):
         "author": AuthorFactory().pk,
         "price": "20.00",
         "currency": "USD",
-        "stock": "1",
         "description": "",
     }
     return {**data, **changes}

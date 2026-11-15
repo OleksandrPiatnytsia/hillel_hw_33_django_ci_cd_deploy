@@ -1,0 +1,38 @@
+{% load i18n %}
+{% comment %}
+"Price from" and "Price to" of the catalog filter on one row, with a
+two-handle slider under them (static/js/price_range.js).
+
+price_min, price_max: the bound fields of BookFilterForm.
+price_range: {"min": 12, "max": 1511} from BookListView.price_range(), the
+ends of the slider; None -> no slider, only the two fields.
+
+The number fields are the ones sent with the form. The slider has no
+"name": it only fills the fields. A handle at its end empties its field,
+so "from the cheapest" adds no ?price_min= to the URL. Without JavaScript
+the slider stays hidden and the fields work as before.
+{% endcomment %}
+<div class="mb-3" data-price-range>
+  {# One label for both: "Price, $"; each field keeps its own label for screen readers #}
+  <div class="form-label small fw-semibold">{% translate "Price" %}, {{ display_currency.symbol }}</div>
+  <div class="d-flex align-items-center gap-2">
+    <label class="visually-hidden" for="{{ price_min.id_for_label }}">{{ price_min.label }}</label>
+    {{ price_min }}
+    <span class="text-body-secondary">–</span>
+    <label class="visually-hidden" for="{{ price_max.id_for_label }}">{{ price_max.label }}</label>
+    {{ price_max }}
+  </div>
+  {% if price_range %}
+    <div class="price-slider mt-3" data-min="{{ price_range.min }}" data-max="{{ price_range.max }}" hidden>
+      <div class="price-slider-track"><div class="price-slider-fill"></div></div>
+      <input type="range" class="price-slider-input" min="{{ price_range.min }}" max="{{ price_range.max }}"
+             step="1" value="{{ price_range.min }}" data-field="{{ price_min.id_for_label }}"
+             aria-label="{{ price_min.label }}">
+      <input type="range" class="price-slider-input" min="{{ price_range.min }}" max="{{ price_range.max }}"
+             step="1" value="{{ price_range.max }}" data-field="{{ price_max.id_for_label }}"
+             aria-label="{{ price_max.label }}">
+    </div>
+  {% endif %}
+  {% for error in price_min.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+  {% for error in price_max.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+</div>

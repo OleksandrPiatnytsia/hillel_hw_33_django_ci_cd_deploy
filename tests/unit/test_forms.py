@@ -90,13 +90,9 @@ def test_book_filter_form_price_from_greater_than_price_to_is_invalid():
 
 
 @pytest.mark.django_db
-@pytest.mark.parametrize(("groups", "stock_disabled"), [(["Editors"], True), (["Managers"], False)])
-def test_book_form_stock_is_editable_only_with_change_stock(groups, stock_disabled):
-    user = UserFactory(groups=groups)
-
-    form = BookForm(user=user)
-
-    assert form.fields["stock"].disabled is stock_disabled
+def test_book_form_has_no_stock_field():
+    # The copies are changed in the admin, per warehouse (inventory.Stock)
+    assert "stock" not in BookForm().fields
 
 
 def _book_form_data():
@@ -105,7 +101,6 @@ def _book_form_data():
         "author": AuthorFactory().pk,
         "price": "199.90",
         "currency": "UAH",
-        "stock": "4",
         "description": "",
     }
 
