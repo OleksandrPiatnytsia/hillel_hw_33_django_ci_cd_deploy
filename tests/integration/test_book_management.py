@@ -2,8 +2,10 @@
 create, edit and delete books through the site forms (not the admin), with
 the permissions of their groups (users/migrations/0003_create_groups.py):
 
-- Managers: add, change, delete books, change the stock (inventory.change_stock);
-- Editors:  add and change books, but no deleting and no stock.
+- Managers: add, change, delete books;
+- Editors:  add and change books, but no deleting.
+
+The stock is not in the site form: it is changed in the admin.
 """
 
 from decimal import Decimal
@@ -32,7 +34,6 @@ def book_form_data(author, **changes):
         "author": author.pk,
         "price": "250.50",
         "currency": "UAH",
-        "stock": "7",
         "categories": [],
         "description": "Poems",
     }
@@ -50,16 +51,19 @@ def test_manager_creates_edits_and_deletes_a_book(manager_client):
     )
     book = Book.objects.get(title="Kobzar")
     assertRedirects(created, book.get_absolute_url(), fetch_redirect_response=False)
-    assert (book.price, book.stock, list(book.categories.all())) == (Decimal("250.50"), 7, [poetry])
+    # A new book has 0 copies: the stock is set in the admin
+    assert (book.price, book.stock, list(book.categories.all())) == (Decimal("250.50"), 0, [poetry])
 
-    # Edit: price and stock
+    # Edit: the price; the page has no stock field
+    form_page = manager_client.get(reverse("books:update", args=[book.pk]))
+    assert "stock" not in form_page.context["form"].fields
     edited = manager_client.post(
         reverse("books:update", args=[book.pk]),
-        book_form_data(author, price="300.00", stock="2"),
+        book_form_data(author, price="300.00"),
         follow=True,
     )
     book.refresh_from_db()
-    assert (book.price, book.stock) == (Decimal("300.00"), 2)
+    assert book.price == Decimal("300.00")
     assert message_levels(edited)[-1] == "success"  # "created" is still in the list
 
     # Delete: the confirmation page shows the title and the button, POST deletes
@@ -85,10 +89,10 @@ def test_invalid_book_form_shows_errors_and_saves_nothing(manager_client):
     assert not Book.objects.exists()
 
 
-def test_editor_edits_a_book_but_cannot_change_the_stock(editor_client):
+def test_editing_a_book_does_not_change_the_stock(editor_client):
     book = BookFactory(title="Kobzar", stock=5)
 
-    # The stock field is disabled for an editor: a POSTed value is ignored
+    # No stock field in the form: a POSTed value is ignored
     editor_client.post(
         reverse("books:update", args=[book.pk]),
         book_form_data(book.author, title="Kobzar (2nd ed.)", stock="999"),
@@ -122,6 +126,8 @@ def test_a_book_in_orders_is_not_deleted_and_the_manager_sees_why(manager_client
     # No red "Yes, delete" button (its text is translated, so the button
     # is found by its class; the navbar has other submit buttons)
     assert 'class="btn btn-danger"' not in confirm.content.decode()
+    # Instead: the book in the admin, where its stock can be set to 0
+    assert reverse("admin:books_book_change", args=[book.pk]) in confirm.content.decode()
     assertRedirects(deleted, book.get_absolute_url())
     assert message_levels(deleted) == ["error"]
     assert Book.objects.filter(pk=book.pk).exists()

@@ -183,15 +183,6 @@ class BookDetailView(DetailView):
         return context
 
 
-class BookFormUserMixin:
-    """Passes the current user to BookForm (it decides whether "stock" is editable)."""
-
-    def get_form_kwargs(self):
-        kwargs = super().get_form_kwargs()
-        kwargs["user"] = self.request.user
-        return kwargs
-
-
 # PermissionRequiredMixin goes FIRST (left of CreateView / UpdateView /
 # DeleteView): its dispatch() must run before the view's own dispatch().
 # What it does when has_perm() is False:
@@ -200,7 +191,7 @@ class BookFormUserMixin:
 # So a separate LoginRequiredMixin is not needed here.
 
 
-class BookCreateView(PermissionRequiredMixin, BookFormUserMixin, SuccessMessageMixin, CreateView):
+class BookCreateView(PermissionRequiredMixin, SuccessMessageMixin, CreateView):
     """New book. Template: books/book_form.html (shared with update).
 
     No success_url: after saving, Django redirects to book.get_absolute_url().
@@ -223,7 +214,7 @@ class BookCreateView(PermissionRequiredMixin, BookFormUserMixin, SuccessMessageM
         return response
 
 
-class BookUpdateView(PermissionRequiredMixin, BookFormUserMixin, SuccessMessageMixin, UpdateView):
+class BookUpdateView(PermissionRequiredMixin, SuccessMessageMixin, UpdateView):
     """Edit a book. Template: books/book_form.html (shared with create)."""
 
     permission_required = "books.change_book"
@@ -253,7 +244,7 @@ class BookDeleteView(PermissionRequiredMixin, SuccessMessageMixin, DeleteView):
     A book that is in orders can't be deleted: OrderItem.book has
     on_delete=PROTECT, the order history must stay complete. Then:
     - GET: the page says so at once (orders_count) and has no delete button,
-      only "Edit" (stock = 0 stops the sales);
+      only "Edit in admin" (stock = 0 stops the sales);
     - POST anyway (an old open tab, or the book was ordered after the page
       was opened): delete() raises ProtectedError -> an error message and
       back to the book, instead of 500.

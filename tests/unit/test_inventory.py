@@ -135,58 +135,28 @@ def test_stock_permissions_of_the_groups(group, can_change, can_view):
 
 
 # ---------------------------------------------------------------------------
-# BookForm writes the stock only when the user changed it
+# BookForm does not touch the stock
 # ---------------------------------------------------------------------------
 
 
-def _edit_form_data(book, stock, initial_stock):
-    return {
+# Generated with AI
+def test_book_form_keeps_the_stock_even_if_a_stock_value_is_posted():
+    book = BookFactory(stock=5)
+    data = {
         "title": "Renamed",
         "author": book.author.pk,
         "price": "250.00",
         "currency": "UAH",
         "description": "",
-        "stock": str(stock),
-        # The hidden copy of the value the page was opened with
-        # (show_hidden_initial=True on the field)
-        "initial-stock": str(initial_stock),
+        "stock": "999",  # not a field of the form: ignored
     }
 
-
-# Generated with AI
-def test_book_form_does_not_bring_back_copies_sold_while_it_was_open():
-    manager = UserFactory(groups=["Managers"])
-    book = BookFactory(stock=5)
-    # The page was opened with 5, then an order took 1
-    set_stock(book, 4)
-
-    form = BookForm(
-        data=_edit_form_data(book, stock=5, initial_stock=5),
-        instance=Book.objects.get(pk=book.pk),
-        user=manager,
-    )
+    form = BookForm(data=data, instance=Book.objects.get(pk=book.pk))
     assert form.is_valid(), form.errors
     form.save()
 
     book.refresh_from_db()
-    assert (book.title, book.stock) == ("Renamed", 4)
-
-
-# Generated with AI
-def test_book_form_writes_the_stock_the_manager_changed():
-    manager = UserFactory(groups=["Managers"])
-    book = BookFactory(stock=5)
-
-    form = BookForm(
-        data=_edit_form_data(book, stock=12, initial_stock=5),
-        instance=Book.objects.get(pk=book.pk),
-        user=manager,
-    )
-    assert form.is_valid(), form.errors
-    form.save()
-
-    book.refresh_from_db()
-    assert book.stock == 12
+    assert (book.title, book.stock) == ("Renamed", 5)
 
 
 # Generated with AI

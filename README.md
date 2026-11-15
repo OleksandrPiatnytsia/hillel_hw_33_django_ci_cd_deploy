@@ -24,7 +24,7 @@ Redis, Celery, nginx). У цьому ДЗ:
   валюті, валюти в API (див. «Валюти»);
 - єдиний стиль коду: black + flake8 (`pyproject.toml`, `.flake8`), перевіряються
   ще до коміту хуком pre-commit (`.pre-commit-config.yaml`);
-- 564 тести, покриття 98.81%.
+- 562 тести, покриття 98.81%.
 
 ## Стек
 
@@ -238,7 +238,7 @@ class OrderViewSet(...):
   `is_staff` відчиняє двері, група вирішує, що можна (Managers видаляють категорію,
   редактор має `add_author`, але не `is_staff`). `get_permissions()` замість
   `permission_classes`, бо читання відкрите всім, а `IsAdminUser` не має варіанта «або лише читання».
-- **Залишок (`stock`)** — як у `BookForm`: без `inventory.change_stock` змінити його
+- **Залишок (`stock`)** — як в адмінці: без `inventory.change_stock` змінити його
   не можна (403). Надіслати *поточне* значення можна: клієнт, що робить `PUT`
   з усіма прочитаними полями, не отримає помилку.
 - Анонім на запис отримує **401** (з токеном запит міг би пройти), залогінений
@@ -649,7 +649,7 @@ Permissions зазвичай створює сигнал `post_migrate`, тоб�
 
 - **Views:** `PermissionRequiredMixin` стоїть першим у списку батьківських класів:
   ```python
-  class BookCreateView(PermissionRequiredMixin, BookFormUserMixin, SuccessMessageMixin, CreateView):
+  class BookCreateView(PermissionRequiredMixin, SuccessMessageMixin, CreateView):
       permission_required = "books.add_book"
   ```
   Гість отримує переадресацію на `LOGIN_URL?next=...`, а залогінений
@@ -663,10 +663,11 @@ Permissions зазвичай створює сигнал `post_migrate`, тоб�
 ### Право `inventory.change_stock`
 
 Кількість примірників змінює лише той, хто має `inventory.change_stock` (група
-Managers). `BookForm.__init__(user=...)` робить поле `stock` неактивним
-(`disabled`) для решти: для такого поля Django **ігнорує** значення з POST і
-бере початкове, тож змінити склад через DevTools не вийде. Редактор створює
-книжку з 0 примірників, склад виставляє менеджер. Детально — «Склад».
+Managers), і лише в адмінці: на сторінці книги (`StockInline`, по складах) або в
+списку «Залишки». У формі книги на сайті (`BookForm`) поля `stock` немає: нова
+книжка отримує 0 примірників (`inventory.signals`), а надіслане в POST `stock`
+форма ігнорує. Сторінка видалення книги, що є в замовленнях, веде менеджера
+кнопкою «Редагувати в адмінці» туди, де залишок ставлять у 0. Детально — «Склад».
 
 ### Профіль
 
@@ -1476,12 +1477,12 @@ open htmlcov/index.html               # непокриті рядки підсв
 
 | | Кількість | Що перевіряють |
 |---|---|---|
-| `tests/unit/` | 365 | одна функція, модель, форма або один запит; склад, валюти й курси, задачі Celery, Sentry, налаштування production, gunicorn |
+| `tests/unit/` | 363 | одна функція, модель, форма або один запит; склад, валюти й курси, задачі Celery, Sentry, налаштування production, gunicorn |
 | `tests/integration/` | 86 | сценарії з кількох кроків: кошик → замовлення → Stripe → webhook → лист; оплата у валюті; кеш |
 | `tests/api/` | 106 | REST API через `APIClient`: токени, права кожної ролі, фільтри, валюти, замовлення, CORS, throttling, кеш |
 | `tests/test_setup.py` | 7 | сама інфраструктура: налаштування, фабрики, фейки |
 
-Покриття **98.81%** (564 тести); `--cov-fail-under=70` у `pytest.ini`: якщо покриття впаде
+Покриття **98.81%** (562 тести); `--cov-fail-under=70` у `pytest.ini`: якщо покриття впаде
 нижче 70%, `pytest` завершиться з помилкою. Ті самі тести запускає CI на кожен push
 і pull request, а звіт `htmlcov` лежить в артефактах запуску (див. «CI/CD»).
 
