@@ -9,6 +9,8 @@ from django.urls import reverse
 from django.utils.text import format_lazy
 from django.utils.translation import gettext_lazy as _
 
+from currencies.models import BASE_CURRENCY
+
 LOW_STOCK_THRESHOLD = 5
 
 
@@ -106,6 +108,22 @@ class Book(models.Model):
         max_digits=10,
         decimal_places=2,
         validators=[MinValueValidator(Decimal("0.00"))],
+    )
+    # The currency of the price: a book may cost 650 UAH or 20 USD. The site
+    # shows the price converted to the currency of the switcher
+    # (currencies.services.convert / price_in).
+    # default=UAH: the existing books get UAH when the column is added (one
+    # migration, no separate data migration), and a new book is in UAH
+    # unless another currency is chosen. The currency "UAH" itself comes
+    # from the data migration currencies.0002, which the migration of this
+    # field depends on.
+    currency = models.ForeignKey(
+        "currencies.Currency",
+        verbose_name=_("currency"),
+        # PROTECT: a currency with books can't be deleted (turn it off instead)
+        on_delete=models.PROTECT,
+        default=BASE_CURRENCY,
+        related_name="books",  # currency.books.all()
     )
     description = models.TextField(_("description"), blank=True)
     # No stock here: copies are counted in inventory.Stock (see the

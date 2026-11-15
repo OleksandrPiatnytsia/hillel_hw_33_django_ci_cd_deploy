@@ -4,6 +4,12 @@ Usage:
     python manage.py book_stats
     python manage.py book_stats --max-price 200 --search Кінг --category fentezi
     python manage.py book_stats --sql          # also print generated SQL
+
+Books have prices in different currencies (Book.currency), so every price
+here is the price in UAH, calculated by the database with the current
+exchange rates (currencies.services.price_in): "price <= 300" compares
+hryvnias with hryvnias. A book in a currency without a rate has no price
+in UAH (NULL): price filters skip it.
 """
 
 from decimal import Decimal
@@ -12,6 +18,8 @@ from django.core.management.base import BaseCommand
 from django.db.models import Avg, Count, DecimalField, F, Q, Sum
 
 from books.models import LOW_STOCK_THRESHOLD, Book, Category
+from currencies.models import BASE_CURRENCY
+from currencies.services import current_rates, price_in
 
 
 class Command(BaseCommand):
@@ -33,14 +41,18 @@ class Command(BaseCommand):
         # with_stock() adds it as the annotation "stock" (the default
         # warehouse), and every query below uses it like a field:
         # filter(stock__gt=0), order_by("stock"), F("stock"), Sum("stock")
-        books = Book.objects.with_stock()
+        # price_uah: the price in UAH, an annotation like "stock" (one
+        # CASE WHEN per currency in the SELECT). One current_rates() for
+        # all queries of the command.
+        rates = current_rates()
+        books = Book.objects.with_stock().annotate(price_uah=price_in(BASE_CURRENCY, rates=rates))
 
         # ------------------------------------------------------------------
         # 1. filter
         # ------------------------------------------------------------------
 
         # field lookups: __gt (>), __lte (<=); several kwargs are joined with AND
-        cheap_in_stock = books.filter(stock__gt=0, price__lte=max_price).order_by("price")
+        cheap_in_stock = books.filter(stock__gt=0, price_uah__lte=max_price).order_by("price_uah")
         self.section(f"filter: in stock and price <= {max_price}", cheap_in_stock)
 
         # __range is BETWEEN; exclude() is the opposite of filter()
@@ -77,8 +89,8 @@ class Command(BaseCommand):
         self.section(f"Q (AND + NOT): in stock and not in '{category_slug}'", not_in_category)
 
         # mixed: (cheap OR plenty in stock) AND has description
-        promo_filter = (Q(price__lt=150) | Q(stock__gte=20)) & ~Q(description="")
-        promo = books.filter(promo_filter).order_by("price")
+        promo_filter = (Q(price_uah__lt=150) | Q(stock__gte=20)) & ~Q(description="")
+        promo = books.filter(promo_filter).order_by("price_uah")
         self.section("Q (mixed): (price < 150 OR stock >= 20) AND has description", promo)
 
         # ------------------------------------------------------------------
@@ -95,14 +107,20 @@ class Command(BaseCommand):
             books_count=Count("books", distinct=True),
             # Count with filter=Q(...) counts only matching rows
             in_stock_count=Count("books", filter=default_stock & Q(books__stocks__quantity__gt=0)),
-            avg_price=Avg("books__price", filter=default_stock),
+            # The same CASE WHEN, through the relation Category -> books
+            avg_price=Avg(
+                price_in(
+                    BASE_CURRENCY, price="books__price", currency="books__currency", rates=rates
+                ),
+                filter=default_stock,
+            ),
             total_stock=Sum("books__stocks__quantity", filter=default_stock),
         ).order_by("-books_count", "name")
         self.heading("annotate: statistics per category")
         self.print_sql(categories)
         self.stdout.write(
             f"  {'category':<20} {'books':>5} {'in stock':>8} "
-            f"{'avg price':>10} {'total stock':>11}"
+            f"{'avg UAH':>10} {'total stock':>11}"
         )
         for c in categories:
             avg = f"{c.avg_price:.2f}" if c.avg_price is not None else "—"
@@ -111,17 +129,20 @@ class Command(BaseCommand):
                 f"{avg:>10} {c.total_stock or 0:>11}"
             )
 
-        # F() refers to another field of the same row: price * stock
+        # F() refers to another field (or annotation) of the same row:
+        # price in UAH * stock
         top_value = books.annotate(
-            inventory_value=F("price") * F("stock"),
+            inventory_value=F("price_uah") * F("stock"),
             categories_count=Count("categories"),
-        ).order_by("-inventory_value")[:5]
-        self.heading("annotate + F(): top 5 books by inventory value (price * stock)")
+            # nulls_last: books without a price in UAH (no rate) have NULL,
+            # and PostgreSQL puts NULL first in a descending order
+        ).order_by(F("inventory_value").desc(nulls_last=True))[:5]
+        self.heading("annotate + F(): top 5 books by inventory value (UAH price * stock)")
         self.print_sql(top_value)
         for b in top_value:
             self.stdout.write(
-                f"  {b.title:<32} {b.price:>8} x {b.stock:<5} = "
-                f"{b.inventory_value:>10.2f}   categories: {b.categories_count}"
+                f"  {b.title:<32} {b.price_uah or 0:>8} x {b.stock:<5} = "
+                f"{b.inventory_value or 0:>10.2f}   categories: {b.categories_count}"
             )
 
         # categories having more than 2 books: filter on an annotated value
@@ -141,10 +162,10 @@ class Command(BaseCommand):
         totals = books.aggregate(
             books=Count("id"),
             in_stock=Count("id", filter=Q(stock__gt=0)),
-            avg_price=Avg("price"),
+            avg_price_uah=Avg("price_uah"),
             total_stock=Sum("stock"),
-            inventory_value=Sum(
-                F("price") * F("stock"),
+            inventory_value_uah=Sum(
+                F("price_uah") * F("stock"),
                 output_field=DecimalField(max_digits=14, decimal_places=2),
             ),
         )
@@ -173,4 +194,8 @@ class Command(BaseCommand):
         if not books:
             self.stdout.write("  (nothing found)")
         for b in books:
-            self.stdout.write(f"  {b.title:<32} {b.price:>8} UAH   stock: {b.stock}")
+            # The price in its own currency, and in UAH if it is another one
+            price = f"{b.price} {b.currency_id}"
+            if b.currency_id != BASE_CURRENCY:
+                price += f" = {b.price_uah if b.price_uah is not None else '?'} UAH"
+            self.stdout.write(f"  {b.title:<32} {price:>24}   stock: {b.stock}")

@@ -144,6 +144,7 @@ def _edit_form_data(book, stock, initial_stock):
         "title": "Renamed",
         "author": book.author.pk,
         "price": "250.00",
+        "currency": "UAH",
         "description": "",
         "stock": str(stock),
         # The hidden copy of the value the page was opened with

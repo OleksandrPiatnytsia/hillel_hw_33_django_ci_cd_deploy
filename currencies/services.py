@@ -26,6 +26,8 @@ from zoneinfo import ZoneInfo
 
 from django.core.cache import cache
 from django.db import transaction
+from django.db.models import Case, DecimalField, F, Value, When
+from django.db.models.functions import Round
 from django.utils import timezone
 
 from . import nbu
@@ -135,6 +137,41 @@ def convert(amount, from_code, to_code, rates=None):
     if from_code == to_code:
         return amount.quantize(CENT, ROUND_HALF_UP)
     return (amount * cross_rate(from_code, to_code, rates)).quantize(CENT, ROUND_HALF_UP)
+
+
+def price_in(to_code, *, price="price", currency="currency", rates=None):
+    """SQL expression: a price converted to to_code, for annotate / filter / order_by.
+
+    Books have prices in different currencies, so "sort by price" or
+    "price from 10 to 20 USD" needs the price in ONE currency, calculated
+    by the database for every row. With the rates as constants (from
+    current_rates(), no JOIN to the rates table):
+
+        CASE WHEN currency_id = 'USD' THEN price
+             WHEN currency_id = 'UAH' THEN ROUND(price * 0.022013..., 2)
+             WHEN currency_id = 'EUR' THEN ROUND(price * 1.108096..., 2)
+             ELSE NULL END
+
+    ROUND(..., 2) in PostgreSQL rounds half away from zero, the same as
+    convert() (ROUND_HALF_UP for prices >= 0): the number the database
+    filters and sorts by is the number the page shows.
+    A book in a currency without a rate gets NULL: a filter never matches
+    it, ORDER BY puts it last (ascending) or first (descending).
+
+    price / currency: the field names, also across relations, e.g.
+    price="books__price", currency="books__currency" for Category.
+    Raises RateUnavailable if to_code itself has no rate.
+    """
+    rates = current_rates() if rates is None else rates
+    if to_code not in rates:
+        raise RateUnavailable(f"No exchange rate for {to_code}")
+    output = DecimalField(max_digits=14, decimal_places=2)
+    whens = [When(**{currency: to_code}, then=F(price))]
+    for code in rates:
+        if code != to_code:
+            factor = Value(cross_rate(code, to_code, rates))
+            whens.append(When(**{currency: code}, then=Round(F(price) * factor, 2)))
+    return Case(*whens, default=None, output_field=output)
 
 
 # ---------------------------------------------------------------------------

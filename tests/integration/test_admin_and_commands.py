@@ -253,9 +253,9 @@ def test_book_stats_on_an_empty_catalog():
 @pytest.mark.parametrize(
     ("query", "expected"),
     [
-        # o=5: the 5th column of list_display ("stock"), ascending
-        ("?o=5", ["Out", "Few", "Plenty"]),
-        ("?o=-5", ["Plenty", "Few", "Out"]),
+        # o=6: the 6th column of list_display ("stock"), ascending
+        ("?o=6", ["Out", "Few", "Plenty"]),
+        ("?o=-6", ["Plenty", "Few", "Out"]),
         ("?stock_status=low", ["Few"]),
         ("?stock_status=out", ["Out"]),
     ],

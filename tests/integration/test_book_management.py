@@ -31,6 +31,7 @@ def book_form_data(author, **changes):
         "title": "Kobzar",
         "author": author.pk,
         "price": "250.50",
+        "currency": "UAH",
         "stock": "7",
         "categories": [],
         "description": "Poems",
