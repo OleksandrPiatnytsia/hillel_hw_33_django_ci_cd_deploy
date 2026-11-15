@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Bookstore\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-15 21:07+0000\n"
+"POT-Creation-Date: 2026-11-15 21:30+0000\n"
 "PO-Revision-Date: 2026-11-10 16:00+0200\n"
 "Last-Translator: Bookstore\n"
 "Language-Team: Ukrainian\n"
@@ -93,7 +93,7 @@ msgstr "Обкладинка"
 msgid "Sales"
 msgstr "Продаж"
 
-#: books/admin.py:150 orders/admin.py:122
+#: books/admin.py:150 orders/admin.py:120
 msgid "Timestamps"
 msgstr "Дати"
 
@@ -244,7 +244,7 @@ msgid "price"
 msgstr "ціна"
 
 #: books/models.py:122 currencies/models.py:42 currencies/models.py:69
-#: orders/models.py:79
+#: orders/models.py:79 payments/models.py:62
 msgid "currency"
 msgstr "валюта"
 
@@ -252,11 +252,11 @@ msgstr "валюта"
 msgid "description"
 msgstr "опис"
 
-#: books/models.py:140 orders/models.py:114 payments/models.py:63
+#: books/models.py:140 orders/models.py:114 payments/models.py:77
 msgid "created at"
 msgstr "створено"
 
-#: books/models.py:141 orders/models.py:115 payments/models.py:64
+#: books/models.py:141 orders/models.py:115 payments/models.py:78
 msgid "updated at"
 msgstr "оновлено"
 
@@ -734,7 +734,7 @@ msgstr "валюти"
 msgid "NBU"
 msgstr "НБУ"
 
-#: currencies/models.py:65 payments/models.py:24
+#: currencies/models.py:65 payments/models.py:26
 msgid "Manual"
 msgstr "Вручну"
 
@@ -762,7 +762,7 @@ msgstr "створено"
 msgid "updated"
 msgstr "оновлено"
 
-#: currencies/models.py:99 orders/models.py:88 orders/models.py:279
+#: currencies/models.py:99 orders/models.py:88 orders/models.py:277
 msgid "exchange rate"
 msgstr "курс валюти"
 
@@ -796,7 +796,7 @@ msgstr "склади"
 msgid "Another warehouse is already the default."
 msgstr "Інший склад уже є складом за замовчуванням."
 
-#: inventory/models.py:97 orders/models.py:286
+#: inventory/models.py:97 orders/models.py:283
 msgid "quantity"
 msgstr "кількість"
 
@@ -804,56 +804,56 @@ msgstr "кількість"
 msgid "original price"
 msgstr "початкова ціна"
 
-#: orders/admin.py:61
+#: orders/admin.py:59
 msgid "cost"
 msgstr "вартість"
 
-#: orders/admin.py:108 payments/templates/payments/payment_success.html:4
+#: orders/admin.py:106 payments/templates/payments/payment_success.html:4
 msgid "Payment"
 msgstr "Оплата"
 
-#: orders/admin.py:121 orders/templates/orders/checkout.html:22
+#: orders/admin.py:119 orders/templates/orders/checkout.html:22
 #: orders/templates/orders/emails/order_created.html:49
 #: orders/templates/orders/order_detail.html:68
 msgid "Delivery"
 msgstr "Доставка"
 
-#: orders/admin.py:168
+#: orders/admin.py:166
 msgid "paid"
 msgstr "оплачено"
 
-#: orders/admin.py:174 orders/models.py:100
+#: orders/admin.py:172 orders/models.py:100
 msgid "total"
 msgstr "сума"
 
-#: orders/admin.py:180
+#: orders/admin.py:178
 msgid "paid amount"
 msgstr "сплачено"
 
-#: orders/admin.py:184
+#: orders/admin.py:182
 msgid "amount due"
 msgstr "до сплати"
 
-#: orders/admin.py:188
+#: orders/admin.py:186
 msgid "paid, %"
 msgstr "оплачено, %"
 
-#: orders/admin.py:243
+#: orders/admin.py:241
 #, python-format
 msgid "Manual payment %(amount)s recorded, the order is %(status)s now."
 msgstr "Ручну оплату %(amount)s записано, замовлення тепер: %(status)s."
 
-#: orders/admin.py:263
+#: orders/admin.py:261
 #, python-format
 msgid "%(order)s is cancelled, the books are back in stock."
 msgstr "%(order)s скасовано, книги повернено на склад."
 
-#: orders/admin.py:268
+#: orders/admin.py:266
 #, python-format
 msgid "%(order)s has payments: return the money to the customer."
 msgstr "%(order)s має оплати: поверніть гроші покупцеві."
 
-#: orders/admin.py:274
+#: orders/admin.py:272
 msgid "Cancel selected orders (books go back to stock)"
 msgstr "Скасувати вибрані замовлення (книги повертаються на склад)"
 
@@ -865,7 +865,7 @@ msgstr "Замовлення"
 msgid "Save phone and address to my profile"
 msgstr "Зберегти телефон і адресу в моєму профілі"
 
-#: orders/forms.py:66 users/forms.py:63
+#: orders/forms.py:64 users/forms.py:63
 msgid "City, street, house, flat or the post office number"
 msgstr "Місто, вулиця, будинок, квартира або номер відділення пошти"
 
@@ -939,7 +939,7 @@ msgstr "Оплачено"
 msgid "user"
 msgstr "користувач"
 
-#: orders/models.py:49 payments/models.py:54
+#: orders/models.py:49 payments/models.py:68
 msgid "status"
 msgstr "статус"
 
@@ -967,7 +967,7 @@ msgstr "гривень за 1 одиницю валюти замовлення �
 msgid "idempotency key"
 msgstr "ключ ідемпотентності"
 
-#: orders/models.py:119 orders/models.py:231 payments/models.py:34
+#: orders/models.py:119 orders/models.py:231 payments/models.py:36
 msgid "order"
 msgstr "замовлення"
 
@@ -980,15 +980,15 @@ msgstr "замовлення"
 msgid "Order #%(number)s"
 msgstr "Замовлення #%(number)s"
 
-#: orders/models.py:269
+#: orders/models.py:268
 msgid "original currency"
 msgstr "початкова валюта"
 
-#: orders/models.py:292
+#: orders/models.py:289
 msgid "order item"
 msgstr "позиція замовлення"
 
-#: orders/models.py:293
+#: orders/models.py:290
 msgid "order items"
 msgstr "позиції замовлення"
 
@@ -1023,7 +1023,7 @@ msgstr[3] ""
 "«%(title)s»: залишилося лише %(stock)s примірника, а ви замовили "
 "%(quantity)s."
 
-#: orders/services.py:233 payments/services.py:196
+#: orders/services.py:233 payments/services.py:207
 msgid "Order not found."
 msgstr "Замовлення не знайдено."
 
@@ -1338,32 +1338,36 @@ msgstr ""
 msgid "%(order)s is cancelled. The books are back in stock."
 msgstr "%(order)s скасовано. Книги повернено на склад."
 
-#: payments/admin.py:27 payments/models.py:71
+#: payments/admin.py:37 payments/models.py:85
 msgid "payments"
 msgstr "оплати"
 
-#: payments/admin.py:39 payments/admin.py:48
+#: payments/admin.py:49 payments/admin.py:62
 msgid "note"
 msgstr "примітка"
 
-#: payments/admin.py:51
+#: payments/admin.py:53 payments/admin.py:157 payments/models.py:50
+msgid "amount"
+msgstr "сума"
+
+#: payments/admin.py:65
 msgid "cash on delivery, bank transfer #…"
 msgstr "готівка при отриманні, банківський переказ №…"
 
-#: payments/admin.py:73
+#: payments/admin.py:87
 msgid "The order is cancelled, payments can't be added."
 msgstr "Замовлення скасовано, додавати оплати не можна."
 
-#: payments/admin.py:77
+#: payments/admin.py:91
 #, python-format
-msgid "Only %(due)s UAH is due, the new payments add up to %(sum)s UAH."
-msgstr "До сплати лише %(due)s грн, а нові оплати разом дають %(sum)s грн."
+msgid "Only %(due)s is due, the new payments add up to %(sum)s."
+msgstr "До сплати лише %(due)s, а нові оплати разом дають %(sum)s."
 
-#: payments/admin.py:97
+#: payments/admin.py:114
 msgid "manual payment"
 msgstr "ручна оплата"
 
-#: payments/admin.py:98
+#: payments/admin.py:115
 msgid "add a manual payment (money received outside the site)"
 msgstr "додати ручну оплату (гроші отримано поза сайтом)"
 
@@ -1371,50 +1375,46 @@ msgstr "додати ручну оплату (гроші отримано поз
 msgid "Payments"
 msgstr "Оплати"
 
-#: payments/models.py:27
+#: payments/models.py:29
 msgid "Pending"
 msgstr "Очікує"
 
-#: payments/models.py:28
+#: payments/models.py:30
 msgid "Succeeded"
 msgstr "Успішний"
 
-#: payments/models.py:29
+#: payments/models.py:31
 msgid "Failed"
 msgstr "Невдалий"
 
-#: payments/models.py:30
+#: payments/models.py:32
 msgid "Expired"
 msgstr "Прострочений"
 
-#: payments/models.py:40
+#: payments/models.py:42
 msgid "provider"
 msgstr "провайдер"
 
-#: payments/models.py:44
+#: payments/models.py:46
 msgid "provider's id"
 msgstr "ідентифікатор у провайдера"
 
-#: payments/models.py:48
-msgid "amount"
-msgstr "сума"
-
-#: payments/models.py:62
+#: payments/models.py:76
 msgid "details"
 msgstr "деталі"
 
-#: payments/models.py:66
+#: payments/models.py:80
 msgid "paid at"
 msgstr "оплачено о"
 
-#: payments/models.py:70
+#: payments/models.py:84
 msgid "payment"
 msgstr "оплата"
 
-#: payments/models.py:90
+#: payments/models.py:108
 #, python-format
-msgid "%(provider)s %(amount)s UAH (%(status)s) for order #%(order)s"
-msgstr "%(provider)s %(amount)s грн (%(status)s), замовлення #%(order)s"
+msgid "%(provider)s %(amount)s (%(status)s) for order #%(order)s"
+msgstr "%(provider)s %(amount)s (%(status)s), замовлення #%(order)s"
 
 #: payments/providers/base.py:52
 #, python-format
@@ -1426,63 +1426,68 @@ msgstr "%(provider)s: онлайн-оплата не підтримується.
 msgid "%(provider)s: webhooks are not supported."
 msgstr "%(provider)s: вебхуки не підтримуються."
 
-#: payments/providers/stripe_checkout.py:56
+#: payments/providers/stripe_checkout.py:90
 msgid "Online payment is not configured."
 msgstr "Онлайн-оплату не налаштовано."
 
-#: payments/providers/stripe_checkout.py:80
+#: payments/providers/stripe_checkout.py:99
+#, python-format
+msgid "Online payment in %(currency)s is not available."
+msgstr "Онлайн-оплата у %(currency)s недоступна."
+
+#: payments/providers/stripe_checkout.py:119
 #, python-format
 msgid "Bookstore: order #%(number)s"
 msgstr "Книгарня: замовлення #%(number)s"
 
-#: payments/providers/stripe_checkout.py:119
+#: payments/providers/stripe_checkout.py:158
 msgid "The payment service is not available now, please try again later."
 msgstr "Платіжний сервіс зараз недоступний, спробуйте пізніше."
 
-#: payments/providers/stripe_checkout.py:140
+#: payments/providers/stripe_checkout.py:179
 msgid "Can't check the payment now."
 msgstr "Зараз не вдається перевірити оплату."
 
-#: payments/providers/stripe_checkout.py:158
+#: payments/providers/stripe_checkout.py:200
 msgid "Can't close the payment page now."
 msgstr "Зараз не вдається закрити сторінку оплати."
 
-#: payments/services.py:49
+#: payments/services.py:50
 msgid "The amount must be greater than 0."
 msgstr "Сума має бути більшою за 0."
 
-#: payments/services.py:55
+#: payments/services.py:56
 #, python-format
 msgid "%(order)s is cancelled, payments can't be added."
 msgstr "%(order)s скасовано, додавати оплати не можна."
 
-#: payments/services.py:60
+#: payments/services.py:61
 #, python-format
-msgid "%(order)s: only %(due)s UAH is due, %(amount)s UAH is too much."
-msgstr "%(order)s: до сплати лише %(due)s грн, %(amount)s грн — забагато."
+msgid "%(order)s: only %(due)s is due, %(amount)s is too much."
+msgstr "%(order)s: до сплати лише %(due)s, %(amount)s — забагато."
 
-#: payments/services.py:198
+#: payments/services.py:209
 #, python-format
 msgid "%(order)s is cancelled."
 msgstr "%(order)s скасовано."
 
-#: payments/services.py:201
+#: payments/services.py:212
 #, python-format
 msgid "%(order)s is already paid."
 msgstr "%(order)s уже оплачено."
 
-#: payments/services.py:212
+#: payments/services.py:223
 msgid "The payment is being prepared, please try again in a minute."
 msgstr "Оплата готується, спробуйте ще раз за хвилину."
 
 #: payments/templates/payments/emails/payment_received.html:19
 #, python-format
 msgid ""
-"We received your payment of <strong>%(amount)s ₴</strong> for "
+"We received your payment of <strong>%(amount)s</strong> for "
 "<strong>%(order)s</strong>."
 msgstr ""
-"<strong>%(order)s</strong>: ми отримали вашу оплату <strong>%(amount)s "
-"₴</strong>."
+"<strong>%(order)s</strong>: ми отримали вашу оплату "
+"<strong>%(amount)s</strong>."
 
 #: payments/templates/payments/emails/payment_received.html:25
 msgid "Order total"
@@ -1507,18 +1512,18 @@ msgstr "Замовлення: <strong>%(status)s</strong>."
 
 #: payments/templates/payments/emails/payment_received.txt:4
 #, python-format
-msgid "We received your payment of %(amount)s UAH for %(order)s."
-msgstr "%(order)s: ми отримали вашу оплату %(amount)s грн."
+msgid "We received your payment of %(amount)s for %(order)s."
+msgstr "%(order)s: ми отримали вашу оплату %(amount)s."
 
 #: payments/templates/payments/emails/payment_received.txt:6
 #, python-format
-msgid "Order total: %(total)s UAH"
-msgstr "Сума замовлення: %(total)s грн"
+msgid "Order total: %(total)s"
+msgstr "Сума замовлення: %(total)s"
 
 #: payments/templates/payments/emails/payment_received.txt:7
 #, python-format
-msgid "Paid: %(paid)s UAH (%(percent)s%%)"
-msgstr "Сплачено: %(paid)s грн (%(percent)s%%)"
+msgid "Paid: %(paid)s (%(percent)s%%)"
+msgstr "Сплачено: %(paid)s (%(percent)s%%)"
 
 #: payments/templates/payments/emails/payment_received.txt:8
 msgid "The order is fully paid. We'll let you know when it's shipped."
@@ -1527,13 +1532,13 @@ msgstr ""
 
 #: payments/templates/payments/emails/payment_received.txt:8
 #, python-format
-msgid "Still due: %(due)s UAH."
-msgstr "Залишилось сплатити: %(due)s грн."
+msgid "Still due: %(due)s."
+msgstr "Залишилось сплатити: %(due)s."
 
 #: payments/templates/payments/emails/payment_received_subject.txt:2
 #, python-format
-msgid "Bookstore: payment for %(order)s received (%(amount)s UAH)"
-msgstr "Книгарня: %(order)s — оплату отримано (%(amount)s грн)"
+msgid "Bookstore: payment for %(order)s received (%(amount)s)"
+msgstr "Книгарня: %(order)s — оплату отримано (%(amount)s)"
 
 #: payments/templates/payments/payment_success.html:10
 msgid "Thank you, the payment is received"
@@ -1541,8 +1546,8 @@ msgstr "Дякуємо, оплату отримано"
 
 #: payments/templates/payments/payment_success.html:12
 #, python-format
-msgid "%(amount)s ₴ for %(order)s."
-msgstr "%(order)s: %(amount)s ₴."
+msgid "%(amount)s for %(order)s."
+msgstr "%(order)s: %(amount)s."
 
 #: payments/templates/payments/payment_success.html:13
 msgid "The order is fully paid."

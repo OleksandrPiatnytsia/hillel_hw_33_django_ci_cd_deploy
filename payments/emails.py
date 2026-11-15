@@ -6,7 +6,7 @@ from .models import Payment
 
 
 def send_payment_received_email(payment_id, raise_errors=False):
-    """ "We received N UAH for order #M": paid so far, still due, the status.
+    """ "We received 14,31 $ for order #M": paid so far, still due, the status.
 
     Called after COMMIT (transaction.on_commit in payments.services):
     - Stripe: for every succeeded payment;

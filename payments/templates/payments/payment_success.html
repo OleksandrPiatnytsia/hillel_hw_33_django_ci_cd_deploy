@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load i18n static %}
+{% load i18n money static %}
 
 {% block title %}{% translate "Payment" %}{% endblock %}
 
@@ -9,7 +9,7 @@
     <div class="display-1">✅</div>
     <h1 class="h3 mt-3">{% translate "Thank you, the payment is received" %}</h1>
     <p class="text-body-secondary">
-      {% blocktranslate with amount=payment.amount %}{{ amount }} ₴ for {{ order }}.{% endblocktranslate %}
+      {% blocktranslate with amount=payment.amount|money:payment.currency_id %}{{ amount }} for {{ order }}.{% endblocktranslate %}
       {% if order.payment_status == "paid" %}{% translate "The order is fully paid." %}{% endif %}
     </p>
   {% elif payment.status == "pending" %}

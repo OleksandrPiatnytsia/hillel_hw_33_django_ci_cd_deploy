@@ -164,4 +164,5 @@ class PaymentFactory(DjangoModelFactory):
     provider = Payment.Provider.STRIPE
     external_id = factory.Sequence(lambda n: f"cs_test_{n}")
     amount = factory.LazyAttribute(lambda payment: payment.order.total)
+    currency_id = factory.LazyAttribute(lambda payment: payment.order.currency_id)
     status = Payment.Status.PENDING
