@@ -17,6 +17,8 @@ from .reports import build_daily_report, send_daily_report_email
 # Retries of a failed email: only for errors that may pass by themselves.
 # OSError covers the network (ConnectionRefusedError, timeouts) and every
 # smtplib.SMTPException (a subclass of OSError): Gmail down, "try later".
+# The Brevo API errors too: Anymail's AnymailRequestsAPIError is a
+# requests.HTTPError, which is an OSError (Brevo down, too many requests).
 # A template mistake or a missing order is not retried: it fails the same
 # way every time.
 # retry_backoff=60: wait 60 s, then 120 s, then 240 s (doubles every time);

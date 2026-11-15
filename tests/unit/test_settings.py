@@ -147,6 +147,10 @@ def run_with_production_settings(*args, **env):
         "SENTRY_DSN": "",
         "EMAIL_HOST_USER": "bookstore@example.com",
         "EMAIL_HOST_PASSWORD": "test-only-password",
+        # Empty, not unset: load_dotenv() never overrides a variable that
+        # exists, so a Brevo key from the local .env can't sneak in
+        "BREVO_API_KEY": "",
+        "EMAIL_FROM": "",
         **env,
     }
     return subprocess.run(
@@ -216,6 +220,88 @@ def test_worker_on_railway_starts_without_a_domain():
     values = production_settings(DJANGO_ALLOWED_HOSTS="", RAILWAY_ENVIRONMENT_NAME="production")
 
     assert values["ALLOWED_HOSTS"] == ["healthcheck.railway.app"]
+
+
+# Sends one email with the production settings and prints what went out.
+# The HTTP request to Brevo is replaced by a fake answer (nothing leaves this
+# machine); the fake records the URL, the API key header and the JSON body.
+BREVO_SEND = (
+    "import json; from unittest import mock; import requests; "
+    "from django.conf import settings; from django.core import mail; "
+    "answer = requests.Response(); answer.status_code = 201; "
+    'answer._content = b\'{"messageId": "<1@brevo>"}\'; '
+    "fake = mock.patch('requests.Session.request', return_value=answer); "
+    "request = fake.start(); "
+    "mail.send_mail('Hello', 'Text', None, ['ann@example.com']); "
+    "sent = request.call_args.kwargs; "
+    "print(json.dumps({'mailer': settings.MAILERS['default']['BACKEND'], "
+    "'url': sent['url'], 'api_key': sent['headers']['api-key'], "
+    "'body': json.loads(sent['data'])}))"
+)
+
+
+def test_emails_go_through_the_brevo_api():
+    """Railway blocks SMTP: with BREVO_API_KEY the emails are HTTPS requests
+    to the Brevo API (django-anymail), from the confirmed sender."""
+    result = run_with_production_settings(
+        "shell",
+        "--no-imports",
+        "-c",
+        BREVO_SEND,
+        BREVO_API_KEY="xkeysib-test-only",
+        EMAIL_FROM="shop@example.com",
+    )
+
+    assert result.returncode == 0, result.stderr
+    sent = json.loads(result.stdout)
+    assert sent["mailer"] == "anymail.backends.brevo.EmailBackend"
+    assert sent["url"] == "https://api.brevo.com/v3/smtp/email"
+    assert sent["api_key"] == "xkeysib-test-only"
+    assert sent["body"]["sender"] == {"email": "shop@example.com", "name": "Bookstore"}
+    assert sent["body"]["to"] == [{"email": "ann@example.com"}]
+    assert sent["body"]["subject"] == "Hello"
+
+
+def test_brevo_wins_over_gmail():
+    """Both configured (Gmail from .env, Brevo on Railway): Brevo is used."""
+    result = run_with_production_settings(
+        "shell",
+        "--no-imports",
+        "-c",
+        "from django.conf import settings; print(settings.MAILERS['default']['BACKEND'])",
+        BREVO_API_KEY="xkeysib-test-only",
+        EMAIL_FROM="shop@example.com",
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "anymail.backends.brevo.EmailBackend"
+
+
+def test_brevo_without_a_sender_refuses_to_start():
+    """Brevo refuses unconfirmed senders: better a clear error at start than
+    every email failing later."""
+    result = run_with_production_settings(
+        "check", BREVO_API_KEY="xkeysib-test-only", EMAIL_HOST_USER="", EMAIL_FROM=""
+    )
+
+    assert result.returncode != 0
+    assert "EMAIL_FROM is empty" in result.stderr
+
+
+def test_brevo_passes_the_deploy_check():
+    """With Brevo and no Gmail login there is no mail.E001 (console mailer)."""
+    result = run_with_production_settings(
+        "check",
+        "--deploy",
+        "--fail-level",
+        "WARNING",
+        BREVO_API_KEY="xkeysib-test-only",
+        EMAIL_FROM="shop@example.com",
+        EMAIL_HOST_USER="",
+        EMAIL_HOST_PASSWORD="",
+    )
+
+    assert result.returncode == 0, result.stderr
 
 
 # What the worker does at start (app.log.setup), then one line of Celery's

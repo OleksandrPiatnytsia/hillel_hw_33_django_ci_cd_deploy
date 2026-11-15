@@ -15,6 +15,8 @@ uvicorn-worker==0.4.0
 # where there is no nginx in front (Railway): config/settings/production.py
 whitenoise==6.12.0
 stripe==16.1.0
+# Emails through the HTTP API of Brevo (Railway blocks SMTP): config/settings/base.py
+django-anymail==15.2
 # Background tasks: emails, the daily report, cleanup (config/celery.py);
 # [redis]: the Redis broker transport. Worker: celery -A config worker,
 # schedule: celery -A config beat (services celery / celery-beat)

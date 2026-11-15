@@ -40,7 +40,8 @@ Redis, Celery, nginx). У цьому ДЗ:
 - Pillow: перевірка зображень для `ImageField`
 - python-dotenv: налаштування з `.env`
 - Stripe: `stripe` 16 (Checkout Session, перевірка підпису webhook), Stripe CLI 1.55 у Docker
-- Gmail SMTP через `MAILERS` (новий формат налаштувань пошти в Django 6.1)
+- Gmail SMTP через `MAILERS` (новий формат налаштувань пошти в Django 6.1);
+  django-anymail 15.2: Brevo HTTP API на Railway
 - django-debug-toolbar 8.0 (тільки для розробки, `requirements-dev.txt`)
 - Тести (`requirements-dev.txt`): pytest 9, pytest-django, pytest-asyncio, pytest-cov,
   factory-boy, polib
@@ -1065,8 +1066,44 @@ docker compose logs -f stripe-cli    # <-- [200] POST http://web:8000/payments/w
 
 ## Email
 
-Gmail SMTP через `MAILERS` (Django 6.1; старі `EMAIL_BACKEND`, `EMAIL_HOST`, ...
-застарілі й зникнуть у 7.0):
+Поштовик вибирається за змінними, перший налаштований (`config/settings/base.py`):
+
+| Що задано | Поштовик | Де |
+|---|---|---|
+| `BREVO_API_KEY` (+ `EMAIL_FROM`) | **Brevo HTTP API** через `django-anymail` | Railway: SMTP там заблокований, HTTPS — ні |
+| `EMAIL_HOST_USER` + `EMAIL_HOST_PASSWORD` | Gmail SMTP | локально |
+| нічого | консоль: лист друкується в лог | локально без пошти |
+
+### Brevo (Railway)
+
+Railway на тарифах Free / Trial / Hobby блокує вихідний SMTP (порти 25, 465,
+587). Brevo приймає лист JSON-запитом на `https://api.brevo.com/v3/smtp/email`,
+а HTTPS Railway пропускає. `django-anymail` — поштовик Django, який перетворює
+звичайний `EmailMessage` (текст, HTML, вкладення CSV звіту) на такий запит, тож
+код листів не змінився:
+
+```python
+MAILERS = {
+    "default": {
+        "BACKEND": "anymail.backends.brevo.EmailBackend",
+        "OPTIONS": {"api_key": BREVO_API_KEY},  # Django 6.1 передає OPTIONS у поштовик
+    },
+}
+```
+
+- **API-ключ:** Brevo → SMTP & API → API Keys → Generate (`xkeysib-...`).
+- **Відправник** має бути підтверджений у Brevo (Senders, Domains & Dedicated IPs →
+  Senders → Add a sender, лист із кодом на цю адресу): `EMAIL_FROM`. Без
+  `EMAIL_FROM` production не стартує (`ImproperlyConfigured`): інакше Brevo
+  відхиляв би кожен лист.
+- Помилки API (`AnymailRequestsAPIError`) — це `requests.HTTPError`, тобто
+  `OSError`: задачі Celery повторюють їх так само, як помилки SMTP.
+- Тест (`tests/unit/test_settings.py`) відправляє лист з production-налаштуваннями,
+  підмінивши HTTP-запит, і перевіряє адресу API, ключ, відправника й отримувача.
+
+### Gmail SMTP (локально)
+
+`MAILERS` з Django 6.1 (старі `EMAIL_BACKEND`, `EMAIL_HOST`, ... застарілі й зникнуть у 7.0):
 
 ```python
 MAILERS = {
@@ -1082,8 +1119,8 @@ MAILERS = {
   акаунта. Пробіли з нього прибираються. Ліміт Gmail — близько 500 листів на добу.
 - Без `EMAIL_HOST_USER` / `EMAIL_HOST_PASSWORD` листи друкуються в консоль
   (`docker compose logs web`). Тести самі підміняють усі mailers на `locmem`.
-- `DEFAULT_FROM_EMAIL = "Bookstore <адреса Gmail>"`: Gmail відправляє лише від імені
-  акаунта, під яким входить.
+- `DEFAULT_FROM_EMAIL = "Bookstore <EMAIL_FROM або адреса Gmail>"`: Gmail відправляє
+  лише від імені акаунта, під яким входить, Brevo — лише від підтвердженого відправника.
 - Посилання в листах будуються від `SITE_URL`: лист відправляється без запиту
   (після COMMIT, з webhook), `request.build_absolute_uri()` там недоступний.
 
@@ -1098,8 +1135,9 @@ MAILERS = {
   в атрибутах `style`, бо Gmail і Outlook ігнорують `<style>`.
 - Відправка ніколи не кидає виняток: помилку SMTP (пароль, мережа, таймаут) записує
   лог з traceback, а замовлення вже збережене.
-- Відправка синхронна (у межах запиту); Celery — у наступних ДЗ.
-- Перевірити SMTP: `docker compose exec web python manage.py sendtestemail адреса@gmail.com`.
+- Відправка — у задачах Celery після COMMIT (див. «Celery»).
+- Перевірити пошту: `docker compose exec web python manage.py sendtestemail адреса@gmail.com`;
+  на Railway — `railway ssh --service web -- python manage.py sendtestemail адреса@gmail.com`.
 - Тестові користувачі: адреси з `+` (`адреса+ann@gmail.com`) приходять у ту саму
   скриньку, а для сайту це різні email.
 
@@ -1571,6 +1609,8 @@ docker compose exec -u root web chown -R app:app /app/media
 | `SENTRY_ISSUES_URL` | сторінка Issues проєкту для посилання в профілі; порожня — без посилання | |
 | `EMAIL_HOST_USER` | адреса Gmail; порожня → листи в консоль | `name@gmail.com` |
 | `EMAIL_HOST_PASSWORD` | App Password Google (16 літер), не пароль акаунта | |
+| `BREVO_API_KEY` | ключ API Brevo; якщо заданий — листи йдуть через Brevo, а не Gmail | `xkeysib-...` |
+| `EMAIL_FROM` | адреса відправника, підтверджена в Brevo; без неї — логін Gmail | `shop@example.com` |
 | `SITE_URL` | адреса сайту для посилань у листах і `site_url` в API | `http://localhost:8000` |
 | `CORS_ALLOWED_ORIGINS` | домени фронтендів, яким браузер дозволить читати `/api/` (через кому); порожньо — нікому | `http://localhost:3000` |
 | `STRIPE_SECRET_KEY` | секретний ключ Stripe, тестовий режим | `sk_test_...` |
@@ -1698,6 +1738,7 @@ Railway оголосив застарілими (нові сервіси вже 
 | `FLOWER_URL` | порожньо (Flower на Railway немає — немає й посилання) | — |
 | `STRIPE_SECRET_KEY` | `sk_test_...` | те саме |
 | `STRIPE_WEBHOOK_SECRET` | `whsec_...` від webhook у Stripe Dashboard (не від Stripe CLI) | — |
+| `BREVO_API_KEY`, `EMAIL_FROM` | так | так (листи відправляє саме worker) |
 | `SENTRY_DSN`, `SENTRY_ENVIRONMENT=production` | так | так |
 | `SENTRY_ISSUES_URL` | посилання в профілі | — |
 
@@ -2036,10 +2077,9 @@ ORDER BY:  андрій, Андрій, Борис, Гліб, Ґанна, Євг�
   передає справжню адресу клієнта, але на локальній машині клієнт — сам Docker Desktop.
 - **Локально лише HTTP.** HTTPS увімкнено на Railway (сертифікат дає Railway,
   див. «Налаштування»); локальний `docker compose` працює з `DJANGO_HTTPS=False`.
-- **Листи на Railway не відправляються.** На тарифах Free / Trial / Hobby Railway
-  блокує вихідний SMTP (дозволено лише на Pro), а `EMAIL_HOST_*` там не задано:
-  задачі Celery виконуються, а текст листа друкується в лог worker. Справжня
-  відправка — через поштовий сервіс з HTTP API (див. «Плани»).
+- **Пошта на Railway — лише через Brevo.** SMTP на Free / Trial / Hobby
+  заблокований, тому Gmail там не працює; без `BREVO_API_KEY` листи лише
+  друкуються в лог worker. Безкоштовний тариф Brevo має денний ліміт листів.
 - **Обкладинки на Railway роздає Django** (`serve_media`), а не окремий сервер
   файлів: для кількох десятків обкладинок досить, для великого каталогу краще
   сховище на кшталт S3.
@@ -2076,7 +2116,6 @@ ORDER BY:  андрій, Андрій, Борис, Гліб, Ґанна, Євг�
 ## Плани
 
 - обмеження частоти запитів у nginx (`limit_req`) для сторінок сайту;
-- листи з Railway через поштовий сервіс з HTTP API (Resend, Brevo) замість SMTP;
 - переклад даних: назви й описи книг, автори, категорії українською та англійською
   (django-modeltranslation або django-parler);
 - валюти: модель `Currency` (UAH, USD);
