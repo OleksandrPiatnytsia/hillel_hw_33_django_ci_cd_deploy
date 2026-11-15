@@ -2,7 +2,7 @@ from decimal import Decimal
 
 from django.core.validators import MinValueValidator
 from django.db import models
-from django.db.models import OuterRef, Subquery
+from django.db.models import OuterRef, Subquery, Sum
 from django.db.models.functions import Coalesce
 from django.templatetags.static import static
 from django.urls import reverse
@@ -52,6 +52,33 @@ class BookQuerySet(models.QuerySet):
             book=OuterRef("pk"), warehouse__is_default=True
         ).values("quantity")[:1]
         return self.annotate(stock=Coalesce(Subquery(default_quantity), 0))
+
+    def with_sold(self):
+        """Add the annotation "sold": copies ordered, cancelled orders not counted.
+
+        The popularity of a book for the "Most popular" sort. A subquery
+        per row, like with_stock(), not Sum("order_items__quantity"): a JOIN
+        with the order items together with the JOIN of a category filter
+        could count rows twice.
+
+            COALESCE((SELECT SUM(quantity) FROM orders_orderitem
+                      JOIN orders_order ...
+                      WHERE book_id = book.id AND status <> 'cancelled'
+                      GROUP BY book_id), 0) AS sold
+        """
+        if "sold" in self.query.annotations:
+            return self
+        # Imported here: orders.models has a ForeignKey to Book
+        from orders.models import Order, OrderItem
+
+        sold = (
+            OrderItem.objects.filter(book=OuterRef("pk"))
+            .exclude(order__status=Order.Status.CANCELLED)
+            .values("book")  # GROUP BY book
+            .annotate(total=Sum("quantity"))
+            .values("total")
+        )
+        return self.annotate(sold=Coalesce(Subquery(sold), 0))
 
     def by_stock_status(self, status):
         """Filter by one of STOCK_STATUS_CHOICES; unknown/empty value -> no filter."""

@@ -135,6 +135,11 @@ class BookListView(ElidedPaginationMixin, ListView):
             "price": F("display_price").asc(nulls_last=True),
             "-price": F("display_price").desc(nulls_last=True),
         }.get(self.sort, self.sort)
+        if self.sort == "-sold":
+            # The subquery only for this sort, not on every catalog page;
+            # equally popular books (0 sold too) follow by title
+            queryset = queryset.with_sold()
+            return queryset.order_by("-sold", "title", "pk")
         # Always with "pk" as a tie-breaker, the default sort (Book.Meta.ordering
         # = title) too: books with an equal title or price keep a stable order,
         # so the same book doesn't jump between pages

@@ -113,6 +113,8 @@ class BookFilterForm(forms.Form):
         ("price", _("Price: low to high")),
         ("-price", _("Price: high to low")),
         ("-created_at", _("Newest first")),
+        # Copies ordered, cancelled orders not counted (BookQuerySet.with_sold)
+        ("-sold", _("Most popular")),
     ]
 
     q = forms.CharField(

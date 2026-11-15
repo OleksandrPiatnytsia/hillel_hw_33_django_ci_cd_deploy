@@ -46,6 +46,27 @@ def test_book_list_sorts_by_price(client):
     assert [book.title for book in response.context["books"]] == ["Expensive", "Cheap"]
 
 
+# Generated with AI
+def test_book_list_sorts_by_popularity_without_cancelled_orders(client):
+    poetry = CategoryFactory(name="Poetry", slug="poetry")
+    hit = BookFactory(title="Hit", categories=[poetry])
+    steady = BookFactory(title="Steady", categories=[poetry])
+    BookFactory(title="A never ordered", categories=[poetry])
+    cancelled_only = BookFactory(title="B cancelled", categories=[poetry])
+    OrderFactory(items=[(hit, 3), (steady, 1)])
+    OrderFactory(items=[(steady, 1)])
+    OrderFactory(items=[(cancelled_only, 10)], status=Order.Status.CANCELLED)
+
+    # With a category filter too: its JOIN must not count the copies twice
+    response = client.get(reverse("books:list"), {"sort": "-sold", "category": "poetry"})
+
+    books = response.context["books"]
+    # 0 sold: by title; the cancelled order counts for nothing
+    assert [book.title for book in books] == ["Hit", "Steady", "A never ordered", "B cancelled"]
+    assert [book.sold for book in books] == [3, 2, 0, 0]
+    assert "Спершу популярні" in response.text
+
+
 def test_book_list_wrong_parameter_keeps_the_other_filters(client):
     """AI review (AI_REVIEW.md, BookListView): an invalid ?category= used to
     drop ALL filters and show the whole catalog."""
