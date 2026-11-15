@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load i18n cache static %}
+{% load i18n cache static money %}
 
 {% block title %}{% translate "Catalog" %}{% endblock %}
 
@@ -157,7 +157,8 @@
               {% endcache %}
 
               <div class="mt-auto d-flex justify-content-between align-items-center">
-                <span class="fw-semibold">{{ book.price }} ₴</span>
+                {# In the currency of the switcher (currencies/display.py) #}
+                <span class="fw-semibold">{% book_price book %}</span>
                 {% include "books/includes/stock_badge.html" with book=book %}
               </div>
 

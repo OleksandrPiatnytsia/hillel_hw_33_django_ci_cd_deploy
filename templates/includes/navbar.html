@@ -92,6 +92,29 @@
             {% endfor %}
           </form>
         </li>
+        {# Currency switcher: the currency prices are shown in. A POST form #}
+        {# like the language one (it changes the session); every button #}
+        {# sends currency=<code>, currencies.views.set_currency returns to #}
+        {# "next". display_currency / currency_choices: the context #}
+        {# processor currencies.context_processors.currency. #}
+        <li class="nav-item dropdown me-lg-2">
+          <a class="nav-link dropdown-toggle" href="#" role="button"
+             data-bs-toggle="dropdown" aria-expanded="false"
+             aria-label="{% translate 'Currency' %}" title="{% translate 'Currency' %}">
+            {{ display_currency.symbol }} {{ display_currency.code }}
+          </a>
+          <form method="post" action="{% url 'set_currency' %}" class="dropdown-menu dropdown-menu-end">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ request.get_full_path }}">
+            {% for currency in currency_choices %}
+              <button type="submit" name="currency" value="{{ currency.code }}"
+                      class="dropdown-item{% if currency.code == display_currency.code %} active{% endif %}"
+                      {% if currency.code == display_currency.code %}aria-current="true"{% endif %}>
+                {{ currency.symbol }} {{ currency.code }}
+              </button>
+            {% endfor %}
+          </form>
+        </li>
         {# Visible for guests too: the cart lives in the session #}
         <li class="nav-item me-lg-2">
           <a class="nav-link {% if current == 'detail' and request.resolver_match.namespace == 'cart' %}active{% endif %}"

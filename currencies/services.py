@@ -105,8 +105,26 @@ def current_rates():
 
 
 def clear_rates_cache():
-    """Forget the cached rates of today: the next current_rates() reads them again."""
-    cache.delete(_cache_key(today()))
+    """Forget the cached rates of today and the cached currencies.
+
+    The next current_rates() / all_currencies() reads them again.
+    """
+    cache.delete_many([_cache_key(today()), CURRENCIES_CACHE_KEY])
+
+
+# All currencies, active or not: the symbol of a book's currency is needed
+# on every page with prices, and a Currency row changes almost never.
+# Cleared together with the rates (signals.py).
+CURRENCIES_CACHE_KEY = "currencies:all"
+
+
+def all_currencies():
+    """{code: Currency} of every currency (inactive ones too), cached."""
+    currencies = cache.get(CURRENCIES_CACHE_KEY)
+    if currencies is None:
+        currencies = {currency.code: currency for currency in Currency.objects.all()}
+        cache.set(CURRENCIES_CACHE_KEY, currencies, CACHE_TIMEOUT)
+    return currencies
 
 
 def available_currencies():
@@ -115,7 +133,11 @@ def available_currencies():
     UAH first (the base and the default), then the others by code.
     """
     with_rate = current_rates().keys()
-    currencies = Currency.objects.filter(is_active=True, code__in=with_rate)
+    currencies = [
+        currency
+        for code, currency in all_currencies().items()
+        if currency.is_active and code in with_rate
+    ]
     return sorted(currencies, key=lambda currency: (not currency.is_base, currency.code))
 
 
@@ -240,3 +262,20 @@ def update_rates(day=None):
     for code in result.missing:
         logger.warning("NBU rates for %s: no rate for %s", day_text, code)
     return result
+
+
+def update_current_rates():
+    """The rates of today AND the newest ones: [UpdateResult, ...].
+
+    After ~15:30 Kyiv time the newest NBU rates are the ones of tomorrow.
+    Loading only them (the first run after a deploy, or after the NBU was
+    down for a day) would leave today without a rate: the site would offer
+    only UAH until midnight. So today is loaded first, then the newest day
+    if it is another one (two requests; the second is skipped when the NBU
+    has nothing newer than today).
+    """
+    results = [update_rates(today())]
+    newest = update_rates()
+    if newest.date != results[0].date:
+        results.append(newest)
+    return results

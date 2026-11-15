@@ -34,7 +34,8 @@
       title.textContent = book.title;
       const details = document.createElement("div");
       details.className = "small text-body-secondary";
-      details.textContent = `${book.author} · ${book.price} ₴`;
+      // book.price comes with its currency symbol: "250,00 ₴" / "$5.50"
+      details.textContent = `${book.author} · ${book.price}`;
       link.append(title, details);
       menu.append(link);
     }

@@ -9,7 +9,7 @@ that saves them. The other runs of the day save the same numbers again
 
 from celery import shared_task
 
-from .services import update_rates
+from .services import update_current_rates
 
 
 # Retries: only for errors that may pass by themselves. requests'
@@ -24,11 +24,14 @@ from .services import update_rates
     retry_jitter=True,
 )
 def update_exchange_rates():
-    result = update_rates()
-    # The return value is shown in Flower and the worker log
-    return {
-        "date": result.date.isoformat(),
-        "saved": {code: str(value) for code, value in result.saved.items()},
-        "kept_manual": result.kept_manual,
-        "missing": result.missing,
-    }
+    # Today and the newest day (often tomorrow), see update_current_rates().
+    # The return value is shown in Flower and the worker log.
+    return [
+        {
+            "date": result.date.isoformat(),
+            "saved": {code: str(value) for code, value in result.saved.items()},
+            "kept_manual": result.kept_manual,
+            "missing": result.missing,
+        }
+        for result in update_current_rates()
+    ]

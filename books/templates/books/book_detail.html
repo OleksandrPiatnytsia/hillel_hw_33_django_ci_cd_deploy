@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load i18n cache %}
+{% load i18n cache money %}
 {# Cached fragments ({% cache %}): parts that are the same for every visitor. #}
 {# The key: the fragment name + book.pk + the language (the texts around the #}
 {# data are translated). books/signals.py deletes them when the book, its #}
@@ -37,7 +37,17 @@
       </div>
       {% endcache %}
       <div class="text-end">
-        <div class="fs-4 fw-semibold">{{ book.price }} ₴</div>
+        {% book_price book as price %}
+        <div class="fs-4 fw-semibold">{{ price }}</div>
+        {# Another currency than the book's own: the original price and the #}
+        {# day of the NBU rate it was converted with #}
+        {% if price.converted %}
+          <div class="small text-body-secondary mb-1">
+            {% blocktranslate trimmed with original=price.original date=price.rate_date|date:"d.m.Y" %}
+              {{ original }} at the NBU rate of {{ date }}
+            {% endblocktranslate %}
+          </div>
+        {% endif %}
         {% include "books/includes/stock_badge.html" with book=book %}
 
         {% if book.stock %}

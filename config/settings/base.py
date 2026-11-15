@@ -148,6 +148,9 @@ TEMPLATES = [
                 "django.contrib.messages.context_processors.messages",
                 # "cart" in every template: navbar counter, cart page
                 "cart.context_processors.cart",
+                # "display_currency" and "currency_choices": the currency
+                # switcher in the navbar
+                "currencies.context_processors.currency",
             ],
         },
     },

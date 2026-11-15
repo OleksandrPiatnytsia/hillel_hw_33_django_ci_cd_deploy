@@ -81,10 +81,17 @@ def nbu_answer(monkeypatch):
         )
         status = 200
         requests = []
+        # True: a request with &date= gets the rates of that day (like the
+        # real NBU); False: every answer is the body above (17.11)
+        follow_date = False
 
     def fake_get(url, params=None, timeout=None):
         Answer.requests.append({"url": url, "params": params, "timeout": timeout})
-        return FakeResponse(Answer.body, Answer.status)
+        body = Answer.body
+        if Answer.follow_date and "date" in params:
+            day = datetime.strptime(params["date"], "%Y%m%d")
+            body = body.replace("17.11.2026", f"{day:%d.%m.%Y}")
+        return FakeResponse(body, Answer.status)
 
     monkeypatch.setattr(nbu.requests, "get", fake_get)
     return Answer
@@ -348,9 +355,10 @@ def test_command_prints_the_saved_rates(nbu_answer, capsys):
 
     output = capsys.readouterr().out
     assert nbu_answer.requests[0]["params"]["date"] == "20261114"
-    assert "USD on 17.11.2026: 45.4274 UAH" in output
-    assert "EUR on 17.11.2026: the manual rate is kept" in output
-    assert "Saved: 1." in output
+    # The output is in the language of the site (Ukrainian by default)
+    assert "USD на 17.11.2026: 45.4274 грн" in output
+    assert "EUR на 17.11.2026: залишено ручний курс" in output
+    assert "Збережено: 1." in output
 
 
 # Generated with AI
@@ -359,13 +367,13 @@ def test_command_reports_a_missing_rate(nbu_answer, capsys):
 
     call_command("update_exchange_rates")
 
-    assert "XYZ: the NBU has no rate on 17.11.2026" in capsys.readouterr().out
+    assert "XYZ: у НБУ немає курсу на 17.11.2026" in capsys.readouterr().out
 
 
 # Generated with AI
 def test_command_fails_clearly_when_the_nbu_is_down(nbu_answer):
     nbu_answer.status = 503
-    with pytest.raises(CommandError, match="Can't load the NBU rates"):
+    with pytest.raises(CommandError, match="Не вдалося завантажити курси НБУ"):
         call_command("update_exchange_rates")
 
 
@@ -373,12 +381,39 @@ def test_command_fails_clearly_when_the_nbu_is_down(nbu_answer):
 def test_task_returns_a_summary(nbu_answer):
     result = update_exchange_rates.delay()
 
-    assert result.get() == {
-        "date": "2026-11-17",
-        "saved": {"USD": "45.4274", "EUR": "50.3379"},
-        "kept_manual": [],
-        "missing": [],
-    }
+    # The NBU had nothing newer than "today" (both answers are 17.11): one day
+    assert result.get() == [
+        {
+            "date": "2026-11-17",
+            "saved": {"USD": "45.4274", "EUR": "50.3379"},
+            "kept_manual": [],
+            "missing": [],
+        }
+    ]
+
+
+# Generated with AI
+def test_without_a_date_today_and_the_newest_day_are_loaded(nbu_answer, capsys):
+    # 16.11 in the afternoon: the NBU already has the rates of the 17th.
+    # Only them would leave today (16.11) without a rate.
+    nbu_answer.follow_date = True
+
+    call_command("update_exchange_rates")
+
+    assert [request["params"] for request in nbu_answer.requests] == [
+        {"json": "", "date": "20261116"},
+        {"json": ""},
+    ]
+    assert sorted(ExchangeRate.objects.values_list("currency", "date")) == [
+        ("EUR", date(2026, 11, 16)),
+        ("EUR", date(2026, 11, 17)),
+        ("USD", date(2026, 11, 16)),
+        ("USD", date(2026, 11, 17)),
+    ]
+    output = capsys.readouterr().out
+    assert "USD на 16.11.2026: 45.4274 грн" in output
+    assert "USD на 17.11.2026: 45.4274 грн" in output
+    assert current_rates()["USD"].date == TODAY
 
 
 # Generated with AI

@@ -1,6 +1,7 @@
 from decimal import Decimal
 
 from books.models import Book
+from currencies.display import book_price, display_currency
 
 # Key of the cart in request.session
 CART_SESSION_KEY = "cart"
@@ -26,10 +27,16 @@ class Cart:
         cart = Cart(request)
         cart.add(book, quantity=2)
         for item in cart: item["book"], item["quantity"], item["cost"]
-        len(cart), cart.total
+        len(cart), cart.total, cart.currency
+
+    Prices, costs and the total are in the currency of the switcher
+    (cart.currency): every book is converted from its own currency at the
+    current rate, the price of ONE copy is rounded first, then multiplied
+    by the quantity (the same rule as the order will use).
     """
 
     def __init__(self, request):
+        self.request = request
         self.session = request.session
         # A new dict is NOT written to the session here: the cart appears in
         # the session only after the first add(), so visitors who never buy
@@ -118,12 +125,14 @@ class Cart:
                 removed = True
                 continue
             quantity = data["quantity"]
+            # The current price from the database, in the switcher's currency
+            price = book_price(self.request, book).amount
             items.append(
                 {
                     "book": book,
                     "quantity": quantity,
-                    "price": book.price,  # the current price from the database
-                    "cost": book.price * quantity,
+                    "price": price,
+                    "cost": price * quantity,
                     # The stock may have dropped since the book was added
                     # (someone else bought it). Checkout (stage 3) checks it
                     # again under a lock; here it's only a warning in the cart.
@@ -152,8 +161,13 @@ class Cart:
         return bool(self.cart)
 
     @property
+    def currency(self):
+        """The Currency of price / cost / total: the one of the switcher."""
+        return display_currency(self.request)
+
+    @property
     def total(self):
-        """Sum of all items at the current prices, in UAH."""
+        """Sum of all items at the current prices, in cart.currency."""
         # start: an empty cart gives Decimal("0.00"), not the int 0
         return sum((item["cost"] for item in self._get_items()), start=Decimal("0.00"))
 

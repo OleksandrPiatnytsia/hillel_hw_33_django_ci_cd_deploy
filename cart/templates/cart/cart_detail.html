@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load i18n %}
+{% load i18n money %}
 
 {% block title %}{% translate "Cart" %}{% endblock %}
 
@@ -42,7 +42,7 @@
                     </div>
                   {% endif %}
                 </td>
-                <td class="text-end text-nowrap">{{ item.price }} ₴</td>
+                <td class="text-end text-nowrap">{{ item.price|money:cart.currency }}</td>
                 <td>
                   {# override=1: set exactly this quantity, not add to it #}
                   <form class="d-flex gap-2" method="post" action="{% url 'cart:add' book.pk %}">
@@ -55,7 +55,7 @@
                     <button class="btn btn-sm btn-outline-secondary" type="submit">{% translate "Update" %}</button>
                   </form>
                 </td>
-                <td class="text-end text-nowrap fw-semibold">{{ item.cost }} ₴</td>
+                <td class="text-end text-nowrap fw-semibold">{{ item.cost|money:cart.currency }}</td>
                 <td class="text-end">
                   <form method="post" action="{% url 'cart:remove' book.pk %}">
                     {% csrf_token %}
@@ -71,7 +71,7 @@
           <tr>
             <th scope="row" colspan="4" class="text-end">{% translate "Total" %}</th>
             {# cart.total reuses the items loaded for the table: no second query #}
-            <td class="text-end text-nowrap fs-5 fw-semibold">{{ cart.total }} ₴</td>
+            <td class="text-end text-nowrap fs-5 fw-semibold">{{ cart.total|money:cart.currency }}</td>
             <td></td>
           </tr>
         </tfoot>

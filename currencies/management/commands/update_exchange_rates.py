@@ -1,8 +1,8 @@
 """Load the exchange rates of the active currencies from the NBU.
 
 Usage:
-    python manage.py update_exchange_rates                     # the newest rates
-    python manage.py update_exchange_rates --date 2026-11-14   # a past day
+    python manage.py update_exchange_rates                     # today + the newest day
+    python manage.py update_exchange_rates --date 2026-11-14   # one past day
 
 Runs on its own every day (Celery Beat: currencies.tasks.update_exchange_rates);
 by hand it does the same, e.g. right after the first deploy, to have rates
@@ -16,7 +16,7 @@ from django.utils.translation import gettext as _
 from requests import RequestException
 
 from currencies.nbu import NBUError
-from currencies.services import update_rates
+from currencies.services import update_current_rates, update_rates
 
 
 class Command(BaseCommand):
@@ -27,15 +27,21 @@ class Command(BaseCommand):
             "--date",
             # argparse calls it with the text: "2026-11-14" -> date(2026, 11, 14)
             type=date.fromisoformat,
-            help="the day of the rates, YYYY-MM-DD (default: the newest)",
+            help="the day of the rates, YYYY-MM-DD (default: today and the newest day)",
         )
 
     def handle(self, *args, **options):
         try:
-            result = update_rates(options["date"])
+            if options["date"]:
+                results = [update_rates(options["date"])]
+            else:
+                results = update_current_rates()
         except (RequestException, NBUError) as error:
             raise CommandError(_("Can't load the NBU rates: %(error)s") % {"error": error})
+        for result in results:
+            self.show(result)
 
+    def show(self, result):
         day = f"{result.date:%d.%m.%Y}"
         for code, value in result.saved.items():
             self.stdout.write(

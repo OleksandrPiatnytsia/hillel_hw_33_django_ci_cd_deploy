@@ -70,15 +70,25 @@ def test_book_list_price_from_greater_than_to_ignores_only_prices(client):
     assert [book.title for book in response.context["books"]] == ["Kobzar"]
 
 
-@pytest.mark.parametrize(
-    ("params", "expected_order"),
-    [({}, ("title", "pk")), ({"sort": "-price"}, ("-price", "pk"))],
-)
-def test_book_list_order_always_ends_with_pk(client, params, expected_order):
+def test_book_list_order_always_ends_with_pk(client):
     """Books with an equal title / price must not jump between pages."""
-    response = client.get(reverse("books:list"), params)
+    response = client.get(reverse("books:list"))
 
-    assert response.context["paginator"].object_list.query.order_by == expected_order
+    assert response.context["paginator"].object_list.query.order_by == ("title", "pk")
+
+
+def test_book_list_sorts_by_the_converted_price_then_pk(client):
+    response = client.get(reverse("books:list"), {"sort": "-price"})
+
+    # "-price" in the URL: the database sorts by the price in the currency
+    # of the switcher (annotation display_price), books without it last
+    by_price, tie_breaker = response.context["paginator"].object_list.query.order_by
+    assert (by_price.expression.name, by_price.descending, by_price.nulls_last) == (
+        "display_price",
+        True,
+        True,
+    )
+    assert tie_breaker == "pk"
 
 
 @pytest.mark.parametrize(

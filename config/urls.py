@@ -5,6 +5,7 @@ from django.contrib import admin
 from django.urls import include, path, re_path
 
 from config.views import health, sentry_debug, serve_media, set_language
+from currencies.views import set_currency
 
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -15,6 +16,8 @@ urlpatterns = [
     # The language switcher (navbar): POST -> cookie + User.language -> back.
     # The same name as Django's view: {% url 'set_language' %}
     path("i18n/setlang/", set_language, name="set_language"),
+    # The currency switcher (navbar): POST -> session -> back
+    path("currency/", set_currency, name="set_currency"),
     # Login / logout / sign up: /accounts/login/, ... (namespace "users")
     path("accounts/", include("users.urls")),
     # Session cart: /cart/, /cart/add/<book_id>/, ... (namespace "cart")

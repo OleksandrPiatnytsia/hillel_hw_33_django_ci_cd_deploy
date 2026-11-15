@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load i18n %}
+{% load i18n money %}
 
 {% block title %}{% translate "Checkout" %}{% endblock %}
 
@@ -59,7 +59,7 @@
           </div>
 
           <button class="btn btn-primary w-100" type="submit">
-            {% blocktranslate with total=cart.total %}Place order · {{ total }} ₴{% endblocktranslate %}
+            {% blocktranslate with total=cart.total|money:cart.currency %}Place order · {{ total }}{% endblocktranslate %}
           </button>
         </form>
       </div>
@@ -76,7 +76,7 @@
           <li class="list-group-item d-flex justify-content-between gap-3">
             <div>
               {{ item.book.title }}
-              <div class="small text-body-secondary">{{ item.quantity }} × {{ item.price }} ₴</div>
+              <div class="small text-body-secondary">{{ item.quantity }} × {{ item.price|money:cart.currency }}</div>
               {% if item.exceeds_stock %}
                 <div class="small text-danger">
                   {% if item.book.stock %}{% blocktranslate trimmed count stock=item.book.stock %}
@@ -87,12 +87,12 @@
                 </div>
               {% endif %}
             </div>
-            <span class="text-nowrap">{{ item.cost }} ₴</span>
+            <span class="text-nowrap">{{ item.cost|money:cart.currency }}</span>
           </li>
         {% endfor %}
         <li class="list-group-item d-flex justify-content-between fw-semibold">
           <span>{% translate "Total" %}</span>
-          <span class="text-nowrap">{{ cart.total }} ₴</span>
+          <span class="text-nowrap">{{ cart.total|money:cart.currency }}</span>
         </li>
       </ul>
       <div class="card-footer small text-body-secondary">
