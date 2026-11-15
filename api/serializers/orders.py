@@ -172,17 +172,26 @@ class OrderCreateSerializer(serializers.Serializer):
     full_name = serializers.CharField(max_length=255)
     phone = serializers.CharField(max_length=30)
     address = serializers.CharField()
-    # The currency of the order; the choices are set in __init__: the
-    # currencies offered today (active, with a rate)
-    currency = serializers.ChoiceField(choices=[], required=False, default=BASE_CURRENCY)
+    # The currency of the order: a code from /api/currencies/. A CharField
+    # checked in validate_currency(), not a ChoiceField with the choices
+    # read in __init__: the serializer is also created to build the API
+    # schema (/api/docs/, check --deploy), where the rates (cache, Redis)
+    # must not be needed.
+    currency = serializers.CharField(required=False, default=BASE_CURRENCY, max_length=3)
     # A nested serializer with many=True: a list of objects, each one
     # checked by OrderItemCreateSerializer
     items = OrderItemCreateSerializer(many=True, allow_empty=False)
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        # The same list as the switcher of the site and /api/currencies/
-        self.fields["currency"].choices = [currency.code for currency in available_currencies()]
+    def validate_currency(self, value):
+        """Only the currencies offered today: the switcher of the site, /api/currencies/."""
+        code = value.strip().upper()
+        offered = [currency.code for currency in available_currencies()]
+        if code not in offered:
+            raise serializers.ValidationError(
+                _("“%(code)s” is not offered. Choose one of: %(offered)s.")
+                % {"code": code, "offered": ", ".join(offered)}
+            )
+        return code
 
     def validate_full_name(self, value):
         return " ".join(value.split())  # extra spaces out, like CheckoutForm

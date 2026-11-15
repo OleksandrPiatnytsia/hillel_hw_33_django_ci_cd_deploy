@@ -247,7 +247,9 @@ def test_order_in_a_currency_that_is_not_offered_is_400(as_user, books):
     )
 
     assert response.status_code == 400
-    assert response.json()["currency"] == ['"GBP" не є коректним вибором.']
+    assert response.json()["currency"] == [
+        "Валюта «GBP» недоступна. Оберіть одну з: UAH, EUR, USD."
+    ]
     assert not Order.objects.exists()
 
 
@@ -305,3 +307,15 @@ def test_a_new_book_in_a_currency_without_a_rate_has_no_display_price(as_user, e
 
     assert response.status_code == 201
     assert response.json()["display_price"] is None
+
+
+# Generated with AI
+def test_the_schema_is_built_without_the_rates(api_client, monkeypatch):
+    """check --deploy builds the schema without Redis (CI): no rates may be read."""
+
+    def no_cache():
+        raise ConnectionError("Redis is not available (test)")
+
+    monkeypatch.setattr("currencies.services.current_rates", no_cache)
+
+    assert api_client.get("/api/schema/").status_code == 200
