@@ -17,6 +17,7 @@ from drf_spectacular.utils import (
 )
 
 from .serializers.catalog import AuthorSerializer, BookSerializer, CategorySerializer
+from .serializers.currencies import CurrencySerializer
 from .serializers.orders import OrderSerializer
 
 # Common answers, reused by several endpoints
@@ -25,13 +26,14 @@ FORBIDDEN = OpenApiResponse(description="Logged in, but not allowed (403).")
 NOT_FOUND = OpenApiResponse(description="No such object (404).")
 
 
-def catalog_schema(serializer, singular, plural, who_writes, *, protected):
+def catalog_schema(serializer, singular, plural, who_writes, *, protected, read_parameters=()):
     """extend_schema_view for a catalog ViewSet: the 6 actions of a ModelViewSet.
 
     serializer: the answer of the actions (responses= replaces the default
     one, so it is given again; None there would mean "no body");
     singular / plural: "book" / "books"; who_writes: one sentence on the
-    permissions; protected: when DELETE answers 409.
+    permissions; protected: when DELETE answers 409; read_parameters: extra
+    query parameters of list and retrieve (?currency= of the books).
     """
     write_errors = {401: UNAUTHORIZED, 403: FORBIDDEN}
     # "a book", "an author"
@@ -40,10 +42,12 @@ def catalog_schema(serializer, singular, plural, who_writes, *, protected):
         list=extend_schema(
             summary=f"List {plural}",
             description=f"Open to everybody. 20 {plural} per page: ?page=2.",
+            parameters=list(read_parameters),
         ),
         retrieve=extend_schema(
             summary=f"One {singular}",
             description="Open to everybody.",
+            parameters=list(read_parameters),
             responses={200: serializer, 404: NOT_FOUND},
         ),
         create=extend_schema(
@@ -78,6 +82,19 @@ def catalog_schema(serializer, singular, plural, who_writes, *, protected):
     )
 
 
+# ?currency= of the books list and of one book
+CURRENCY_PARAMETER = OpenApiParameter(
+    name="currency",
+    type=str,
+    required=False,
+    description=(
+        'A code from /api/currencies/ ("USD", "EUR"; "UAH" by default): '
+        '"display_price" of every book in it, converted at today\'s NBU rate. '
+        "?price_min=, ?price_max= and ?ordering=price use this price too, so "
+        "books priced in different currencies are compared correctly. "
+        "A code that is not offered: 400."
+    ),
+)
 book_schema = catalog_schema(
     BookSerializer,
     "book",
@@ -86,7 +103,26 @@ book_schema = catalog_schema(
     "change_book (Editors, Managers), delete_book (Managers). Changing "
     '"stock" needs inventory.change_stock (Managers), otherwise 403.',
     protected="The book is in orders.",
+    read_parameters=[CURRENCY_PARAMETER],
 )
+currency_schema = extend_schema_view(
+    list=extend_schema(
+        summary="List currencies",
+        description=(
+            "Open to everybody. The currencies the shop offers (UAH first) "
+            'with today\'s NBU rate: "rate" UAH for 1 unit, "rate_date" the '
+            'day of that rate (null for UAH). Use a "code" in '
+            "/api/books/?currency= and in a new order."
+        ),
+        responses={200: CurrencySerializer(many=True)},
+    ),
+    retrieve=extend_schema(
+        summary="One currency",
+        description="Open to everybody. 404 for a currency that is not offered.",
+        responses={200: CurrencySerializer, 404: NOT_FOUND},
+    ),
+)
+
 author_schema = catalog_schema(
     AuthorSerializer,
     "author",
@@ -108,7 +144,7 @@ order_list_schema = extend_schema_view(
         summary="List my orders",
         description=(
             "A customer gets own orders, staff gets all. Newest first, "
-            "20 per page. Filters: ?status=, ?payment_status=; "
+            "20 per page. Filters: ?status=, ?payment_status=, ?currency=; "
             "?ordering=total | -created_at."
         ),
         responses={200: OrderSerializer(many=True), 401: UNAUTHORIZED},
@@ -125,9 +161,12 @@ ORDER_CREATE = dict(
     description=(
         "The delivery data and the books at once (there is no cart in the "
         "API). The prices and the total come from the catalog; the copies "
-        'are reserved right away. 400 with "items" when there are not '
-        'enough copies: nothing is saved then. Payment: open "site_url" '
-        'of the answer, the order page has the "Pay" button.'
+        'are reserved right away. "currency": a code from /api/currencies/ '
+        '("UAH" by default); every book is converted into it at today\'s NBU '
+        'rate and the order keeps that rate. 400 with "items" when there '
+        "are not enough copies: nothing is saved then. Payment: open "
+        '"site_url" of the answer, the order page has the "Pay" button '
+        "(in the order currency)."
     ),
 )
 

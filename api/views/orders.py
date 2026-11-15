@@ -70,8 +70,9 @@ class OrderViewSet(
     serializer_class = OrderSerializer
     # Both: a login for everything, then the owner check for the changes
     permission_classes = [IsAuthenticated, IsOwnerOrReadOnly]
-    # ?status=new, ?payment_status=paid; ?ordering=total / -created_at
-    filterset_fields = ["status", "payment_status"]
+    # ?status=new, ?payment_status=paid, ?currency=USD;
+    # ?ordering=total / -created_at
+    filterset_fields = ["status", "payment_status", "currency"]
     ordering_fields = ["created_at", "total"]
 
     def get_queryset(self):
@@ -145,6 +146,7 @@ class OrderViewSet(
                 full_name=data["full_name"],
                 phone=data["phone"],
                 address=data["address"],
+                currency=data["currency"],
                 idempotency_key=key,
             )
         except IntegrityError:
@@ -163,9 +165,10 @@ class OrderViewSet(
             raise ValidationError({"items": error.messages})
 
         logger.info(
-            "API order created: id=%s total=%s items=%s by user=%s",
+            "API order created: id=%s total=%s %s items=%s by user=%s",
             order.pk,
             order.total,
+            order.currency_id,
             len(serializer.quantities()),
             request.user.username,
         )
@@ -212,10 +215,11 @@ class OrderViewSet(
         data = serializer.validated_data
         same = {item.book_id: item.quantity for item in order.items.all()} == (
             serializer.quantities()
-        ) and (order.full_name, order.phone, order.address) == (
+        ) and (order.full_name, order.phone, order.address, order.currency_id) == (
             data["full_name"],
             data["phone"],
             data["address"],
+            data["currency"],
         )
         if not same:
             raise IdempotencyKeyReused()

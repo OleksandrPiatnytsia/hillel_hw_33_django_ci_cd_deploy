@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Bookstore\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-15 21:30+0000\n"
+"POT-Creation-Date: 2026-11-15 21:44+0000\n"
 "PO-Revision-Date: 2026-11-10 16:00+0200\n"
 "Last-Translator: Bookstore\n"
 "Language-Team: Ukrainian\n"
@@ -29,32 +29,42 @@ msgstr ""
 "Цей Idempotency-Key уже використано для іншого замовлення. Для нового "
 "замовлення надішліть новий ключ."
 
-#: api/filters.py:33 books/forms.py:227
+#: api/filters.py:34 books/forms.py:227
 msgid "“Price from” can't be greater than “Price to”."
 msgstr "«Ціна від» не може бути більшою за «Ціна до»."
 
-#: api/serializers/catalog.py:161 books/forms.py:121
+#: api/serializers/catalog.py:192
+#, python-format
+msgid "The currency %(code)s is turned off."
+msgstr "Валюту %(code)s вимкнено."
+
+#: api/serializers/catalog.py:210 books/forms.py:121
 msgid "Only users with the “manage stock” permission can change it."
 msgstr "Змінювати можуть лише користувачі з правом «керування залишками»."
 
-#: api/serializers/orders.py:175
+#: api/serializers/orders.py:206
 msgid "Every book may be in the list only once; use quantity."
 msgstr ""
 "Кожна книга може бути в списку лише один раз; використовуйте quantity."
 
-#: api/views/catalog.py:123
+#: api/views/catalog.py:130
 msgid "The book is in orders and can't be deleted."
 msgstr "Книга є в замовленнях, її не можна видалити."
 
-#: api/views/catalog.py:175
+#: api/views/catalog.py:148
+#, python-format
+msgid "“%(code)s” is not offered. Choose one of: %(offered)s."
+msgstr "Валюта «%(code)s» недоступна. Оберіть одну з: %(offered)s."
+
+#: api/views/catalog.py:214
 msgid "The author has books and can't be deleted."
 msgstr "В автора є книги, його не можна видалити."
 
-#: api/views/catalog.py:188
+#: api/views/catalog.py:227
 msgid "The category has books and can't be deleted."
 msgstr "У категорії є книги, її не можна видалити."
 
-#: api/views/orders.py:189
+#: api/views/orders.py:192
 #, python-format
 msgid "At most %(max)s characters."
 msgstr "Не більше %(max)s символів."

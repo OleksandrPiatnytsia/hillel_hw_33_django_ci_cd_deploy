@@ -3,10 +3,12 @@
 Reading (GET /api/orders/, /api/orders/<pk>/):
 
     {"id": 12, "status": "new", "status_display": "Нове",
-     "payment_status": "unpaid", ..., "total": "501.00",
-     "paid_amount": "0.00", "amount_due": "501.00",
+     "payment_status": "unpaid", ..., "currency": "USD",
+     "exchange_rate": "45.427400", "total": "11.04",
+     "paid_amount": "0.00", "amount_due": "11.04",
      "items": [{"book": {"id": 7, "title": "Kobzar"}, "title": "Kobzar",
-                "price": "250.50", "quantity": 2, "cost": "501.00"}],
+                "price": "5.52", "original_price": "250.50",
+                "original_currency": "UAH", "quantity": 2, "cost": "11.04"}],
      "can_be_cancelled": true,
      "site_url": "http://localhost:8000/orders/12/"}
 
@@ -14,9 +16,12 @@ Creating (POST /api/orders/): the delivery data and the items at once,
 there is no cart in the API (README: why):
 
     {"full_name": "Ann Shevchenko", "phone": "+380 67 123 45 67",
-     "address": "Kyiv, Khreshchatyk 1",
+     "address": "Kyiv, Khreshchatyk 1", "currency": "USD",
      "items": [{"book_id": 7, "quantity": 2}, {"book_id": 9, "quantity": 1}]}
 
+All the money of an order (prices, total, paid, due) is in its currency,
+chosen once at creation ("UAH" without "currency"); the books are
+converted at the NBU rate of that day and the order keeps the rates.
 The prices, the total and the statuses are never taken from the request:
 orders.services.create_order() sets them, the same function as the
 checkout of the site (locks, stock reservation, the email after COMMIT).
@@ -30,6 +35,8 @@ from django.utils.translation import gettext_lazy as _
 from rest_framework import serializers
 
 from books.models import Book
+from currencies.models import BASE_CURRENCY
+from currencies.services import available_currencies
 from orders.models import Order, OrderItem
 from users.phone import normalize_phone
 
@@ -46,15 +53,27 @@ class OrderItemSerializer(serializers.ModelSerializer):
     """One line of an order, as it was at the moment of ordering.
 
     title and price are the copies saved in OrderItem (the book may be
-    renamed or cost more today); "book" is the current book.
+    renamed or cost more today); "book" is the current book. price and cost
+    are in the order currency; original_price + original_currency: the
+    price of the book in its own currency then (the same when nothing was
+    converted).
     """
 
     book = OrderedBookSerializer(read_only=True)
     cost = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
+    original_currency = serializers.CharField(source="original_currency_id", read_only=True)
 
     class Meta:
         model = OrderItem
-        fields = ["book", "title", "price", "quantity", "cost"]
+        fields = [
+            "book",
+            "title",
+            "price",
+            "original_price",
+            "original_currency",
+            "quantity",
+            "cost",
+        ]
 
 
 class OrderSerializer(serializers.ModelSerializer):
@@ -75,6 +94,8 @@ class OrderSerializer(serializers.ModelSerializer):
         source="can_be_cancelled_by_customer", read_only=True
     )
     site_url = serializers.SerializerMethodField()
+    # The code, not an object: the symbol and the rate are in /api/currencies/
+    currency = serializers.CharField(source="currency_id", read_only=True)
 
     class Meta:
         model = Order
@@ -88,6 +109,8 @@ class OrderSerializer(serializers.ModelSerializer):
             "full_name",
             "phone",
             "address",
+            "currency",
+            "exchange_rate",
             "total",
             "paid_amount",
             "amount_due",
@@ -149,9 +172,17 @@ class OrderCreateSerializer(serializers.Serializer):
     full_name = serializers.CharField(max_length=255)
     phone = serializers.CharField(max_length=30)
     address = serializers.CharField()
+    # The currency of the order; the choices are set in __init__: the
+    # currencies offered today (active, with a rate)
+    currency = serializers.ChoiceField(choices=[], required=False, default=BASE_CURRENCY)
     # A nested serializer with many=True: a list of objects, each one
     # checked by OrderItemCreateSerializer
     items = OrderItemCreateSerializer(many=True, allow_empty=False)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # The same list as the switcher of the site and /api/currencies/
+        self.fields["currency"].choices = [currency.code for currency in available_currencies()]
 
     def validate_full_name(self, value):
         return " ".join(value.split())  # extra spaces out, like CheckoutForm
