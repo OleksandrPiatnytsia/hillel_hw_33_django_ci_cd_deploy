@@ -22,6 +22,8 @@ from rest_framework import serializers
 from rest_framework.exceptions import PermissionDenied
 
 from books.models import Author, Book, Category
+from currencies.models import BASE_CURRENCY, Currency
+from currencies.services import RateUnavailable, convert
 from inventory.services import set_stock
 
 
@@ -104,6 +106,19 @@ class BookSerializer(serializers.ModelSerializer):
         required=False,
     )
 
+    # The currency of "price": a code ("UAH", "USD"). Not required: a new
+    # book without it is in UAH (the model default)
+    currency = serializers.SlugRelatedField(
+        slug_field="code", queryset=Currency.objects.all(), required=False
+    )
+    # The price converted to the currency of ?currency= (UAH without it) at
+    # today's NBU rate: the same number the site shows with the switcher.
+    # Read only; null if there is no rate for the book's currency.
+    display_price = serializers.DecimalField(
+        max_digits=12, decimal_places=2, read_only=True, allow_null=True
+    )
+    display_currency = serializers.SerializerMethodField()
+
     # Absolute URL of the uploaded cover, null without one. Read only:
     # covers are uploaded on the site (BookForm checks size and type)
     cover = serializers.SerializerMethodField()
@@ -121,6 +136,9 @@ class BookSerializer(serializers.ModelSerializer):
             "categories",
             "category_ids",
             "price",
+            "currency",
+            "display_price",
+            "display_currency",
             "description",
             "stock",
             "in_stock",
@@ -143,6 +161,37 @@ class BookSerializer(serializers.ModelSerializer):
 
     def get_in_stock(self, book) -> bool:
         return book.stock > 0
+
+    def get_display_currency(self, book) -> str:
+        # Set by BookViewSet (the checked ?currency=); a serializer used
+        # elsewhere shows the prices in UAH
+        return self.context.get("display_currency", BASE_CURRENCY)
+
+    def to_representation(self, book):
+        # A book just made by POST is not from the annotated queryset of the
+        # ViewSet (and after PUT the annotation has the old price): its
+        # display_price is calculated here
+        if not hasattr(book, "display_price"):
+            try:
+                book.display_price = convert(
+                    book.price, book.currency_id, self.get_display_currency(book)
+                )
+            except RateUnavailable:
+                book.display_price = None
+        return super().to_representation(book)
+
+    def validate_currency(self, value):
+        """A turned off currency only for a book that already has it.
+
+        Like BookForm on the site: a PUT sends back every field it read,
+        and a book priced in a currency turned off later must stay editable.
+        """
+        current = self.instance.currency_id if self.instance else None
+        if not value.is_active and value.code != current:
+            raise serializers.ValidationError(
+                _("The currency %(code)s is turned off.") % {"code": value.code}
+            )
+        return value
 
     def validate_stock(self, value):
         """Only users with inventory.change_stock may CHANGE the stock.
@@ -181,4 +230,6 @@ class BookSerializer(serializers.ModelSerializer):
         # still be overwritten by the old number.
         if stock is not None and stock != book.stock:
             set_stock(book, stock)
+        # Calculated again from the new price / currency (to_representation)
+        book.__dict__.pop("display_price", None)
         return book

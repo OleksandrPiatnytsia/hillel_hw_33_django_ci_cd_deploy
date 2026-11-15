@@ -5,6 +5,8 @@ from django.forms.models import BaseInlineFormSet
 from django.utils.translation import gettext
 from django.utils.translation import gettext_lazy as _
 
+from currencies.display import format_money
+
 from .models import Payment
 
 # ---------------------------------------------------------------------------
@@ -21,7 +23,15 @@ class PaymentInline(admin.TabularInline):
     """
 
     model = Payment
-    fields = ["created_at", "provider", "amount", "status", "paid_at", "external_id", "note"]
+    fields = [
+        "created_at",
+        "provider",
+        "amount_display",
+        "status",
+        "paid_at",
+        "external_id",
+        "note",
+    ]
     readonly_fields = fields
     extra = 0
     verbose_name_plural = _("payments")
@@ -39,6 +49,10 @@ class PaymentInline(admin.TabularInline):
     @admin.display(description=_("note"))
     def note(self, obj):
         return obj.details.get("note", "")
+
+    @admin.display(description=_("amount"))
+    def amount_display(self, obj):
+        return format_money(obj.amount, obj.currency_id)
 
 
 class ManualPaymentForm(forms.ModelForm):
@@ -74,8 +88,11 @@ class ManualPaymentFormSet(BaseInlineFormSet):
         due = order.amount_due
         if sum(amounts) > due:
             raise ValidationError(
-                gettext("Only %(due)s UAH is due, the new payments add up to %(sum)s UAH.")
-                % {"due": due, "sum": sum(amounts)}
+                gettext("Only %(due)s is due, the new payments add up to %(sum)s.")
+                % {
+                    "due": format_money(due, order.currency_id),
+                    "sum": format_money(sum(amounts), order.currency_id),
+                }
             )
 
 
@@ -122,12 +139,24 @@ class PaymentAdmin(admin.ModelAdmin):
     Manual payments are added on the Order page (ManualPaymentInline).
     """
 
-    list_display = ["__str__", "order", "provider", "amount", "status", "paid_at", "created_at"]
-    list_filter = ["provider", "status", "created_at"]
+    list_display = [
+        "__str__",
+        "order",
+        "provider",
+        "amount_display",
+        "status",
+        "paid_at",
+        "created_at",
+    ]
+    list_filter = ["provider", "status", "currency", "created_at"]
     # id__exact: a non-number search term is skipped, not an error
     search_fields = ["external_id", "order__id__exact", "order__user__email"]
     list_select_related = ["order"]
     date_hierarchy = "created_at"
+
+    @admin.display(description=_("amount"), ordering="amount")
+    def amount_display(self, obj):
+        return format_money(obj.amount, obj.currency_id)
 
     def has_add_permission(self, request):
         return False

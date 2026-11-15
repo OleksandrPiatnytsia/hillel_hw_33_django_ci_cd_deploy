@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load i18n %}
+{% load i18n money %}
 
 {% block title %}{% translate "My orders" %}{% endblock %}
 
@@ -29,7 +29,7 @@
               <td class="text-nowrap">{{ order.created_at|date:"d.m.Y H:i" }}</td>
               {# books_count: annotated in OrderListView, no query per row #}
               <td class="text-end">{{ order.books_count }}</td>
-              <td class="text-end text-nowrap">{{ order.total }} ₴</td>
+              <td class="text-end text-nowrap">{{ order.total|money:order.currency_id }}</td>
               <td class="text-nowrap">{% include "orders/includes/status_badges.html" with order=order %}</td>
             </tr>
           {% endfor %}

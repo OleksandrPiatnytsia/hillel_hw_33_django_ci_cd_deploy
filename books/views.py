@@ -1,14 +1,14 @@
 import logging
 
+from asgiref.sync import sync_to_async
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.mixins import PermissionRequiredMixin
 from django.contrib.messages.views import SuccessMessageMixin
-from django.db.models import Count, ProtectedError, Q
+from django.db.models import Count, F, ProtectedError, Q
 from django.http import Http404, JsonResponse
 from django.shortcuts import redirect
 from django.urls import reverse_lazy
-from django.utils.formats import number_format
 from django.utils.translation import gettext
 from django.views.decorators.http import require_GET
 from django.utils.translation import gettext_lazy as _
@@ -21,6 +21,8 @@ from django.views.generic import (
 )
 
 from cart.cart import Cart
+from currencies.display import book_price, display_currency, request_rates
+from currencies.services import price_in
 
 from .cache import get_cached_book
 from .forms import BookFilterForm, BookForm
@@ -85,6 +87,13 @@ class BookListView(ElidedPaginationMixin, ListView):
 
         # Unbound form (None) when there are no GET params -> no validation errors
         self.filter_form = BookFilterForm(self.request.GET or None)
+        # "Price from, $": the prices are in the currency of the switcher.
+        # Before is_valid(): it creates the bound fields, and a BoundField
+        # copies the label when it is created
+        self.currency = display_currency(self.request)
+        for name in ("price_min", "price_max"):
+            field = self.filter_form.fields[name]
+            field.label = f"{field.label}, {self.currency.symbol}"
         # After is_valid() cleaned_data holds only the fields that passed:
         # one wrong parameter (an old link to a deleted category) shows its
         # error, and the other filters (?q=...) still work, instead of the
@@ -101,16 +110,34 @@ class BookListView(ElidedPaginationMixin, ListView):
         if data.get("author"):
             queryset = queryset.filter(author=data["author"])
         queryset = queryset.by_stock_status(data.get("stock"))
+
+        # Prices of the books are in different currencies (650 UAH, 20 USD):
+        # "Price from / to" and the sort by price work with the price in the
+        # currency of the switcher, calculated by the database (one CASE
+        # WHEN per currency, currencies.services.price_in). The same rounded
+        # number the card shows, so "to 14.31 $" includes a book shown as
+        # 14,31 $.
+        queryset = queryset.annotate(
+            display_price=price_in(self.currency.code, rates=request_rates(self.request))
+        )
         if data.get("price_min") is not None:
-            queryset = queryset.filter(price__gte=data["price_min"])
+            queryset = queryset.filter(display_price__gte=data["price_min"])
         if data.get("price_max") is not None:
-            queryset = queryset.filter(price__lte=data["price_max"])
+            queryset = queryset.filter(display_price__lte=data["price_max"])
+
+        # The sort the list is shown with (for the "Sort by" dropdown)
+        self.sort = data.get("sort") or "title"
+        # "price" in the URL stays (old links work in any currency), the
+        # database sorts by the converted price. nulls_last: a book without
+        # a rate (no converted price) goes to the end in both directions.
+        ordering = {
+            "price": F("display_price").asc(nulls_last=True),
+            "-price": F("display_price").desc(nulls_last=True),
+        }.get(self.sort, self.sort)
         # Always with "pk" as a tie-breaker, the default sort (Book.Meta.ordering
         # = title) too: books with an equal title or price keep a stable order,
         # so the same book doesn't jump between pages
-        # The sort the list is shown with (for the "Sort by" dropdown)
-        self.sort = data.get("sort") or "title"
-        return queryset.order_by(self.sort, "pk")
+        return queryset.order_by(ordering, "pk")
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -343,15 +370,20 @@ async def book_search(request):
         .filter(Q(title__icontains=query) | Q(author__name__icontains=query))
         .order_by("title", "pk")[:SEARCH_LIMIT]
     )
+    books = [book async for book in books]
+    # The prices in the currency of the switcher: display_currency() reads
+    # the session and the cached rates, which are sync code, so it runs in
+    # a thread (sync_to_async), like the ORM would without `async for`
+    prices = await sync_to_async(lambda: [str(book_price(request, book)) for book in books])()
     results = [
         {
             "title": book.title,
             "author": book.author.name,
             "url": book.get_absolute_url(),
-            # "250,00" / "250.00": in the language of the request
-            "price": number_format(book.price, 2),
+            # "250,00 ₴" / "$5.50": the language and the currency of the request
+            "price": price,
             "in_stock": book.stock > 0,
         }
-        async for book in books
+        for book, price in zip(books, prices)
     ]
     return JsonResponse({"results": results})

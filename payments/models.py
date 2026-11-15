@@ -5,6 +5,8 @@ from django.db import models
 from django.utils.translation import gettext
 from django.utils.translation import gettext_lazy as _
 
+from currencies.models import BASE_CURRENCY
+
 
 class Payment(models.Model):
     """One attempt to pay (part of) an order through one provider.
@@ -42,13 +44,25 @@ class Payment(models.Model):
     # Session id "cs_test_...". The webhook finds the Payment by it.
     # Empty for manual payments.
     external_id = models.CharField(_("provider's id"), max_length=255, blank=True)
-    # In UAH. For Stripe it's the order total; a manual payment may be any
-    # positive part of it.
+    # In the currency below. For Stripe it's what is still due; a manual
+    # payment may be any positive part of it.
     amount = models.DecimalField(
         _("amount"),
         max_digits=10,
         decimal_places=2,
         validators=[MinValueValidator(Decimal("0.01"))],
+    )
+    # Always the currency of the order (payments.services sets it): the
+    # order total, the paid sum and what is due are all in it. Stored in
+    # the payment too: Stripe is asked for this currency, and the webhook
+    # checks that the money came in it (a wrong currency is not counted).
+    # default=UAH: the payments made before currencies existed were in UAH.
+    currency = models.ForeignKey(
+        "currencies.Currency",
+        verbose_name=_("currency"),
+        on_delete=models.PROTECT,
+        default=BASE_CURRENCY,
+        related_name="payments",
     )
     status = models.CharField(
         _("status"),
@@ -87,9 +101,13 @@ class Payment(models.Model):
         ]
 
     def __str__(self):
-        return gettext("%(provider)s %(amount)s UAH (%(status)s) for order #%(order)s") % {
+        # Imported here: currencies.display imports the services (cache,
+        # rates); a models module imported at startup should not need them
+        from currencies.display import format_money
+
+        return gettext("%(provider)s %(amount)s (%(status)s) for order #%(order)s") % {
             "provider": self.get_provider_display(),
-            "amount": self.amount,
+            "amount": format_money(self.amount, self.currency_id),
             "status": self.get_status_display(),
             "order": self.order_id,
         }

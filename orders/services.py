@@ -5,6 +5,7 @@ the "Cancel" button, the admin (stage 8) and the cancel_unpaid_orders
 command, and the rules (locks, stock) must be the same everywhere.
 """
 
+from decimal import Decimal
 from functools import partial
 
 from django.db import transaction
@@ -13,6 +14,8 @@ from django.utils.translation import ngettext
 
 from books.models import Book
 from config.celery import enqueue_on_commit
+from currencies.models import BASE_CURRENCY
+from currencies.services import available_currencies, convert, cross_rate, current_rates
 from inventory.models import Stock, Warehouse
 from inventory.services import return_to_stock
 
@@ -30,8 +33,28 @@ class OrderError(Exception):
         super().__init__("; ".join(self.messages))
 
 
-def create_order(user, quantities, *, full_name, phone, address, idempotency_key=""):
+# A cross rate (UAH -> USD = 0.0220131...) stored in OrderItem.exchange_rate
+CROSS_RATE_PLACES = Decimal("0.0000000001")
+
+
+def create_order(
+    user,
+    quantities,
+    *,
+    full_name,
+    phone,
+    address,
+    currency=BASE_CURRENCY,
+    idempotency_key="",
+):
     """Create an order from {book_id: quantity} and reserve the stock.
+
+    currency: the code of the order currency (the checkout sends the one of
+    the switcher). Every book is converted from its own currency at today's
+    rate: the price of one copy is rounded to 0.01, then multiplied by the
+    quantity (the same numbers the cart showed). The order keeps the rates
+    it used (Order.exchange_rate, OrderItem.exchange_rate), so it never
+    changes when the rates do.
 
     idempotency_key: the Idempotency-Key header of the API (the site sends
     none). Saved with the order; a second order of this user with the same
@@ -57,6 +80,11 @@ def create_order(user, quantities, *, full_name, phone, address, idempotency_key
     """
     if not quantities:
         raise OrderError(_("The cart is empty."))
+    # One read of the rates for the whole order: every item and the order
+    # itself use the same numbers even if a new rate is saved meanwhile
+    rates = current_rates()
+    if currency not in {offered.code for offered in available_currencies()}:
+        raise OrderError(_("Orders in %(currency)s are not accepted.") % {"currency": currency})
 
     with transaction.atomic():
         warehouse = Warehouse.objects.get_default()
@@ -92,6 +120,12 @@ def create_order(user, quantities, *, full_name, phone, address, idempotency_key
             available = stocks[book_id].quantity if book_id in stocks else 0
             if book is None:
                 problems.append(_("A book from your cart is no longer sold."))
+            elif book.currency_id not in rates:
+                # Only if the rates of the book's currency were deleted by hand
+                problems.append(
+                    _("“%(title)s” can't be sold now: no exchange rate for %(currency)s.")
+                    % {"title": book.title, "currency": book.currency_id}
+                )
             elif available < quantity:
                 if available == 0:
                     problems.append(_("“%(title)s” is out of stock.") % {"title": book.title})
@@ -117,24 +151,34 @@ def create_order(user, quantities, *, full_name, phone, address, idempotency_key
             full_name=full_name,
             phone=phone,
             address=address,
+            currency_id=currency,
+            # UAH for 1 unit of the order currency today (1 for UAH)
+            exchange_rate=rates[currency].value,
             idempotency_key=idempotency_key,
         )
 
         items = []
-        total = 0
+        total = Decimal("0.00")
         for book_id, quantity in quantities.items():
             book = books[book_id]
+            # The price of ONE copy in the order currency, rounded
+            price = convert(book.price, book.currency_id, currency, rates)
             items.append(
                 OrderItem(
                     order=order,
                     book=book,
                     # Copies: the order keeps the title and price of today
                     title=book.title,
-                    price=book.price,
+                    price=price,
+                    original_price=book.price,
+                    original_currency_id=book.currency_id,
+                    exchange_rate=cross_rate(book.currency_id, currency, rates).quantize(
+                        CROSS_RATE_PLACES
+                    ),
                     quantity=quantity,
                 )
             )
-            total += book.price * quantity
+            total += price * quantity
             # Reserve: the copies are taken from the stock now, not after
             # payment, so nobody else can buy them while this user pays.
             # Returned only if the order is cancelled (cancel_order()).

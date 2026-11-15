@@ -104,6 +104,7 @@ def _book_form_data():
         "title": "New book",
         "author": AuthorFactory().pk,
         "price": "199.90",
+        "currency": "UAH",
         "stock": "4",
         "description": "",
     }

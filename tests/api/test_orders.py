@@ -70,6 +70,8 @@ def test_customer_sees_only_own_orders_with_items(as_user, customer, other_custo
             "book": {"id": book.pk, "title": "Kobzar"},
             "title": "Kobzar",
             "price": "250.50",
+            "original_price": "250.50",
+            "original_currency": "UAH",
             "quantity": 2,
             "cost": "501.00",
         }

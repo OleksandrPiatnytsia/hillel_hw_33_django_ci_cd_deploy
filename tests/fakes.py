@@ -34,6 +34,11 @@ from types import SimpleNamespace
 import stripe
 from django.conf import settings
 
+# Every session the fakes created: id -> session. stripe_event_payload()
+# reads the amount and the currency from here, as the real Stripe puts the
+# session (with them) into the event.
+CREATED_SESSIONS = {}
+
 
 class _FakeSessions:
     """client.v1.checkout.sessions"""
@@ -44,6 +49,7 @@ class _FakeSessions:
     def create(self, params, options=None):
         self._client._check_failure()
         number = next(self._client._numbers)
+        price = params["line_items"][0]["price_data"]
         session = SimpleNamespace(
             id=f"cs_test_fake_{number}",
             url=f"https://checkout.stripe.test/pay/cs_test_fake_{number}",
@@ -52,8 +58,12 @@ class _FakeSessions:
             payment_status="unpaid",
             expires_at=params["expires_at"],
             metadata=params.get("metadata", {}),
+            # The sum of the line items, in the minor units, as Stripe has it
+            amount_total=price["unit_amount"] * params["line_items"][0]["quantity"],
+            currency=price["currency"],
         )
         self._client.sessions[session.id] = session
+        CREATED_SESSIONS[session.id] = session
         self._client.created.append({"params": params, "options": options or {}})
         return session
 
@@ -121,8 +131,26 @@ class FakeStripeClient:
 _event_numbers = itertools.count(1)
 
 
-def stripe_event_payload(event_type, session_id, *, payment_status="paid", status="complete"):
-    """JSON body of a Stripe event about one Checkout Session, as text."""
+def stripe_event_payload(
+    event_type,
+    session_id,
+    *,
+    payment_status="paid",
+    status="complete",
+    amount_total=None,
+    currency=None,
+):
+    """JSON body of a Stripe event about one Checkout Session, as text.
+
+    amount_total, currency: by default those of the session created by
+    FakeStripeClient (what Stripe sends); given -> a session changed on
+    Stripe's side.
+    """
+    created = CREATED_SESSIONS.get(session_id)
+    if amount_total is None and created is not None:
+        amount_total = created.amount_total
+    if currency is None and created is not None:
+        currency = created.currency
     return json.dumps(
         {
             "id": f"evt_test_{next(_event_numbers)}",
@@ -134,6 +162,8 @@ def stripe_event_payload(event_type, session_id, *, payment_status="paid", statu
                     "object": "checkout.session",
                     "status": status,
                     "payment_status": payment_status,
+                    "amount_total": amount_total,
+                    "currency": currency,
                 }
             },
         }

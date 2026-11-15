@@ -123,6 +123,7 @@ class BookAdmin(admin.ModelAdmin):
         "title",
         "author",
         "price",
+        "currency",
         "stock",
         "is_available",
         "category_list",
@@ -132,7 +133,7 @@ class BookAdmin(admin.ModelAdmin):
     # No "stock" here: it is a value of inventory.Stock, not a column of
     # the book; quantities are edited in the Stock list or on the book page
     list_editable = ["price"]
-    list_filter = [StockStatusFilter, "categories", "created_at"]
+    list_filter = [StockStatusFilter, "currency", "categories", "created_at"]
     search_fields = ["title", "author__name", "description", "categories__name"]
     date_hierarchy = "created_at"
     # Search-as-you-type instead of a <select> with every author
@@ -143,7 +144,8 @@ class BookAdmin(admin.ModelAdmin):
     fieldsets = [
         (None, {"fields": ["title", "author", "description"]}),
         (_("Cover"), {"fields": ["cover_preview", "cover"]}),
-        (_("Sales"), {"fields": ["price"]}),
+        # A tuple = fields on one line: the price and its currency side by side
+        (_("Sales"), {"fields": [("price", "currency")]}),
         (
             _("Timestamps"),
             {"fields": ["created_at", "updated_at"], "classes": ["collapse"]},
@@ -151,11 +153,12 @@ class BookAdmin(admin.ModelAdmin):
     ]
 
     def get_queryset(self, request):
-        # Author via JOIN, categories in one extra query — not a query per row
+        # Author and currency via JOIN, categories in one extra query — not
+        # a query per row
         return (
             super()
             .get_queryset(request)
-            .select_related("author")
+            .select_related("author", "currency")
             .prefetch_related("categories")
             # "stock" for the list column, its sorting and StockStatusFilter
             .with_stock()

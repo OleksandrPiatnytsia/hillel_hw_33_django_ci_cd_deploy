@@ -2,7 +2,7 @@
 HTML part of the "payment received" email. Inline styles and a table
 layout, like orders/emails/order_created.html (mail clients drop <style>).
 {% endcomment %}
-{% load i18n %}
+{% load i18n money %}
 {# The language of the recipient: send_order_email() renders the email #}
 {# inside translation.override(user.language) #}
 {% get_current_language as LANGUAGE_CODE %}
@@ -16,23 +16,23 @@ layout, like orders/emails/order_created.html (mail clients drop <style>).
         <h1 style="font-size:20px; margin:0 0 16px;">📚 {% translate "Bookstore" %}</h1>
         <p style="margin:0 0 8px;">{% if order.full_name %}{% blocktranslate with name=order.full_name %}Hello, {{ name }}!{% endblocktranslate %}{% else %}{% translate "Hello!" %}{% endif %}</p>
         <p style="margin:0 0 16px;">
-          {% blocktranslate with amount=payment.amount %}We received your payment of <strong>{{ amount }} ₴</strong> for <strong>{{ order }}</strong>.{% endblocktranslate %}
+          {% blocktranslate with amount=payment.amount|money:payment.currency_id %}We received your payment of <strong>{{ amount }}</strong> for <strong>{{ order }}</strong>.{% endblocktranslate %}
         </p>
 
         <table role="presentation" width="100%" cellpadding="8" cellspacing="0"
                style="border-collapse:collapse; font-size:14px; margin-bottom:16px;">
           <tr style="border-bottom:1px solid #dee2e6;">
             <td>{% translate "Order total" %}</td>
-            <td align="right" style="white-space:nowrap;">{{ order.total }} ₴</td>
+            <td align="right" style="white-space:nowrap;">{{ order.total|money:order.currency_id }}</td>
           </tr>
           <tr style="border-bottom:1px solid #dee2e6;">
             <td>{% translate "Paid" %}</td>
-            <td align="right" style="white-space:nowrap;">{{ order.paid_amount }} ₴ ({{ order.paid_percent }}%)</td>
+            <td align="right" style="white-space:nowrap;">{{ order.paid_amount|money:order.currency_id }} ({{ order.paid_percent }}%)</td>
           </tr>
           {% if order.payment_status != "paid" %}
             <tr>
               <td><strong>{% translate "Still due" %}</strong></td>
-              <td align="right" style="white-space:nowrap;"><strong>{{ order.amount_due }} ₴</strong></td>
+              <td align="right" style="white-space:nowrap;"><strong>{{ order.amount_due|money:order.currency_id }}</strong></td>
             </tr>
           {% endif %}
         </table>

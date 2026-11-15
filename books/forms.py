@@ -1,9 +1,11 @@
 from django import forms
+from django.db.models import Q
 from django.core.files.uploadedfile import UploadedFile
 from django.core.validators import FileExtensionValidator
 from django.utils.text import format_lazy
 from django.utils.translation import gettext_lazy as _
 
+from currencies.models import Currency
 from inventory.services import set_stock
 
 from .models import Author, Book, BookQuerySet, Category
@@ -54,6 +56,7 @@ class BookForm(forms.ModelForm):
             "title",
             "author",
             "price",
+            "currency",
             # Not a model field: the declared field above; listed to keep
             # its place in the form
             "stock",
@@ -82,6 +85,7 @@ class BookForm(forms.ModelForm):
             # ForeignKey -> <select> with all authors (ModelChoiceField)
             "author": forms.Select(attrs={"class": "form-select"}),
             "price": forms.NumberInput(attrs={"class": "form-control", "min": "0", "step": "0.01"}),
+            "currency": forms.Select(attrs={"class": "form-select"}),
             # Through model (BookCategory) has no extra required fields,
             # so ModelForm.save() can write the M2M as usual
             "categories": forms.CheckboxSelectMultiple(attrs={"class": "form-check-input"}),
@@ -94,6 +98,16 @@ class BookForm(forms.ModelForm):
         # Django's default empty choice "- Select an option -" (new in
         # Django 6.1) has no Ukrainian translation in Django yet
         self.fields["author"].empty_label = _("— Choose an author —")
+        # Only the active currencies, and the current one of the book even
+        # if it was turned off since: editing the title must not force
+        # a new currency. No empty choice: the price always has a currency
+        # (UAH is preselected for a new book, the model default).
+        currency = self.fields["currency"]
+        currency.queryset = Currency.objects.filter(
+            Q(is_active=True) | Q(pk=self.instance.currency_id)
+        )
+        currency.empty_label = None
+        currency.label_from_instance = lambda item: f"{item.code} ({item.symbol})"
         if self.instance.pk:
             # Editing: the current stock (a ModelForm fills only model fields)
             self.initial.setdefault("stock", self.instance.stock)

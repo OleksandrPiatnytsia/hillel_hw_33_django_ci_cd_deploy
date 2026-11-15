@@ -19,9 +19,12 @@ Redis, Celery, nginx). У цьому ДЗ:
 - **деплой на Railway**: web (gunicorn + uvicorn) і worker (Celery з Beat),
   PostgreSQL, Redis, Volume для обкладинок; статика через **WhiteNoise**,
   перевірка здоров'я `/health/` (див. «Деплой на Railway»);
+- **валюти**: курси НБУ з історією (Celery Beat), ціна книги в будь-якій
+  валюті, перемикач валюти на сайті, замовлення й оплата Stripe у вибраній
+  валюті, валюти в API (див. «Валюти»);
 - єдиний стиль коду: black + flake8 (`pyproject.toml`, `.flake8`), перевіряються
   ще до коміту хуком pre-commit (`.pre-commit-config.yaml`);
-- 434 тести, покриття 98.45%.
+- 564 тести, покриття 98.81%.
 
 ## Стек
 
@@ -114,7 +117,7 @@ Redis, Celery, nginx). У цьому ДЗ:
 | `/cart/remove/<book_id>/` | `cart:remove` | `cart_remove` | POST | прибрати книгу з кошика |
 | `/cart/clear/` | `cart:clear` | `cart_clear` | POST | очистити кошик |
 | `/orders/` | `orders:list` | `OrderListView` | залогінені | My orders: власні замовлення, по 20 |
-| `/orders/checkout/` | `orders:checkout` | `checkout` | залогінені | форма доставки й створення замовлення |
+| `/orders/checkout/` | `orders:checkout` | `checkout` | залогінені | форма доставки й створення замовлення у валюті перемикача |
 | `/orders/<pk>/` | `orders:detail` | `order_detail` | власник (інакше 404) | замовлення, кнопки Pay і Cancel |
 | `/orders/<pk>/cancel/` | `orders:cancel` | `order_cancel` | POST, власник | скасувати нове неоплачене замовлення |
 | `/orders/<pk>/status/` | `orders:status` | `order_status` (**async**) | власник (401 / 404 у JSON) | JSON: статус замовлення й оплати |
@@ -125,6 +128,7 @@ Redis, Celery, nginx). У цьому ДЗ:
 | `/admin/` | `admin:index` | | `is_staff` | адмінка |
 | `/health/` | `health` | `health` (**async**, `config/views.py`) | усі, GET | стан PostgreSQL і Redis: 200 або 503, JSON |
 | `/i18n/setlang/` | `set_language` | `set_language` (`config/views.py`) | POST | змінити мову: cookie + `User.language` |
+| `/currency/` | `set_currency` | `set_currency` (`currencies/views.py`) | POST | змінити валюту цін: код у сесії, назад на `next` |
 | `/__debug__/` | | | `DEBUG` + `INTERNAL_IPS` | службові адреси Debug Toolbar |
 
 Маршрути описані в `urls.py` кожного застосунку (`app_name` = `books`, `users`,
@@ -150,12 +154,13 @@ ViewSets і права працюють з моделями `books` і `orders` 
 | `POST /api/token/` | усі, 10/хв | `username` + `password` → `access` + `refresh` |
 | `POST /api/token/refresh/` | усі | `refresh` → новий `access` |
 | `POST /api/token/verify/` | усі | чи дійсний токен (200 / 401) |
-| `GET /api/books/`, `/api/books/<id>/` | усі | книги з вкладеними автором і категоріями |
+| `GET /api/books/`, `/api/books/<id>/` | усі | книги з вкладеними автором і категоріями; `?currency=USD` → `display_price` у доларах |
 | `POST /api/books/` | `books.add_book` (Editors, Managers) | нова книга |
 | `PUT`, `PATCH /api/books/<id>/` | `books.change_book` | змінити книгу; `stock` — лише з `inventory.change_stock` |
 | `DELETE /api/books/<id>/` | `books.delete_book` (Managers) | видалити; книга в замовленнях → 409 |
 | `GET /api/authors/[<id>/]`, `/api/categories/[<id>/]` | усі | автори й категорії з `books_count` |
 | `POST`, `PUT`, `PATCH`, `DELETE` авторів і категорій | `IsAdminUser` (`is_staff`) **і** право моделі | як в адмінці; є книги → 409 на `DELETE` |
+| `GET /api/currencies/`, `/api/currencies/<code>/` | усі | валюти, які пропонує магазин, з курсом НБУ на сьогодні |
 | `GET /api/orders/` | залогінені | свої замовлення; персонал (`is_staff`) — усі |
 | `POST /api/orders/` | залогінені | нове замовлення одразу з позиціями; необов'язковий заголовок `Idempotency-Key` |
 | `GET /api/orders/<id>/` | власник або персонал | чуже для клієнта → 404 |
@@ -271,8 +276,11 @@ class BookSerializer(serializers.ModelSerializer):
 ```json
 POST /api/orders/
 {"full_name": "Ann Shevchenko", "phone": "+380 67 123 45 67", "address": "Kyiv, Khreshchatyk 1",
+ "currency": "USD",
  "items": [{"book_id": 7, "quantity": 2}, {"book_id": 9, "quantity": 1}]}
 ```
+
+`currency` — необов'язкова, типово `UAH`; код з `/api/currencies/`, інший → 400.
 
 1. `OrderCreateSerializer` перевіряє запит; позиції — вкладений
    `OrderItemCreateSerializer(many=True)`: книга існує, `quantity >= 1`, одна
@@ -284,6 +292,9 @@ POST /api/orders/
 4. **201** — замовлення у форматі `GET /api/orders/<id>/`.
 
 Ціни, сума й статуси з запиту не беруться (`"total": "1.00"` проігнорується).
+У відповіді — `currency` і `exchange_rate` замовлення, а в позиціях `price` у валюті
+замовлення та `original_price` + `original_currency` книги. Той самий
+`Idempotency-Key` з іншою валютою — 422.
 Оплата — на сайті: у відповіді є `site_url`, сторінка замовлення з кнопкою «Pay»
 (Stripe Checkout — сторінка для людини).
 
@@ -346,12 +357,18 @@ except IntegrityError:                               # два запити од�
 - Усі списки — по **20**: `{"count": 135, "next": ".../?page=2", "previous": null, "results": [...]}`.
 - Книги (`api/filters.py`, `BookFilter` з django-filter — ті самі, що на сторінці каталогу):
   `?category=<slug>`, `?author=<id>`, `?price_min=`, `?price_max=`, `?stock=in_stock|low|out`.
+- **Валюта книг**: у кожної книги `price` + `currency` (її власна ціна) і
+  `display_price` + `display_currency` — ціна у валюті `?currency=` (типово UAH) за
+  курсом НБУ на сьогодні, як на сайті з перемикачем. `?price_min=`, `?price_max=` і
+  `?ordering=price` працюють саме з `display_price`, тож книги в різних валютах
+  порівнюються правильно; книги без курсу (`display_price: null`) — в кінці.
+  Валюта, якої немає в `/api/currencies/`, → 400.
   Неправильне значення → 400 з помилкою параметра (сайт такі ігнорує й показує
   підказку; для програми це помилка в її коді).
 - `?search=kobz` — у назві й імені автора; `?ordering=-price` (`title`, `price`,
   `created_at`, `author__name`). `StableOrderingFilter` додає `pk` останнім:
   книги з однаковою ціною не перескакують між сторінками.
-- Замовлення: `?status=`, `?payment_status=`, `?ordering=total`.
+- Замовлення: `?status=`, `?payment_status=`, `?currency=`, `?ordering=total`.
 - Кількість SQL-запитів не залежить від розміру сторінки: книги — 3, замовлення — 4
   (`select_related`, `prefetch_related`, `annotate(Sum(...))`); перевіряється тестами.
 
@@ -449,6 +466,19 @@ books/
 └── management/commands/
     ├── seed_books.py
     └── book_stats.py
+currencies/                  # валюти й курси, див. «Валюти»
+├── models.py                # Currency, ExchangeRate (історія курсів)
+├── nbu.py                   # fetch_rates(): запит до API НБУ
+├── services.py              # current_rates() (кеш), convert(), price_in() (SQL), update_rates()
+├── display.py               # валюта перемикача (сесія), format_money(), book_price()
+├── views.py                 # set_currency: перемикач у навбарі
+├── context_processors.py    # display_currency і currency_choices у шаблонах
+├── templatetags/money.py    # {% book_price book %}, |money:currency
+├── tasks.py                 # update_exchange_rates (Celery Beat)
+├── signals.py               # зміна курсу чи валюти -> очищення кешу
+├── admin.py                 # валюти з поточним курсом, історія курсів
+├── migrations/0002_create_currencies.py   # UAH, USD, EUR
+└── management/commands/update_exchange_rates.py
 inventory/                   # склад, див. «Склад»
 ├── models.py                # Warehouse, Stock
 ├── services.py              # set_stock(), return_to_stock()
@@ -491,9 +521,11 @@ api/                         # REST API (без моделей), див. «REST 
 ├── views/
 │   ├── auth.py              # токени з throttling, публічний корінь /api/
 │   ├── catalog.py           # BookViewSet, AuthorViewSet, CategoryViewSet (+ лог, 409, StaffWriteMixin, кеш)
+│   ├── currencies.py        # CurrencyViewSet: /api/currencies/
 │   └── orders.py            # OrderViewSet: list, retrieve, create, cancel
 ├── serializers/
-│   ├── catalog.py           # вкладені автор і категорії, author_id / category_ids, stock
+│   ├── catalog.py           # вкладені автор і категорії, author_id / category_ids, stock, currency, display_price
+│   ├── currencies.py        # валюта з курсом
 │   └── orders.py            # OrderSerializer, OrderCreateSerializer з позиціями
 ├── permissions.py           # IsOwnerOrReadOnly
 ├── filters.py               # BookFilter, StableOrderingFilter
@@ -849,7 +881,7 @@ INFO config.middleware GET /create/ 403 3.6ms user=ann
 |---|---|---|
 | `Category` | `name`, `slug` | обидва унікальні |
 | `Author` | `name`, `bio` | `name` унікальне; `bio` необов'язкове |
-| `Book` | `title`, `author`, `price`, `description`, `stock`, `cover`, `categories`, `created_at`, `updated_at` | `price ≥ 0`; `author` — ForeignKey на `Author` з `on_delete=PROTECT` (не можна видалити автора, у якого є книги); зв'язок ManyToMany з категоріями через `BookCategory`; `get_absolute_url()`, `cover_url`, `is_low_stock` |
+| `Book` | `title`, `author`, `price`, `currency`, `description`, `stock`, `cover`, `categories`, `created_at`, `updated_at` | `price ≥ 0`; `author` — ForeignKey на `Author` з `on_delete=PROTECT` (не можна видалити автора, у якого є книги); зв'язок ManyToMany з категоріями через `BookCategory`; `get_absolute_url()`, `cover_url`, `is_low_stock` |
 | `BookCategory` | `book`, `category` | проміжна модель; `on_delete=PROTECT` не дає видалити категорію, у якій є книги; пара `book + category` унікальна |
 
 `BookQuerySet.by_stock_status()` фільтрує книги за наявністю. Його
@@ -858,9 +890,9 @@ INFO config.middleware GET /create/ 403 3.6ms user=ann
 | Модель | Поля | Примітки |
 |---|---|---|
 | `User` | + `phone`, `address` | необов'язкові; підставляються у форму оформлення |
-| `Order` | `user`, `status`, `payment_status`, `full_name`, `phone`, `address`, `total`, `created_at`, `updated_at` | `user` з `PROTECT`; дані доставки — копія, а не посилання на профіль; `total ≥ 0` (`CheckConstraint`) |
-| `OrderItem` | `order`, `book`, `title`, `price`, `quantity` | `order` з `CASCADE`, `book` з `PROTECT`; `title` і `price` — копії на момент замовлення; один рядок на книгу (`UniqueConstraint`), `quantity ≥ 1`; `cost` = `price × quantity` |
-| `Payment` | `order`, `provider`, `external_id`, `amount`, `status`, `details` (JSON), `created_at`, `updated_at`, `paid_at` | `order` з `PROTECT`; `provider`: `stripe` / `manual`; `status`: `pending` / `succeeded` / `failed` / `expired`; `(provider, external_id)` унікальні для непорожнього `external_id`; `amount > 0` |
+| `Order` | `user`, `status`, `payment_status`, `full_name`, `phone`, `address`, `currency`, `exchange_rate`, `total`, `created_at`, `updated_at` | `user` з `PROTECT`; дані доставки — копія, а не посилання на профіль; `total ≥ 0` (`CheckConstraint`) |
+| `OrderItem` | `order`, `book`, `title`, `price`, `original_price`, `original_currency`, `exchange_rate`, `quantity` | `order` з `CASCADE`, `book` з `PROTECT`; `title` і `price` — копії на момент замовлення; один рядок на книгу (`UniqueConstraint`), `quantity ≥ 1`; `cost` = `price × quantity` |
+| `Payment` | `order`, `provider`, `external_id`, `amount`, `currency`, `status`, `details` (JSON), `created_at`, `updated_at`, `paid_at` | `order` з `PROTECT`; `provider`: `stripe` / `manual`; `status`: `pending` / `succeeded` / `failed` / `expired`; `(provider, external_id)` унікальні для непорожнього `external_id`; `amount > 0` |
 
 Два незалежні статуси замовлення:
 - `status` — що з товаром: `new` → `processing` → `shipped` → `completed`, або `cancelled`;
@@ -911,6 +943,126 @@ Django згенерував би `AlterField` і спробував би пер�
 - **Користувачі:** розділ «Delivery details» (телефон, адреса).
 - Запити оптимізовано через `select_related` / `prefetch_related` та `annotate`.
 
+## Валюти
+
+Ціни, кошик, замовлення й оплата працюють у кількох валютах (типово UAH, USD,
+EUR). Застосунок `currencies/`, курси — Національного банку України.
+
+```
+НБУ ──(Celery Beat, update_exchange_rates)──► ExchangeRate (історія курсів)
+                                                   │
+                       current_rates() у кеші ◄────┘
+                                │
+   перемикач у навбарі ─► ціни, каталог, кошик у вибраній валюті
+                                │
+   оформлення ─► Order.currency + курс дня ─► Stripe у валюті замовлення
+```
+
+### Моделі
+
+| Модель | Поля | Примітки |
+|---|---|---|
+| `Currency` | `code` (первинний ключ, `"USD"`), `name`, `symbol`, `is_active` | код за ISO 4217; UAH, USD, EUR створює міграція `0002_create_currencies` |
+| `ExchangeRate` | `currency`, `date`, `rate`, `source` (`nbu` / `manual`), `created_at`, `updated_at` | **уся історія**: рядок на валюту й день (`UniqueConstraint`); `rate > 0`; рядків для UAH немає |
+| `Book` | + `currency` | валюта ціни книги, `ForeignKey` з `PROTECT`, типово UAH |
+| `Order` | + `currency`, `exchange_rate` | валюта замовлення й курс у день замовлення (гривень за 1 одиницю) |
+| `OrderItem` | + `original_price`, `original_currency`, `exchange_rate` | ціна книги в її валюті на момент замовлення й крос-курс, яким її перераховано |
+| `Payment` | + `currency` | завжди валюта замовлення |
+
+- **Курс — «скільки гривень за 1 одиницю»**, як у НБУ. Будь-яке перерахування йде
+  через гривню, крос-курси не зберігаються:
+  ```
+  650 UAH -> USD:  650 × 1 / 45.4274        = 14.3085… -> 14.31
+  20 USD  -> EUR:  20 × 45.4274 / 50.3379   = 18.0489… -> 18.05
+  ```
+- **Округлення один раз**, у кінці, до копійки (`ROUND_HALF_UP`): проміжні курси не
+  округлюються, інакше результат міг би відрізнятися на копійку.
+- **Спочатку ціна одного примірника, потім кількість**: 3 × 14.31 = 42.93, а не
+  1950 / 45.4274 = 42.93…: кошик, замовлення й лист показують ті самі числа.
+- **«Сьогодні» — дата в Києві** (`Europe/Kyiv`), а не в UTC: НБУ встановлює курс на
+  київський день.
+
+### Курси НБУ
+
+`currencies/nbu.py` читає `https://bank.gov.ua/NBUStatService/v1/statdirectory/exchange?json&date=YYYYMMDD`
+(без ключа, без реєстрації; числа читаються одразу як `Decimal`, без `float`).
+
+- **Задача `update_exchange_rates`** (Celery Beat, о 6:05 і щогодини з 13:05 до 17:05 UTC):
+  НБУ публікує курс **наступного** дня близько 15:30 за Києвом, кілька запусків
+  підхоплять його, навіть якщо НБУ запізниться. Повторний запуск перезаписує ті самі
+  числа (`update_or_create`), нічого не дублюється.
+- **Сьогодні й найновіший день**: задача завантажує курс на сьогодні і, якщо є,
+  на завтра. Лише «найновіший» після 15:30 дав би тільки завтрашній курс, і до
+  півночі сайт не мав би курсу на сьогодні.
+- **Ручний курс не перезаписується**: менеджер може внести курс в адмінці
+  (`source = manual`), наприклад, якщо НБУ помилився.
+- **НБУ недоступний** (`NBUError`, мережа): нічого не змінюється, сайт працює з
+  останнім відомим курсом; мережеві помилки задача повторює ще 3 рази.
+- **Кеш**: `current_rates()` — найновіший курс кожної валюти не пізніше сьогодні,
+  одним запитом (`DISTINCT ON`), у кеші до кінця дня. Будь-яке збереження курсу чи
+  валюти очищає кеш після COMMIT (`currencies/signals.py`).
+
+```bash
+python manage.py update_exchange_rates                    # сьогодні + найновіший день
+python manage.py update_exchange_rates --date 2026-11-13  # один день (заповнити пропуск)
+```
+
+### Перемикач і ціни на сайті
+
+- **Перемикач у навбарі** (`POST /currency/`) зберігає код у сесії, як і кошик:
+  працює для гостей і лишається після входу. Пропонуються лише активні валюти з
+  курсом (`available_currencies()`), гривня перша.
+- **Ціна книги** — шаблонний тег `{% book_price book %}`: «14,31 $» українською,
+  «$14.31» англійською. На сторінці книги під перерахованою ціною —
+  «650,00 ₴ за курсом НБУ на 16.11.2026».
+- **Сортування й фільтр за ціною** рахує база: `price_in("USD")` будує
+  `CASE WHEN currency_id = 'UAH' THEN ROUND(price * 0.0220…, 2) … END` з курсами як
+  константами (без JOIN до таблиці курсів). Сортується й фільтрується саме те число,
+  яке видно на сторінці; книги без курсу (`NULL`) — в кінці.
+- **Кошик** показує ціни й суму у валюті перемикача.
+
+### Замовлення у валюті
+
+```
+сторінка оформлення: сума у валюті перемикача + прихована валюта у формі
+  POST -> create_order(..., currency="USD"):
+    1. валюта пропонується (активна, з курсом)?  інакше помилка, нічого не збережено
+    2. ОДНЕ читання курсів на все замовлення
+    3. кожна книга: price = convert(book.price, book.currency, "USD")
+       + original_price, original_currency, exchange_rate (крос-курс)
+    4. Order.currency = "USD", Order.exchange_rate = 45.4274 (гривень за 1 $)
+```
+
+- **Валюта обирається лише під час оформлення** і потім не змінюється: сума
+  замовлення, оплати й борг — у ній.
+- **Прихована валюта у формі**, а не з сесії під час POST: перемикач, змінений в
+  іншій вкладці, не створить замовлення в сумі, якої покупець не бачив. На сторінці
+  оформлення є свій перемикач валюти.
+- **Курси замовлення зберігаються**: замовлення не змінюється, коли змінюються курси.
+- **Звіти в гривнях**: щоденний звіт додає замовлення різних валют за курсом дня
+  кожного замовлення (`Order.total_uah = total × exchange_rate`); у CSV є колонки
+  `currency` і `total_uah`.
+
+### Оплата у валюті
+
+- Stripe Checkout отримує валюту платежу (`"usd"`, `"eur"`, `"uah"`) і суму в
+  мінімальних одиницях: 62.93 $ → `6293`. Валюти без копійок (JPY) чи з трьома
+  знаками (KWD) Stripe рахує інакше, тому для них онлайн-оплата недоступна.
+- **Webhook і сторінка повернення перевіряють суму й валюту**, які взяв Stripe
+  (`session_matches()`): якщо вони не ті, що в платежі, оплата не зараховується,
+  помилка йде в лог і Sentry, а Stripe отримує 200 (без повторів) — рішення за менеджером.
+- Ручна оплата менеджера — у валюті замовлення; листи, сторінки й адмінка
+  показують суми з символом валюти.
+
+### Адмінка
+
+- **Currencies**: список з поточним курсом; вимкнена валюта (`is_active`) зникає з
+  перемикача, але старі книги й замовлення в ній лишаються.
+- **Exchange rates**: історія, фільтр за валютою й джерелом; курс, внесений вручну,
+  завжди `manual`.
+- Книга: поле валюти поруч із ціною; замовлення: валюта, курс, початкова ціна
+  кожної позиції.
+
 ## Кошик
 
 `cart/cart.py`, клас `Cart`. Кошик живе в сесії, тому працює й для гостей:
@@ -920,8 +1072,9 @@ request.session["cart"] = {"15": {"quantity": 2}, "7": {"quantity": 1}}
 ```
 
 - Ключі — рядки: сесія зберігається як JSON, а в JSON ключі завжди рядки.
-- Зберігається лише кількість. Ціна щоразу береться з бази: кошик показує поточну
-  ціну, і змінити її через сесію неможливо.
+- Зберігається лише кількість. Ціна щоразу береться з бази й перераховується у
+  валюту перемикача (`cart.currency`): кошик показує поточну ціну, і змінити її
+  через сесію неможливо.
 - `add(book, quantity=1, override=False)`: кнопка «Add to cart» додає до наявного,
   поле на сторінці кошика (`override=True`) задає точну кількість. Кількість обмежена
   `book.stock`.
@@ -942,11 +1095,12 @@ request.session["cart"] = {"15": {"quantity": 2}, "7": {"quantity": 1}}
 ### Оформлення: `orders.services.create_order()`
 
 ```
-POST /orders/checkout/  (форма: full_name, phone, address)
+POST /orders/checkout/  (форма: full_name, phone, address + прихована currency)
   transaction.atomic():
     1. SELECT ... FOR UPDATE книг із кошика, ORDER BY id
     2. перевірка залишку кожної книги  -> проблема? OrderError -> ROLLBACK, усі проблеми разом
-    3. Order + OrderItem (bulk_create), назви й ціни копіюються з бази
+    3. Order + OrderItem (bulk_create), назви й ціни копіюються з бази,
+       ціни перераховуються у валюту замовлення (див. «Валюти»)
     4. резерв: stock -= quantity (bulk_update)
     5. on_commit(лист «order created»)
   COMMIT -> кошик очищається -> сторінка замовлення з кнопкою «Pay»
@@ -1000,7 +1154,7 @@ POST /orders/checkout/  (форма: full_name, phone, address)
 Усі зміни платежів (`payments/services.py`) — у транзакції, спочатку блокується
 замовлення (те саме блокування, що в `cancel_order()`), в кінці
 `refresh_payment_status()`. Два менеджери, що одночасно вносять по 120 ₴ на замовлення
-в 200 ₴, не перевищать суму: другий отримає «only 80.00 UAH is due».
+в 200 ₴, не перевищать суму: другий отримає «до сплати лише 80,00 ₴».
 
 ### Stripe Checkout
 
@@ -1009,7 +1163,7 @@ POST /orders/checkout/  (форма: full_name, phone, address)
    transaction (lock order): своє? не скасоване? є що сплачувати?
        відкрита сторінка на ту саму суму ще жива?  -> її URL (без нової)
        інакше Payment(pending, amount = amount_due)
-   після транзакції: Stripe API -> Checkout Session (uah, копійки, 31 хв)
+   після транзакції: Stripe API -> Checkout Session (валюта замовлення, копійки чи центи, 31 хв)
        помилка Stripe -> Payment = failed, замовлення лишається
 -> checkout.stripe.com -> покупець платить
 -> /payments/success/?session_id=cs_test_...  -> статус питаємо в Stripe -> succeeded
@@ -1017,8 +1171,10 @@ POST /orders/checkout/  (форма: full_name, phone, address)
 ```
 
 - Одна позиція «Bookstore: order #N» на суму `amount_due`: після часткової ручної
-  оплати списується лише залишок. UAH — валюта з двома знаками, тому сума в копійках
-  (`250.50` → `25050`).
+  оплати списується лише залишок. Валюта — валюта замовлення; UAH, USD, EUR мають
+  два знаки після коми, тому сума в копійках чи центах (`250.50` → `25050`).
+- Оплата зараховується, лише якщо Stripe взяв саме цю суму в цій валюті
+  (див. «Валюти» → «Оплата у валюті»).
 - Запит до Stripe — **після** транзакції: мережевий виклик не тримає замовлення
   заблокованим, а відкотити його однаково неможливо.
 - Ключ ідемпотентності (`bookstore-payment-<id>-<час>`): повтор після мережевої
@@ -1038,7 +1194,7 @@ POST /orders/checkout/  (форма: full_name, phone, address)
 
 | Подія | Що робимо |
 |---|---|
-| `checkout.session.completed` + `payment_status = paid` | платіж `succeeded` |
+| `checkout.session.completed` + `payment_status = paid` | платіж `succeeded`, якщо сума й валюта ті самі, що в платежі |
 | `checkout.session.completed` + `unpaid` | чекаємо (банківські списання приходять пізніше) |
 | `checkout.session.async_payment_succeeded` / `_failed` | `succeeded` / `failed` |
 | `checkout.session.expired` | `expired` (лише з `pending`; замовлення не скасовується) |
@@ -1063,8 +1219,8 @@ docker compose logs -f stripe-cli    # <-- [200] POST http://web:8000/payments/w
   будь-яка майбутня дата й CVC.
 - Україна не входить до країн, де Stripe-акаунт можна активувати, тому акаунт
   зареєстровано з підтримуваною країною й ніколи не активовано: лише тестові ключі.
-- UAH Stripe підтримує як валюту платежу. Мінімальна сума — еквівалент 0.50 у валюті
-  виплат акаунта (близько 25 ₴).
+- UAH, USD і EUR Stripe підтримує як валюти платежу. Мінімальна сума — еквівалент
+  0.50 у валюті виплат акаунта (близько 0,50 $ чи 25 ₴).
 - Publishable key не потрібен: сторінка оплати на боці Stripe, Stripe.js на сайті немає.
 
 ## Email
@@ -1198,7 +1354,7 @@ URL без префікса мови (`/en/...` немає): адреси одн
   тому `{% blocktranslate count counter=... %}` і `ngettext`.
 - Текст у JavaScript (`confirm(...)` скасування замовлення) — через
   `{% blocktranslate asvar %}` + `|escapejs`, щоб апостроф не зламав JS.
-- Числа форматуються за мовою: `501,00 грн` / `501.00`.
+- Числа й суми форматуються за мовою: `14,31 $` / `$14.31` (`currencies.display.format_money`).
 - Права (`Can change stock quantity`) і логи лишаються англійською: це технічні
   рядки, у лог пишеться `order #5`, а не перекладене «Замовлення #5».
 
@@ -1320,12 +1476,12 @@ open htmlcov/index.html               # непокриті рядки підсв
 
 | | Кількість | Що перевіряють |
 |---|---|---|
-| `tests/unit/` | 258 | одна функція, модель, форма або один запит; склад, задачі Celery, Sentry, налаштування production, gunicorn |
-| `tests/integration/` | 76 | сценарії з кількох кроків: кошик → замовлення → Stripe → webhook → лист; кеш |
-| `tests/api/` | 85 | REST API через `APIClient`: токени, права кожної ролі, фільтри, замовлення, CORS, throttling, кеш |
+| `tests/unit/` | 365 | одна функція, модель, форма або один запит; склад, валюти й курси, задачі Celery, Sentry, налаштування production, gunicorn |
+| `tests/integration/` | 86 | сценарії з кількох кроків: кошик → замовлення → Stripe → webhook → лист; оплата у валюті; кеш |
+| `tests/api/` | 106 | REST API через `APIClient`: токени, права кожної ролі, фільтри, валюти, замовлення, CORS, throttling, кеш |
 | `tests/test_setup.py` | 7 | сама інфраструктура: налаштування, фабрики, фейки |
 
-Покриття **98.45%** (434 тести); `--cov-fail-under=70` у `pytest.ini`: якщо покриття впаде
+Покриття **98.81%** (564 тести); `--cov-fail-under=70` у `pytest.ini`: якщо покриття впаде
 нижче 70%, `pytest` завершиться з помилкою. Ті самі тести запускає CI на кожен push
 і pull request, а звіт `htmlcov` лежить в артефактах запуску (див. «CI/CD»).
 
@@ -1335,7 +1491,7 @@ open htmlcov/index.html               # непокриті рядки підсв
 tests/
 ├── conftest.py            # фікстури: користувачі й клієнти, fake_stripe, failing_mailer, ізольований MEDIA_ROOT
 ├── factories.py           # factory-boy: User, Category, Author, Book, Order (+ items), OrderItem, Payment
-├── fakes.py               # FakeStripeClient, підписані події webhook
+├── fakes.py               # FakeStripeClient, підписані події webhook (із сумою й валютою сесії)
 ├── helpers.py             # message_levels(), дані форм адмінки
 ├── unit/
 │   ├── test_models.py             # моделі на 100%; кожен тест позначено «Generated with AI, reviewed and modified»
@@ -1344,6 +1500,10 @@ tests/
 │   ├── test_async_views.py        # async view через AsyncClient
 │   ├── test_payment_services.py   # відмови й помилки оплат
 │   ├── test_inventory.py          # Warehouse / Stock, with_stock(), права складу
+│   ├── test_currencies.py         # курси: моделі, НБУ (фейкова відповідь), перерахування, кеш, команда, задача
+│   ├── test_book_currency.py      # валюта книги: форма, адмінка, price_in(), seed_books
+│   ├── test_display_currency.py   # перемикач, формат сум, каталог і кошик у валюті
+│   ├── test_order_currency.py     # замовлення у валюті: перерахування, курси, оформлення, звіти, адмінка
 │   ├── test_tasks.py              # задачі Celery: повтори листів, розклад, звіт, скасування
 │   ├── test_sentry.py             # що йде в Sentry (через справжній ASGI-застосунок)
 │   ├── test_deploy.py             # підроблений X-Forwarded-For, сторінка 500
@@ -1353,10 +1513,12 @@ tests/
 │   ├── test_setup.py              # JWT, ліміт /api/token/, документація, CORS
 │   ├── test_cache.py              # кеш авторів і категорій, нове покоління після змін
 │   ├── test_catalog.py            # книги, автори, категорії: права, фільтри, 409, мова помилок
+│   ├── test_currencies.py         # /api/currencies/, ?currency=, display_price, валюта замовлення
 │   └── test_orders.py             # свої / чужі замовлення, створення, скасування, 405, Idempotency-Key (і гонка двох потоків)
 └── integration/
     ├── test_checkout_flow.py      # зокрема гонка: два покупці за останній примірник
     ├── test_payment_flow.py       # Stripe: сторінка, повернення, webhook, один лист
+    ├── test_payment_currency.py   # оплата у валюті замовлення, перевірка суми й валюти
     ├── test_admin_and_commands.py # адмінка менеджера, management-команди
     ├── test_book_management.py    # менеджер і редактор: права на книги
     ├── test_cache.py              # кеш книги й фрагментів, очищення сигналами, логи
@@ -1769,7 +1931,10 @@ railway link                                       # проєкт, середо�
 railway ssh --service web                          # shell у контейнері web, далі:
 python manage.py createsuperuser
 python manage.py seed_books                        # демо-каталог, якщо даних немає
+python manage.py update_exchange_rates             # курси одразу, не чекаючи Beat
 ```
+
+Без курсів сайт пропонує лише гривню; далі курси оновлює Beat у worker.
 
 - **Stripe:** Dashboard (Test mode) → Developers → Webhooks → Add destination:
   Your account, payload **Snapshot** (код читає `event.data.object`), 4 події
@@ -1792,8 +1957,10 @@ python manage.py seed_books                        # демо-каталог, я
 
 - `https://<домен>/health/` → `{"status": "ok", "database": "ok", "cache": "ok"}`;
 - логи worker: `celery@... ready.`, `beat: Starting...`, `mingle: all alone`;
+- перемикач валюти в навбарі пропонує UAH, EUR, USD; `/api/currencies/` показує курси;
 - обкладинка після Redeploy на місці (файли у Volume, а не в контейнері);
-- тестова оплата карткою `4242 4242 4242 4242` → «Оплачено», у Stripe подія з відповіддю 200;
+- тестова оплата карткою `4242 4242 4242 4242` (замовлення в гривнях і в доларах) →
+  «Оплачено», у Stripe подія з відповіддю 200;
 - `/sentry-debug/` (суперкористувач) → помилка в Sentry з `environment: production`.
 
 ## Redis
@@ -1875,7 +2042,8 @@ celery-beat ── за розкладом ────────────�
 | `send_order_cancelled_email_task` | автоматичне скасування | лист «замовлення скасовано» (покупцю, який сам натиснув «Скасувати», не надсилається) |
 | `cancel_unpaid_orders` | Beat, щогодини о :00 | `new` + `unpaid` старші за `ORDER_UNPAID_MAX_AGE_HOURS` (24) → скасування, книги на склад |
 | `clear_expired_sessions` | Beat, 03:00 UTC | `manage.py clearsessions` |
-| `send_daily_report` | Beat, 06:00 UTC | звіт за вчора менеджерам (група Managers) |
+| `send_daily_report` | Beat, 06:00 UTC | звіт за вчора менеджерам (група Managers), виручка в гривнях |
+| `update_exchange_rates` | Beat, 6:05 і 13:05–17:05 UTC щогодини | курси НБУ на сьогодні й завтра (див. «Валюти») |
 
 - **Після `COMMIT`.** `enqueue_on_commit()` (`config/celery.py`) ставить задачу
   лише після успішної транзакції: воркер не прочитає замовлення, якого ще немає
@@ -2002,6 +2170,16 @@ docker compose exec web python manage.py shell --no-imports -c "import sentry_sd
 python manage.py seed_books
 ```
 
+### `update_exchange_rates`
+
+Завантажує курси НБУ для активних валют (див. «Валюти» → «Курси НБУ»). Без
+параметрів — на сьогодні й найновіший день, `--date РРРР-ММ-ДД` — на один день.
+
+```bash
+python manage.py update_exchange_rates
+python manage.py update_exchange_rates --date 2026-11-13
+```
+
 ### `cancel_unpaid_orders`
 
 Скасовує старі замовлення `new` + `unpaid` і повертає їхні книги на склад
@@ -2111,8 +2289,15 @@ ORDER BY:  андрій, Андрій, Борис, Гліб, Ґанна, Євг�
   рядку `Logout: user=...` від сигналу.
 - **Немає скидання пароля й підтвердження email.** Відправка листів уже є,
   лишилось підключити `PasswordResetView`; заплановано.
-- **Валюта одна.** Ціни й оплата лише в гривнях (`uah`); кілька валют заплановано
-  на наступні домашки.
+- **Курси лише НБУ.** Комісії й курси банку не враховуються: ціна в доларах — це
+  ціна в гривнях за офіційним курсом. У вихідні й свята НБУ курс не змінює, сайт
+  бере останній відомий.
+- **Валюту замовлення не можна змінити** після оформлення: щоб заплатити в іншій
+  валюті, замовлення скасовують і оформлюють заново.
+- **Сортування замовлень за сумою в адмінці** — за числом, без перерахування:
+  100 $ і 100 ₴ стоять поруч. Звіти рахують у гривнях.
+- **Онлайн-оплата лише у валютах з копійками** (UAH, USD, EUR тощо): для JPY чи KWD
+  потрібне інше округлення сум.
 - **Stripe лише в тестовому режимі.** Акаунт не активовано (Україна не підтримується).
 - **Повернення коштів вручну.** Якщо скасовано оплачене замовлення, адмінка лише
   попереджає «return the money to the customer»; refund через Stripe API немає.
@@ -2136,7 +2321,6 @@ ORDER BY:  андрій, Андрій, Борис, Гліб, Ґанна, Євг�
 - обмеження частоти запитів у nginx (`limit_req`) для сторінок сайту;
 - переклад даних: назви й описи книг, автори, категорії українською та англійською
   (django-modeltranslation або django-parler);
-- валюти: модель `Currency` (UAH, USD);
 - скидання пароля й підтвердження email;
 - лист покупцю, коли замовлення скасовує менеджер в адмінці;
 - відкликання JWT: `token_blacklist` simplejwt — вихід з API (`POST /api/token/logout/`

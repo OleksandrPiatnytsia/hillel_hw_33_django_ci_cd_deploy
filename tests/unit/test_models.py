@@ -225,7 +225,7 @@ def test_models_str_and_urls():
     # English: Order and Payment translate their __str__ (gettext)
     with translation.override("en"):
         assert str(order) == f"Order #{order.pk}"
-        assert str(payment) == f"Manual 250.00 UAH (Succeeded) for order #{order.pk}"
+        assert str(payment) == f"Manual 250.00 ₴ (Succeeded) for order #{order.pk}"
     assert str(poetry) == "Poetry"
     assert str(author) == "Taras Shevchenko"
     assert str(BookCategory.objects.get(book=book)) == "Kobzar → Poetry"

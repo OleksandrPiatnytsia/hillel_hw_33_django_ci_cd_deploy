@@ -4,7 +4,7 @@ Mail clients (Gmail, Outlook) ignore <style> blocks and external CSS in many
 cases, so the styles are inline (style="...") and the layout is a table.
 Values are auto-escaped as on the site: a title with "<" can't break it.
 {% endcomment %}
-{% load i18n %}
+{% load i18n money %}
 {# The language of the recipient: send_order_email() renders the email #}
 {# inside translation.override(user.language) #}
 {% get_current_language as LANGUAGE_CODE %}
@@ -35,14 +35,14 @@ Values are auto-escaped as on the site: a title with "<" can't break it.
           {% for item in order.items.all %}
             <tr style="border-bottom:1px solid #dee2e6;">
               <td>{{ item.title }}</td>
-              <td align="right" style="white-space:nowrap;">{{ item.price }} ₴</td>
+              <td align="right" style="white-space:nowrap;">{{ item.price|money:order.currency_id }}</td>
               <td align="right">{{ item.quantity }}</td>
-              <td align="right" style="white-space:nowrap;">{{ item.cost }} ₴</td>
+              <td align="right" style="white-space:nowrap;">{{ item.cost|money:order.currency_id }}</td>
             </tr>
           {% endfor %}
           <tr>
             <td colspan="3" align="right"><strong>{% translate "Total" %}</strong></td>
-            <td align="right" style="white-space:nowrap;"><strong>{{ order.total }} ₴</strong></td>
+            <td align="right" style="white-space:nowrap;"><strong>{{ order.total|money:order.currency_id }}</strong></td>
           </tr>
         </table>
 

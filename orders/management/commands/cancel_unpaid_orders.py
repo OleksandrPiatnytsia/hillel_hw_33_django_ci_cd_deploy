@@ -23,6 +23,7 @@ from django.utils import timezone
 from django.utils.translation import gettext as _
 from django.utils.translation import ngettext
 
+from currencies.display import format_money
 from orders.models import Order
 from orders.services import OrderError, cancel_order
 
@@ -80,11 +81,11 @@ class Command(BaseCommand):
                 # f-strings). The template with %(name)s is translated first,
                 # the values are put in after (% {...}).
                 self.stdout.write(
-                    _("would cancel %(order)s from %(date)s (%(total)s UAH)")
+                    _("would cancel %(order)s from %(date)s (%(total)s)")
                     % {
                         "order": order,
                         "date": f"{order.created_at:%d.%m.%Y %H:%M}",
-                        "total": order.total,
+                        "total": format_money(order.total, order.currency_id),
                     }
                 )
             count = orders.count()

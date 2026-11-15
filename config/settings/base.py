@@ -82,6 +82,8 @@ INSTALLED_APPS = [
     "cart",
     "orders",
     "payments",
+    # Currencies and the history of their exchange rates (NBU)
+    "currencies",
     # The whole REST API layer: serializers, ViewSets, permissions, URLs
     "api",
 ]
@@ -146,6 +148,9 @@ TEMPLATES = [
                 "django.contrib.messages.context_processors.messages",
                 # "cart" in every template: navbar counter, cart page
                 "cart.context_processors.cart",
+                # "display_currency" and "currency_choices": the currency
+                # switcher in the navbar
+                "currencies.context_processors.currency",
             ],
         },
     },
@@ -306,6 +311,15 @@ CELERY_BEAT_SCHEDULE = {
     "daily-sales-report": {
         "task": "orders.tasks.send_daily_report",
         "schedule": crontab(hour=6, minute=0),
+    },
+    # NBU exchange rates. The NBU publishes the rates of the next day at
+    # about 15:30 Kyiv time (13:30 UTC in winter, 12:30 in summer): the
+    # runs at 13:05-17:05 UTC pick them up even if the NBU is late or down
+    # for a while; 6:05 is one more chance in the morning. Every run saves
+    # the same numbers again (update_or_create), nothing doubles.
+    "update-exchange-rates": {
+        "task": "currencies.tasks.update_exchange_rates",
+        "schedule": crontab(hour="6,13-17", minute=5),
     },
 }
 # Age of an unpaid order for the hourly cancel_unpaid_orders task
@@ -645,7 +659,7 @@ LOGS_DIR.mkdir(exist_ok=True)
 APP_LOG_LEVEL = "INFO"
 # Loggers of our apps, all with the same handlers and APP_LOG_LEVEL
 # (orders.emails: "email sent" / "email failed" with the traceback)
-APP_LOGGERS = ("books", "users", "orders", "payments", "api")
+APP_LOGGERS = ("books", "users", "orders", "payments", "currencies", "api")
 
 LOGGING = {
     "version": 1,

@@ -143,6 +143,10 @@ class OrderItemFactory(DjangoModelFactory):
     # Copies of the book data, as create_order() makes them
     title = factory.LazyAttribute(lambda item: item.book.title)
     price = factory.LazyAttribute(lambda item: item.book.price)
+    # Not converted: the book in the currency of the order (UAH by default)
+    original_price = factory.LazyAttribute(lambda item: item.price)
+    original_currency_id = factory.LazyAttribute(lambda item: item.order.currency_id)
+    exchange_rate = Decimal("1")
     quantity = 1
 
 
@@ -160,4 +164,5 @@ class PaymentFactory(DjangoModelFactory):
     provider = Payment.Provider.STRIPE
     external_id = factory.Sequence(lambda n: f"cs_test_{n}")
     amount = factory.LazyAttribute(lambda payment: payment.order.total)
+    currency_id = factory.LazyAttribute(lambda payment: payment.order.currency_id)
     status = Payment.Status.PENDING

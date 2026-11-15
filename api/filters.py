@@ -8,6 +8,7 @@ Unknown parameters are ignored; a wrong value (?price_min=abc,
 
 import django_filters
 from django import forms
+from django.db.models import F
 from django.utils.translation import gettext_lazy as _
 from rest_framework.filters import OrderingFilter
 
@@ -39,7 +40,9 @@ class BookFilter(django_filters.FilterSet):
 
     ?category=<slug>      books of a category (slug, like on the site)
     ?author=<id>          books of an author
-    ?price_min= / ?price_max=   price range, both ends included
+    ?price_min= / ?price_max=   price range, both ends included, in the
+                          currency of ?currency= (display_price, UAH by
+                          default): books of every currency are compared
     ?stock=in_stock | low | out  availability (BookQuerySet.by_stock_status)
     The text search (?search=) and the sort (?ordering=) come from
     SearchFilter / OrderingFilter in the ViewSet.
@@ -51,8 +54,13 @@ class BookFilter(django_filters.FilterSet):
         to_field_name="slug",
     )
     author = django_filters.ModelChoiceFilter(queryset=Author.objects.all())
-    price_min = django_filters.NumberFilter(field_name="price", lookup_expr="gte", min_value=0)
-    price_max = django_filters.NumberFilter(field_name="price", lookup_expr="lte", min_value=0)
+    # display_price: the annotation of BookViewSet (the converted price)
+    price_min = django_filters.NumberFilter(
+        field_name="display_price", lookup_expr="gte", min_value=0
+    )
+    price_max = django_filters.NumberFilter(
+        field_name="display_price", lookup_expr="lte", min_value=0
+    )
     stock = django_filters.ChoiceFilter(
         choices=BookQuerySet.STOCK_STATUS_CHOICES,
         method="filter_stock",
@@ -76,7 +84,30 @@ class StableOrderingFilter(OrderingFilter):
     database likes, different from one query to the next: on page 2 a
     book from page 1 again, another one never. "pk" as the last column
     makes the order unique, like order_by(..., "pk") on the site.
+
+    view.ordering_aliases: a name the client sends -> the field the
+    database sorts by. BookViewSet: {"price": "display_price"}, so
+    ?ordering=price sorts by the price in ONE currency, not by the numbers
+    of different currencies. The books without a rate (NULL) go last in
+    both directions, like on the site.
     """
+
+    def filter_queryset(self, request, queryset, view):
+        ordering = self.get_ordering(request, queryset, view)
+        if not ordering:
+            return queryset
+        aliases = getattr(view, "ordering_aliases", {})
+        return queryset.order_by(*(self._expression(field, aliases) for field in ordering))
+
+    @staticmethod
+    def _expression(field, aliases):
+        name = field.removeprefix("-")
+        if name not in aliases:
+            return field
+        column = F(aliases[name])
+        if field.startswith("-"):
+            return column.desc(nulls_last=True)
+        return column.asc(nulls_last=True)
 
     def get_ordering(self, request, queryset, view):
         ordering = super().get_ordering(request, queryset, view)

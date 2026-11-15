@@ -4,6 +4,7 @@ from django.core.management.base import BaseCommand
 from django.db import transaction
 
 from books.models import Author, Book, Category
+from currencies.models import BASE_CURRENCY
 from inventory.services import set_stock
 
 # slug -> name
@@ -15,7 +16,9 @@ CATEGORIES = {
     "naukova-fantastyka": "Наукова фантастика",
 }
 
-# title, author, price, stock, description, category slugs
+# title, author, price, stock, description, category slugs.
+# The price is in UAH; "8.50 EUR" is a price in another currency (a few
+# books, so the catalog shows conversion from different currencies).
 BOOKS = [
     ("Хоббіт", "Дж.Р. Толкін", "99.75", 3437, "Пригоди Більбо Торбина.", ["fentezi", "prigodi"]),
     (
@@ -29,7 +32,7 @@ BOOKS = [
     (
         "Гра престолів",
         "Джордж Мартін",
-        "420.00",
+        "8.50 EUR",
         4,
         "Перша книга циклу «Пісня льоду й полум'я».",
         ["fentezi", "roman"],
@@ -51,7 +54,7 @@ BOOKS = [
         "Виживання на Марсі.",
         ["naukova-fantastyka", "prigodi"],
     ),
-    ("Таємне життя дерев", "Петер Вольлебен", "180.00", 2, "", []),
+    ("Таємне життя дерев", "Петер Вольлебен", "4.50 USD", 2, "", []),
     (
         "Вбивство в «Східному експресі»",
         "Агата Крісті",
@@ -68,7 +71,7 @@ BOOKS = [
         "Шерлок Холмс і родове прокляття.",
         ["detektyv", "prigodi"],
     ),
-    ("Воно", "Стівен Кінг", "480.00", 5, "Жах у містечку Деррі.", ["roman"]),
+    ("Воно", "Стівен Кінг", "11.00 USD", 5, "Жах у містечку Деррі.", ["roman"]),
     ("Сяйво", "Стівен Кінг", "360.00", 15, "", ["roman"]),
     (
         "Тигролови",
@@ -93,13 +96,16 @@ class Command(BaseCommand):
             if created:
                 self.stdout.write(f"+ category {name}")
 
-        for title, author_name, price, stock, description, slugs in BOOKS:
+        for title, author_name, price_text, stock, description, slugs in BOOKS:
+            # "650.00" -> 650.00 UAH, "8.50 EUR" -> 8.50 EUR
+            price, _, currency = price_text.partition(" ")
             author, _ = Author.objects.get_or_create(name=author_name)
             book, created = Book.objects.get_or_create(
                 title=title,
                 author=author,
                 defaults={
                     "price": Decimal(price),
+                    "currency_id": currency or BASE_CURRENCY,
                     "description": description,
                 },
             )
