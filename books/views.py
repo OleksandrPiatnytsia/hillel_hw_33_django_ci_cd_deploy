@@ -1,11 +1,12 @@
 import logging
+import math
 
 from asgiref.sync import sync_to_async
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.mixins import PermissionRequiredMixin
 from django.contrib.messages.views import SuccessMessageMixin
-from django.db.models import Count, F, ProtectedError, Q
+from django.db.models import Case, Count, F, Max, Min, ProtectedError, Q, When
 from django.http import Http404, JsonResponse
 from django.shortcuts import redirect
 from django.urls import reverse_lazy
@@ -134,10 +135,24 @@ class BookListView(ElidedPaginationMixin, ListView):
             "price": F("display_price").asc(nulls_last=True),
             "-price": F("display_price").desc(nulls_last=True),
         }.get(self.sort, self.sort)
+        if self.sort == "-sold":
+            # The subquery only for this sort, not on every catalog page;
+            # equally popular books (0 sold too) follow by title
+            queryset = queryset.with_sold()
+            ordering = [F("sold").desc(), "title"]
+        else:
+            ordering = [ordering]
+        # "Out of stock last" (the checkbox of the "Sort by" menu, on by
+        # default, ?out_last=0 turns it off): the books that can't be bought
+        # go after all the others, the chosen sort works inside both groups.
+        # stock comes from with_stock() above, in the same query.
+        self.out_last = self.request.GET.get("out_last") != "0"
+        if self.out_last:
+            ordering.insert(0, Case(When(stock=0, then=1), default=0))
         # Always with "pk" as a tie-breaker, the default sort (Book.Meta.ordering
         # = title) too: books with an equal title or price keep a stable order,
         # so the same book doesn't jump between pages
-        return queryset.order_by(ordering, "pk")
+        return queryset.order_by(*ordering, "pk")
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -150,9 +165,28 @@ class BookListView(ElidedPaginationMixin, ListView):
         context["sort_choices"] = BookFilterForm.SORT_CHOICES
         context["sort"] = self.sort
         context["sort_label"] = dict(BookFilterForm.SORT_CHOICES)[self.sort]
+        context["out_last"] = self.out_last
         # Timeout of the {% cache %} fragments of the book cards
         context["cache_timeout"] = settings.BOOK_CACHE_TIMEOUT
+        context["price_range"] = self.price_range()
         return context
+
+    def price_range(self):
+        """The ends of the price slider: the cheapest and the dearest book.
+
+        Of the whole catalog in the currency of the switcher, not of the
+        filtered list: then the slider keeps its scale while the user moves
+        it. Whole numbers outward (12.40 .. 1510.99 -> 12 .. 1511), so the
+        ends include every book. One SQL query (MIN and MAX of the same CASE
+        as the filter). None when there is nothing to slide: no books, or
+        all of them at one price.
+        """
+        price = price_in(self.currency.code, rates=request_rates(self.request))
+        bounds = Book.objects.aggregate(low=Min(price), high=Max(price))
+        if bounds["low"] is None:
+            return None
+        low, high = math.floor(bounds["low"]), math.ceil(bounds["high"])
+        return {"min": low, "max": high} if low < high else None
 
 
 class BookDetailView(DetailView):
@@ -183,15 +217,6 @@ class BookDetailView(DetailView):
         return context
 
 
-class BookFormUserMixin:
-    """Passes the current user to BookForm (it decides whether "stock" is editable)."""
-
-    def get_form_kwargs(self):
-        kwargs = super().get_form_kwargs()
-        kwargs["user"] = self.request.user
-        return kwargs
-
-
 # PermissionRequiredMixin goes FIRST (left of CreateView / UpdateView /
 # DeleteView): its dispatch() must run before the view's own dispatch().
 # What it does when has_perm() is False:
@@ -200,7 +225,7 @@ class BookFormUserMixin:
 # So a separate LoginRequiredMixin is not needed here.
 
 
-class BookCreateView(PermissionRequiredMixin, BookFormUserMixin, SuccessMessageMixin, CreateView):
+class BookCreateView(PermissionRequiredMixin, SuccessMessageMixin, CreateView):
     """New book. Template: books/book_form.html (shared with update).
 
     No success_url: after saving, Django redirects to book.get_absolute_url().
@@ -223,7 +248,7 @@ class BookCreateView(PermissionRequiredMixin, BookFormUserMixin, SuccessMessageM
         return response
 
 
-class BookUpdateView(PermissionRequiredMixin, BookFormUserMixin, SuccessMessageMixin, UpdateView):
+class BookUpdateView(PermissionRequiredMixin, SuccessMessageMixin, UpdateView):
     """Edit a book. Template: books/book_form.html (shared with create)."""
 
     permission_required = "books.change_book"
@@ -253,7 +278,7 @@ class BookDeleteView(PermissionRequiredMixin, SuccessMessageMixin, DeleteView):
     A book that is in orders can't be deleted: OrderItem.book has
     on_delete=PROTECT, the order history must stay complete. Then:
     - GET: the page says so at once (orders_count) and has no delete button,
-      only "Edit" (stock = 0 stops the sales);
+      only "Edit in admin" (stock = 0 stops the sales);
     - POST anyway (an old open tab, or the book was ordered after the page
       was opened): delete() raises ProtectedError -> an error message and
       back to the book, instead of 500.

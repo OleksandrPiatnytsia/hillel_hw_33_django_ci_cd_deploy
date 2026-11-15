@@ -33,8 +33,9 @@
         <form method="post" class="d-flex gap-2">
           {% csrf_token %}
           {% if orders_count %}
-            {% if perms.books.change_book %}
-              <a class="btn btn-primary" href="{% url 'books:update' book.pk %}">{% translate "Edit" %}</a>
+            {# The stock is changed in the admin (StockInline on the book page) #}
+            {% if perms.inventory.change_stock %}
+              <a class="btn btn-primary" href="{% url 'admin:books_book_change' book.pk %}">{% translate "Edit in admin" %}</a>
             {% endif %}
           {% else %}
             <button type="submit" class="btn btn-danger">{% translate "Yes, delete" %}</button>

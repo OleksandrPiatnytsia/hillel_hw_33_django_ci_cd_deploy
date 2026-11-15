@@ -31,6 +31,9 @@
         {% if sort != "title" %}
           <input type="hidden" name="sort" value="{{ sort }}">
         {% endif %}
+        {% if not out_last %}
+          <input type="hidden" name="out_last" value="0">
+        {% endif %}
 
         {% if filter_form.non_field_errors %}
           <div class="alert alert-danger py-2 small">
@@ -39,8 +42,11 @@
         {% endif %}
 
         {% for field in filter_form %}
-          {# The sort has its own dropdown above the results #}
-          {% if field.name != "sort" %}
+          {% if field.name == "price_min" %}
+            {% include "books/includes/price_filter.html" with price_min=field price_max=filter_form.price_max %}
+          {# The sort has its own dropdown above the results; #}
+          {# price_max is in the price block above #}
+          {% elif field.name != "sort" and field.name != "price_max" %}
             <div class="mb-3">
               <label class="form-label small fw-semibold" for="{{ field.id_for_label }}">
                 {{ field.label }}
@@ -103,6 +109,17 @@
                  {% if value == sort %}aria-current="true"{% endif %}>{{ label }}</a>
             </li>
           {% endfor %}
+          <li><hr class="dropdown-divider"></li>
+          {# A checkbox that is a link: on by default (no parameter), off -> ?out_last=0. #}
+          {# Works with any sort and without JavaScript; the page starts again from 1 #}
+          <li>
+            <a class="dropdown-item d-flex align-items-center gap-2" role="menuitemcheckbox"
+               aria-checked="{{ out_last|yesno:'true,false' }}"
+               href="{% if out_last %}{% querystring out_last='0' page=None %}{% else %}{% querystring out_last=None page=None %}{% endif %}">
+              <span class="form-check-input sort-checkbox m-0{% if out_last %} is-checked{% endif %}" aria-hidden="true"></span>
+              {% translate "Out of stock last" %}
+            </a>
+          </li>
         </ul>
       </div>
 
@@ -199,4 +216,5 @@
 
 {% block scripts %}
   <script src="{% static 'js/auto_submit.js' %}" defer></script>
+  <script src="{% static 'js/price_range.js' %}" defer></script>
 {% endblock %}
