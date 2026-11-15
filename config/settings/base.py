@@ -422,6 +422,19 @@ SERVE_MEDIA = False
 # by send_mail() and EmailMessage.send(). Tests don't send real emails: the
 # test runner replaces every mailer with the locmem backend (mail.outbox).
 #
+# Which mailer, the first one that is configured:
+#   1. Brevo HTTP API (BREVO_API_KEY): Railway. Its Free / Trial / Hobby
+#      plans block outgoing SMTP, but HTTPS to an API goes through.
+#   2. Gmail SMTP (EMAIL_HOST_USER + EMAIL_HOST_PASSWORD): local runs.
+#   3. The console: emails are printed to the log, nothing is sent.
+#
+# Brevo (brevo.com) through django-anymail: the email is sent as a JSON
+# request to api.brevo.com instead of an SMTP conversation. The API key:
+# Brevo -> SMTP & API -> API Keys (starts with xkeysib-). The sender must be
+# confirmed in Brevo (Senders, Domains & Dedicated IPs -> Senders):
+# EMAIL_FROM is that address.
+BREVO_API_KEY = os.getenv("BREVO_API_KEY", "")
+
 # Gmail SMTP: login = the Gmail address, password = an App Password
 # (16 letters, Google account -> Security -> 2-Step Verification ->
 # App passwords), NOT the account password. Limit ~500 emails per day.
@@ -431,7 +444,16 @@ EMAIL_USER = os.getenv("EMAIL_HOST_USER", "")
 # Google shows the password in groups "abcd efgh ijkl mnop"; spaces out
 EMAIL_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "").replace(" ", "")
 
-if EMAIL_USER and EMAIL_PASSWORD:
+if BREVO_API_KEY:
+    MAILERS = {
+        "default": {
+            "BACKEND": "anymail.backends.brevo.EmailBackend",
+            # Passed to the backend as arguments: Anymail takes api_key from
+            # here, so no separate ANYMAIL = {...} setting is needed
+            "OPTIONS": {"api_key": BREVO_API_KEY},
+        },
+    }
+elif EMAIL_USER and EMAIL_PASSWORD:
     MAILERS = {
         "default": {
             "BACKEND": "django.core.mail.backends.smtp.EmailBackend",
@@ -456,9 +478,13 @@ else:
         },
     }
 
-# "From" of the emails. Gmail sends only from the account it logs in with
-# (another address is replaced by it), so it's the same address with a name.
-DEFAULT_FROM_EMAIL = f"Bookstore <{EMAIL_USER or 'noreply@localhost'}>"
+# "From" of the emails, with the name of the shop:
+# - EMAIL_FROM: the sender confirmed in Brevo (Brevo refuses other ones);
+# - else the Gmail login: Gmail sends only from the account it logs in with
+#   (another address is replaced by it);
+# - else a placeholder for the console.
+EMAIL_FROM = os.getenv("EMAIL_FROM", "") or EMAIL_USER or "noreply@localhost"
+DEFAULT_FROM_EMAIL = f"Bookstore <{EMAIL_FROM}>"
 
 # Stripe (payments/providers/stripe_checkout.py). Test mode keys start with
 # sk_test_: no real money, test cards like 4242 4242 4242 4242.
