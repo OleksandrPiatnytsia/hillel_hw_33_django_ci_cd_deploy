@@ -1,11 +1,12 @@
 import logging
+import math
 
 from asgiref.sync import sync_to_async
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.mixins import PermissionRequiredMixin
 from django.contrib.messages.views import SuccessMessageMixin
-from django.db.models import Count, F, ProtectedError, Q
+from django.db.models import Count, F, Max, Min, ProtectedError, Q
 from django.http import Http404, JsonResponse
 from django.shortcuts import redirect
 from django.urls import reverse_lazy
@@ -152,7 +153,25 @@ class BookListView(ElidedPaginationMixin, ListView):
         context["sort_label"] = dict(BookFilterForm.SORT_CHOICES)[self.sort]
         # Timeout of the {% cache %} fragments of the book cards
         context["cache_timeout"] = settings.BOOK_CACHE_TIMEOUT
+        context["price_range"] = self.price_range()
         return context
+
+    def price_range(self):
+        """The ends of the price slider: the cheapest and the dearest book.
+
+        Of the whole catalog in the currency of the switcher, not of the
+        filtered list: then the slider keeps its scale while the user moves
+        it. Whole numbers outward (12.40 .. 1510.99 -> 12 .. 1511), so the
+        ends include every book. One SQL query (MIN and MAX of the same CASE
+        as the filter). None when there is nothing to slide: no books, or
+        all of them at one price.
+        """
+        price = price_in(self.currency.code, rates=request_rates(self.request))
+        bounds = Book.objects.aggregate(low=Min(price), high=Max(price))
+        if bounds["low"] is None:
+            return None
+        low, high = math.floor(bounds["low"]), math.ceil(bounds["high"])
+        return {"min": low, "max": high} if low < high else None
 
 
 class BookDetailView(DetailView):

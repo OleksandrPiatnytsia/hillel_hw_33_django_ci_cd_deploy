@@ -39,8 +39,11 @@
         {% endif %}
 
         {% for field in filter_form %}
-          {# The sort has its own dropdown above the results #}
-          {% if field.name != "sort" %}
+          {% if field.name == "price_min" %}
+            {% include "books/includes/price_filter.html" with price_min=field price_max=filter_form.price_max %}
+          {# The sort has its own dropdown above the results; #}
+          {# price_max is in the price block above #}
+          {% elif field.name != "sort" and field.name != "price_max" %}
             <div class="mb-3">
               <label class="form-label small fw-semibold" for="{{ field.id_for_label }}">
                 {{ field.label }}
@@ -199,4 +202,5 @@
 
 {% block scripts %}
   <script src="{% static 'js/auto_submit.js' %}" defer></script>
+  <script src="{% static 'js/price_range.js' %}" defer></script>
 {% endblock %}
