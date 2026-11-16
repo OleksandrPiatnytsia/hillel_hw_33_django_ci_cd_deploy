@@ -44,8 +44,8 @@ class BookFilter(books.filters.BookFilter):
     ?stock=in_stock | low | out  availability (BookQuerySet.by_stock_status)
     ?publisher=<id>       books of a publisher; several: ?publisher=1&publisher=4
     ?language=uk | en | pl | de | fr | es    several: ?language=uk&language=en
-    ?book_type=paper | ebook | audiobook     several allowed
-    ?cover_type=hard | soft | dust_jacket    several allowed
+    ?book_type=paper | ebook | audiobook     a format on sale; several allowed
+    ?cover_type=hard | soft | dust_jacket    the cover of the paper format; several allowed
     ?year_min= / ?year_max=   publication year range, both ends included
     The text search (?search=) and the sort (?ordering=) come from
     SearchFilter / OrderingFilter in the ViewSet.

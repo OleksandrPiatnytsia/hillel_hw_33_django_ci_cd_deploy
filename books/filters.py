@@ -21,7 +21,7 @@ from django import forms
 from django.db.models import Exists, OuterRef, Q
 from django.utils.translation import gettext_lazy as _
 
-from .models import Author, Book, BookCategory, BookQuerySet, Category, Publisher
+from .models import Author, Book, BookCategory, BookFormat, BookQuerySet, Category, Publisher
 
 
 class BookFilter(django_filters.FilterSet):
@@ -62,15 +62,22 @@ class BookFilter(django_filters.FilterSet):
         label=_("Language"),
         widget=forms.CheckboxSelectMultiple(attrs={"class": "form-check-input"}),
     )
+    # The formats on sale (BookFormat): ?book_type=ebook -> the books that
+    # can be bought as an e-book. Not "?format=": the API (DRF) keeps that
+    # name for the format of the answer (?format=json), and "book_type" is
+    # the name the filter had before the formats, so old links still work.
     book_type = django_filters.MultipleChoiceFilter(
-        choices=Book.BookType.choices,
-        method="filter_any_of",
-        label=_("Book type"),
+        field_name="formats__format_type",
+        choices=BookFormat.FormatType.choices,
+        method="filter_format",
+        label=_("Format"),
         widget=forms.CheckboxSelectMultiple(attrs={"class": "form-check-input"}),
     )
+    # The cover of the paper format on sale
     cover_type = django_filters.MultipleChoiceFilter(
-        choices=Book.CoverType.choices,
-        method="filter_any_of",
+        field_name="formats__cover_type",
+        choices=BookFormat.CoverType.choices,
+        method="filter_cover",
         label=_("Cover"),
         widget=forms.CheckboxSelectMultiple(attrs={"class": "form-check-input"}),
     )
@@ -148,13 +155,32 @@ class BookFilter(django_filters.FilterSet):
         return queryset.filter(author__in=value) if value else queryset
 
     def filter_any_of(self, queryset, name, value):
-        """One of the chosen values: publisher, language, type, cover.
+        """One of the chosen values: publisher, language.
 
         A field of the book itself (no JOIN): IN (...) gives no duplicates.
         Not django-filter's own MultipleChoiceFilter filtering: it adds
         .distinct(), which does not go well with the annotations of the list.
         """
         return queryset.filter(**{f"{name}__in": value}) if value else queryset
+
+    def filter_format(self, queryset, name, value):
+        # EXISTS, like the categories: a book in two of the chosen formats
+        # would come twice with a JOIN
+        return self._with_format(queryset, format_type__in=value) if value else queryset
+
+    def filter_cover(self, queryset, name, value):
+        # A cover is a thing of the paper format only (BookFormat.clean())
+        if not value:
+            return queryset
+        return self._with_format(
+            queryset, format_type=BookFormat.FormatType.PAPER, cover_type__in=value
+        )
+
+    @staticmethod
+    def _with_format(queryset, **conditions):
+        """The books with a format on sale that matches the conditions."""
+        matching = BookFormat.objects.filter(book=OuterRef("pk"), is_active=True, **conditions)
+        return queryset.filter(Exists(matching))
 
     def filter_stock(self, queryset, name, value):
         # The rule "low = 1..5" lives in one place, the model's queryset
@@ -231,7 +257,9 @@ class CatalogFilter(BookFilter):
     # publishers from the migration, but a catalog of 12 books has 5 of
     # them; 6 languages, but the books are in 2. A block without values is
     # not shown at all (books/book_list.html).
-    VALUES_IN_USE = ["language", "book_type", "cover_type"]
+    VALUES_IN_USE = ["language"]
+    # The same for the formats: the values of the formats on sale
+    FORMAT_VALUES_IN_USE = {"book_type": "format_type", "cover_type": "cover_type"}
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -243,9 +271,15 @@ class CatalogFilter(BookFilter):
         )
         for name in self.VALUES_IN_USE:
             in_use = set(Book.objects.exclude(**{name: ""}).values_list(name, flat=True).distinct())
-            fields[name].choices = [
-                (value, label) for value, label in fields[name].choices if value in in_use
-            ]
+            self._keep_choices(name, in_use)
+        active_formats = BookFormat.objects.filter(is_active=True)
+        for name, format_field in self.FORMAT_VALUES_IN_USE.items():
+            in_use = set(active_formats.values_list(format_field, flat=True).distinct())
+            self._keep_choices(name, in_use)
+
+    def _keep_choices(self, name, in_use):
+        field = self.form.fields[name]
+        field.choices = [(value, label) for value, label in field.choices if value in in_use]
 
     def search(self, queryset, name, value):
         return queryset.filter(Q(title__icontains=value) | Q(author__name__icontains=value))

@@ -58,3 +58,49 @@ def inline_prefix(response, formset_class):
         if isinstance(inline.formset, formset_class):
             return inline.formset.prefix
     raise LookupError(f"No inline with {formset_class.__name__} on the page")
+
+
+def format_row(format_type="paper", price="250.00", currency="UAH", **fields):
+    """One row of the formats block of the book form: {"format_type": ..., ...}.
+
+    is_active is "on" (the checkbox is ticked by default); pass
+    is_active="" to send it unticked, id=<pk> for a saved format.
+    """
+    return {
+        "format_type": format_type,
+        "price": price,
+        "currency": currency,
+        "is_active": "on",
+        **fields,
+    }
+
+
+def formats_data(*rows, initial=0):
+    """POST data of the formats block of the book form (BookFormatFormSet).
+
+    rows: format_row(...) dicts; initial: how many of them are saved
+    formats (they come first and carry their "id"). Without the
+    management form (TOTAL_FORMS, INITIAL_FORMS) Django refuses the
+    whole formset.
+    """
+    data = {
+        "formats-TOTAL_FORMS": len(rows),
+        "formats-INITIAL_FORMS": initial,
+        "formats-MIN_NUM_FORMS": 0,
+        "formats-MAX_NUM_FORMS": 1000,
+    }
+    for index, row in enumerate(rows):
+        for name, value in row.items():
+            data[f"formats-{index}-{name}"] = value
+    return data
+
+
+def format_id(book):
+    """The id of the main format of a book: the key of create_order() and of the cart.
+
+    create_order() takes {format_id: quantity}; a book of BookFactory has
+    one format (paper by default), so this is "the book" in such a dict:
+        create_order(user, {format_id(book): 2}, ...)
+    """
+    book.__dict__.pop("prefetched_active_formats", None)
+    return book.main_format.pk

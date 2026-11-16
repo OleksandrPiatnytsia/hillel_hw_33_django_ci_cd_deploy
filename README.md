@@ -18,20 +18,25 @@ Redis, Celery, nginx). У цьому ДЗ:
   захищені cookies, HSTS, `DATABASE_URL` і `REDIS_URL` (див. «Налаштування»);
 - **деплой на Railway**: web (gunicorn + uvicorn), worker (Celery з Beat), Flower,
   PostgreSQL, Redis, Volume для обкладинок; статика через **WhiteNoise**,
-  перевірка здоров'я `/health/` (див. «Деплой на Railway»);
-- **валюти**: курси НБУ з історією (Celery Beat), ціна книги в будь-якій
+  перевірка здоров'я `/health/`; у футері версія сайту і задеплоєний коміт
+  (див. «Деплой на Railway»);
+- **валюти**: курси НБУ з історією (Celery Beat), ціна формату книги в будь-якій
   валюті, перемикач валюти на сайті, замовлення й оплата Stripe у вибраній
   валюті, валюти в API (див. «Валюти»);
 - **панель фільтрів каталогу**: блоки, що згортаються, кілька значень у фільтрі,
   плашки активних фільтрів, оновлення списку без перезавантаження, на телефоні —
   панель збоку (див. «Фільтри каталогу»);
 - **характеристики видання**: видавництво (окрема модель, основні українські
-  видавництва з міграції), тип книги, обкладинка, мова, рік видання, кількість
-  сторінок — у формі, на сторінці книги, у фільтрах каталогу й в API
-  (див. «Моделі», «Фільтри каталогу»);
+  видавництва з міграції), мова, рік видання — у формі, на сторінці книги, у
+  фільтрах каталогу й в API (див. «Моделі», «Фільтри каталогу»);
+- **формати книг**: одна книга продається як паперова, електронна й аудіокнига,
+  кожен формат зі своєю ціною, валютою, обкладинкою й сторінками; ціна «від» у
+  каталозі, плитки форматів на сторінці книги, формат змінюється в кошику, склад
+  лише в паперового, формати в замовленнях і в API (`/api/formats/`)
+  (див. «Формати книг»);
 - єдиний стиль коду: black + flake8 (`pyproject.toml`, `.flake8`), перевіряються
   ще до коміту хуком pre-commit (`.pre-commit-config.yaml`);
-- 664 тести, покриття 98.87%.
+- 786 тестів, покриття 98.89%.
 
 ## Стек
 
@@ -162,10 +167,12 @@ ViewSets і права працюють з моделями `books` і `orders` 
 | `POST /api/token/` | усі, 10/хв | `username` + `password` → `access` + `refresh` |
 | `POST /api/token/refresh/` | усі | `refresh` → новий `access` |
 | `POST /api/token/verify/` | усі | чи дійсний токен (200 / 401) |
-| `GET /api/books/`, `/api/books/<id>/` | усі | книги з вкладеними автором і категоріями; `?currency=USD` → `display_price` у доларах |
-| `POST /api/books/` | `books.add_book` (Editors, Managers) | нова книга |
-| `PUT`, `PATCH /api/books/<id>/` | `books.change_book` | змінити книгу; `stock` — лише з `inventory.change_stock` |
+| `GET /api/books/`, `/api/books/<id>/` | усі | книги з вкладеними автором, категоріями й форматами в продажу; `display_price` — ціна «від»; `?currency=USD` → у доларах |
+| `POST /api/books/` | `books.add_book` (Editors, Managers) | нова книга (без форматів вона не продається) |
+| `PUT`, `PATCH /api/books/<id>/` | `books.change_book` | змінити книгу |
 | `DELETE /api/books/<id>/` | `books.delete_book` (Managers) | видалити; книга в замовленнях → 409 |
+| `GET /api/formats/[<id>/]` | усі (зняті з продажу — лише Editors, Managers) | формати книг; `?book=<id>`, `?format_type=`, `?is_active=` |
+| `POST`, `PUT`, `PATCH`, `DELETE /api/formats/<id>/` | `books.add/change/delete_bookformat` (Editors, Managers) | формат: ціна, валюта, обкладинка, сторінки, «у продажу»; `stock` паперового — лише з `inventory.change_stock`; останній формат або формат у замовленнях → 409 |
 | `GET /api/authors/[<id>/]`, `/api/publishers/[<id>/]`, `/api/categories/[<id>/]` | усі | автори, видавництва й категорії з `books_count` |
 | `POST`, `PUT`, `PATCH`, `DELETE` авторів, видавництв і категорій | `IsAdminUser` (`is_staff`) **і** право моделі | як в адмінці; є книги → 409 на `DELETE` |
 | `GET /api/currencies/`, `/api/currencies/<code>/` | усі | валюти, які пропонує магазин, з курсом НБУ на сьогодні |
@@ -246,7 +253,7 @@ class OrderViewSet(...):
   `is_staff` відчиняє двері, група вирішує, що можна (Managers видаляють категорію,
   редактор має `add_author`, але не `is_staff`). `get_permissions()` замість
   `permission_classes`, бо читання відкрите всім, а `IsAdminUser` не має варіанта «або лише читання».
-- **Залишок (`stock`)** — як в адмінці: без `inventory.change_stock` змінити його
+- **Залишок (`stock`)** паперового формату — як в адмінці: без `inventory.change_stock` змінити його
   не можна (403). Надіслати *поточне* значення можна: клієнт, що робить `PUT`
   з усіма прочитаними полями, не отримає помилку.
 - Анонім на запис отримує **401** (з токеном запит міг би пройти), залогінений
@@ -259,14 +266,17 @@ GET /api/books/7/
 {"id": 7, "title": "Kobzar",
  "author": {"id": 3, "name": "Taras Shevchenko"},
  "categories": [{"id": 1, "name": "Poetry", "slug": "poetry"}],
- "price": "250.50", "stock": 4, "in_stock": true,
- "publisher": {"id": 12, "name": "Фоліо"}, "book_type": "paper", "cover_type": "hard",
- "language": "uk", "publication_year": 2017, "pages": 224,
+ "display_price": "149.00", "display_currency": "UAH", "in_stock": true,
+ "publisher": {"id": 12, "name": "Фоліо"}, "language": "uk", "publication_year": 2017,
+ "formats": [
+   {"id": 11, "format_type": "paper", "format_type_display": "Паперова",
+    "price": "350.00", "currency": "UAH", "cover_type": "hard", "pages": 224,
+    "is_active": true, "stock": 4, "in_stock": true, ...},
+   {"id": 12, "format_type": "ebook", "price": "149.00", "stock": null, "in_stock": true, ...}],
  "cover": "http://localhost:8000/media/covers/2026/11/kobzar.jpg", ...}
 
 POST /api/books/
-{"title": "Kobzar", "author_id": 3, "category_ids": [1], "price": "250.50",
- "publisher_id": 12, "language": "uk"}
+{"title": "Kobzar", "author_id": 3, "category_ids": [1], "publisher_id": 12, "language": "uk"}
 ```
 
 ```python
@@ -274,16 +284,36 @@ class BookSerializer(serializers.ModelSerializer):
     author = AuthorShortSerializer(read_only=True)                       # читання: об'єкт
     author_id = serializers.PrimaryKeyRelatedField(source="author",      # запис: id
                                                    queryset=Author.objects.all(), write_only=True)
+    formats = BookFormatInBookSerializer(source="active_formats", many=True, read_only=True)
 ```
 
-Ціни — рядки (`"250.50"`), а не числа: так у JSON не губляться копійки на округленні float.
+Ціни — рядки (`"350.00"`), а не числа: так у JSON не губляться копійки на округленні float.
+`display_price` книги — найдешевший формат у продажу у валюті `?currency=`, як «від» у
+картці сайту; за ним працюють `?price_min=`, `?price_max=` і `?ordering=price`.
 
-Характеристики: `book_type`, `cover_type` і `language` — коди (`ebook`, `dust_jacket`,
-`uk`), їхній перелік є в документації `/api/docs/`; невідоме значення — `""`, невідомий
-рік, сторінки чи видавництво — `null`. `ModelSerializer` не викликає `Book.clean()`,
-тому «обкладинка лише в паперової книги» перевіряє `BookSerializer.validate()`; у `PATCH`
-поле, якого немає в запиті, береться з книги (`{"book_type": "ebook"}` для книги з
-твердою обкладинкою → 400).
+### Формати: окремий ресурс `/api/formats/`
+
+Ціна, валюта, тип, обкладинка, сторінки й залишок належать формату, а не книзі.
+**Рішення**: формати пишуться окремим ресурсом, а в книзі вони лише для читання.
+Вкладений запис (`"formats": [...]` у `PUT` книги) потребував би власних
+`create()` / `update()`, а пропущений рядок означав би «видалити формат», що
+ламається на форматі з замовлень.
+
+```json
+POST /api/formats/
+{"book_id": 7, "format_type": "ebook", "price": "149.00", "currency": "UAH"}
+
+PATCH /api/formats/11/
+{"price": "320.00", "stock": 10}
+```
+
+- `book_id` і `format_type` задаються лише під час створення: на тип посилаються
+  рядок складу й копія типу в замовленнях. Інший тип — новий формат.
+- `BookFormatSerializer.validate()` повторює `BookFormat.clean()` (обкладинка лише
+  в паперового, сторінки не в аудіокниги) і перевіряє «один формат типу на книгу».
+- `stock` — лише в паперового формату; для файлу у відповіді `null`.
+- `DELETE`: формат із замовлень (`on_delete=PROTECT`) або останній формат книги → **409**;
+  зняти з продажу — `{"is_active": false}`.
 
 ### Замовлення без кошика
 
@@ -295,16 +325,22 @@ class BookSerializer(serializers.ModelSerializer):
 POST /api/orders/
 {"full_name": "Ann Shevchenko", "phone": "+380 67 123 45 67", "address": "Kyiv, Khreshchatyk 1",
  "currency": "USD",
- "items": [{"book_id": 7, "quantity": 2}, {"book_id": 9, "quantity": 1}]}
+ "items": [{"format_id": 12, "quantity": 2}, {"book_id": 9, "quantity": 1}]}
 ```
+
+Рядок замовлення називає **формат** (`format_id`). `book_id` дозволено лише для
+книги з одним форматом у продажу; якщо їх кілька — **400** з переліком форматів:
+API не обирає формат за клієнта. У відповіді кожна позиція має
+`"format": {"id": 12, "format_type": "ebook", "format_type_display": "Електронна"}`.
 
 `currency` — необов'язкова, типово `UAH`; код з `/api/currencies/`, інший → 400.
 
 1. `OrderCreateSerializer` перевіряє запит; позиції — вкладений
-   `OrderItemCreateSerializer(many=True)`: книга існує, `quantity >= 1`, одна
-   книга — один рядок. Телефон — та сама `normalize_phone()`, що на сайті.
+   `OrderItemCreateSerializer(many=True)`: формат існує й у продажу, `quantity >= 1`,
+   один формат — один рядок. Телефон — та сама `normalize_phone()`, що на сайті.
 2. `create_order()` — та сама функція, що на сайті: блокування книг
-   (`select_for_update`), перевірка залишку, ціни з каталогу, резерв, лист після COMMIT.
+   (`select_for_update`), перевірка залишку, ціни з каталогу, резерв лише паперових
+   примірників, лист після COMMIT.
 3. Не вистачає примірників → **400** `{"items": ["«Kobzar»: залишився лише 1 примірник, а ви замовили 3."]}`,
    нічого не збережено.
 4. **201** — замовлення у форматі `GET /api/orders/<id>/`.
@@ -328,9 +364,14 @@ POST /api/orders/
 |---|---|
 | перший з ключем | **201**, нове замовлення; ключ зберігається в `Order.idempotency_key` |
 | той самий ключ і те саме тіло | **201**, **те саме** замовлення + заголовок `Idempotent-Replayed: true`; нічого не створюється й не резервується, другого листа немає |
-| той самий ключ, інші книги чи адреса | **422**: ключ скопійовано замість нового — помилка клієнта |
+| той самий ключ, інші формати чи адреса | **422**: ключ скопійовано замість нового — помилка клієнта |
 | запит не вдався (400, не вистачає книг) | нічого не збережено, ключ теж: його можна надіслати знову |
 | без заголовка | як раніше, кожен запит — нове замовлення |
+
+«Те саме тіло» порівнюється так, як запит називає позиції: рядок `format_id` — з
+форматом позиції замовлення, рядок `book_id` — з її книгою
+(`OrderCreateSerializer.same_items()`). Формат для `book_id` обирається заново й
+міг змінитися між запитами, а книга та сама.
 
 ```python
 # orders/models.py — унікальність у базі, а не лише перевірка в коді
@@ -437,6 +478,8 @@ config/
 │   ├── development.py       # runserver: DEBUG, Debug Toolbar (типово для manage.py)
 │   ├── production.py        # Docker і Railway: без DEBUG, HTTPS, WhiteNoise (типово для asgi/wsgi/celery)
 │   └── test.py              # pytest: швидкий хеш паролів, LocMemCache, без файлу логів
+├── version.py               # __version__ (вручну) і deployed_commit() (від Railway)
+├── context_processors.py    # app_version і app_commit для футера
 ├── env.py                   # env_bool(), env_list(), DATABASE_URL або POSTGRES_*, redis_url()
 ├── uvicorn_worker.py        # воркер gunicorn: uvicorn без подій lifespan
 ├── urls.py                  # admin + books + accounts/ + cart/ + orders/ + payments/ + api/ + health/ + sentry-debug/ + i18n/
@@ -503,7 +546,7 @@ currencies/                  # валюти й курси, див. «Валют�
 ├── urls.py                  # /currencies/rates/ (namespace "currencies")
 ├── templates/currencies/rates.html
 ├── context_processors.py    # display_currency і currency_choices у шаблонах
-├── templatetags/money.py    # {% book_price book %}, |money:currency
+├── templatetags/money.py    # {% book_price book_format %}, {% price_from book %}, |money:currency
 ├── tasks.py                 # update_exchange_rates (Celery Beat)
 ├── signals.py               # зміна курсу чи валюти -> очищення кешу
 ├── admin.py                 # валюти з поточним курсом, історія курсів
@@ -1015,28 +1058,25 @@ SELECT, як `with_stock()`, а не `Sum` через JOIN: разом із JOIN
 | `Category` | `name`, `slug` | обидва унікальні |
 | `Author` | `name`, `bio` | `name` унікальне; `bio` необов'язкове |
 | `Publisher` | `name` | унікальне; основні українські видавництва створює data migration `books/0012_create_publishers.py` (32 назви), нові додають в адмінці |
-| `Book` | `title`, `author`, `price`, `currency`, `description`, `publisher`, `book_type`, `cover_type`, `language`, `publication_year`, `pages`, `cover`, `categories`, `created_at`, `updated_at` | `price ≥ 0`; `author` — ForeignKey на `Author` з `on_delete=PROTECT` (не можна видалити автора, у якого є книги); зв'язок ManyToMany з категоріями через `BookCategory`; характеристики — див. нижче; `get_absolute_url()`, `cover_url`, `is_low_stock` |
+| `Book` | `title`, `author`, `description`, `publisher`, `language`, `publication_year`, `cover`, `categories`, `created_at`, `updated_at` | спільне для всіх форматів; `author` — ForeignKey на `Author` з `on_delete=PROTECT` (не можна видалити автора, у якого є книги); зв'язок ManyToMany з категоріями через `BookCategory`; характеристики — див. нижче; `get_absolute_url()`, `cover_url`, `active_formats`, `main_format`, `stock`, `available` |
+| `BookFormat` | `book`, `format_type`, `price`, `currency`, `cover_type`, `pages`, `is_active` | те, що продається: паперова / електронна / аудіокнига; див. «Формати книг» |
 | `BookCategory` | `book`, `category` | проміжна модель; `on_delete=PROTECT` не дає видалити категорію, у якій є книги; пара `book + category` унікальна |
 
 **Характеристики видання** (`books/0011_publisher_book_details.py`). Усі необов'язкові,
-крім типу, тож книги, додані раніше, лишилися правильними:
+тож книги, додані раніше, лишилися правильними:
 
 | Поле | Значення | Перевірка |
 |---|---|---|
 | `publisher` | ForeignKey на `Publisher`, `null` — невідоме | `PROTECT`: видавництво з книгами не видаляється |
-| `book_type` | `paper` (типово) / `ebook` / `audiobook` | — |
-| `cover_type` | `hard` / `soft` / `dust_jacket` (суперобкладинка), `""` — невідома | лише для паперової книги (`Book.clean()`) |
 | `language` | `uk` / `en` / `pl` / `de` / `fr` / `es` (коди ISO 639-1), `""` — невідома | — |
 | `publication_year` | рік | від 1450 до поточного року |
-| `pages` | кількість сторінок, лише на сторінці книги (не фільтр) | від 1 до 10000 |
 
-Значення вибору — `TextChoices` у класі `Book` (`Book.BookType.EBOOK`): у базі й в
-адресі фільтра — код (`?language=uk`), на сайті — перекладений підпис
+Значення вибору — `TextChoices` (`Book.Language.UKRAINIAN`): у базі й в адресі
+фільтра — код (`?language=uk`), на сайті — перекладений підпис
 (`get_language_display()` → «Українська»). Верхню межу року перевіряє функція
 `validate_not_future_year`, а не `MaxValueValidator(2026)`: число записалося б у
-міграцію назавжди й з 2027 року не пропускало б нові книги. Тип поки лише
-характеристика: електронні книги й аудіокниги продаються як паперові (склад,
-доставка), див. «Плани».
+міграцію назавжди й з 2027 року не пропускало б нові книги. Тип, обкладинка й
+сторінки — у форматів.
 
 `BookQuerySet.by_stock_status()` фільтрує книги за наявністю. Його
 використовують і каталог, і адмінка; поріг «мало» задає `LOW_STOCK_THRESHOLD = 5`.
@@ -1045,7 +1085,7 @@ SELECT, як `with_stock()`, а не `Sum` через JOIN: разом із JOIN
 |---|---|---|
 | `User` | + `phone`, `address` | необов'язкові; підставляються у форму оформлення |
 | `Order` | `user`, `status`, `payment_status`, `full_name`, `phone`, `address`, `currency`, `exchange_rate`, `total`, `created_at`, `updated_at` | `user` з `PROTECT`; дані доставки — копія, а не посилання на профіль; `total ≥ 0` (`CheckConstraint`) |
-| `OrderItem` | `order`, `book`, `title`, `price`, `original_price`, `original_currency`, `exchange_rate`, `quantity` | `order` з `CASCADE`, `book` з `PROTECT`; `title` і `price` — копії на момент замовлення; один рядок на книгу (`UniqueConstraint`), `quantity ≥ 1`; `cost` = `price × quantity` |
+| `OrderItem` | `order`, `book`, `format`, `format_type`, `title`, `price`, `original_price`, `original_currency`, `exchange_rate`, `quantity` | `order` з `CASCADE`, `book` і `format` з `PROTECT`; `title`, `format_type` і `price` — копії на момент замовлення; один рядок на формат (`UniqueConstraint`), `quantity ≥ 1`; `cost` = `price × quantity`; `display_title` — «Тигролови (Паперова)» |
 | `Payment` | `order`, `provider`, `external_id`, `amount`, `currency`, `status`, `details` (JSON), `created_at`, `updated_at`, `paid_at` | `order` з `PROTECT`; `provider`: `stripe` / `manual`; `status`: `pending` / `succeeded` / `failed` / `expired`; `(provider, external_id)` унікальні для непорожнього `external_id`; `amount > 0` |
 
 Два незалежні статуси замовлення:
@@ -1070,17 +1110,78 @@ SELECT, як `with_stock()`, а не `Sum` через JOIN: разом із JOIN
 Django згенерував би `AlterField` і спробував би перетворити імена авторів на числові id.
 Усі чотири міграції можна відкотити (`python manage.py migrate books 0002`).
 
+## Формати книг
+
+Одна книга (назва, автор, опис, видавництво, мова, рік, категорії, обкладинка-картинка)
+продається в кількох форматах, кожен зі своєю ціною:
+
+```
+«Тигролови»   paper      450 UAH, тверда обкладинка, 320 сторінок, 7 на складі
+              ebook      199 UAH
+              audiobook    5 USD
+```
+
+```
+BookFormat: book → Book (CASCADE), format_type (paper / ebook / audiobook),
+            price ≥ 0, currency → Currency (PROTECT, типово UAH),
+            cover_type (лише paper), pages (не для audiobook), is_active («У продажу»)
+            unique (book, format_type)
+```
+
+- **Правила.** Один формат кожного типу на книгу (`UniqueConstraint`). Обкладинка лише
+  в паперового, сторінок немає в аудіокниги (`BookFormat.clean()`; та сама перевірка у
+  формі, адмінці й API). Формат, що вже є в замовленнях, не видаляють, а знімають з
+  продажу (`is_active = False`): старі замовлення його зберігають.
+- **Каталог.** Картка показує ціну «від» — найдешевший формат у продажу у валюті
+  перемикача (`Book.objects.with_display_price()`, один підзапит на книгу). За цим
+  числом працюють фільтр і сортування за ціною та повзунок. Книга з кількома форматами
+  має кнопку «Обрати формат» (на сторінку книги), з одним — «У кошик».
+- **Сторінка книги.** Плитки форматів у продажу з ціною (`btn-check`, `name="format"`);
+  «У кошик» додає вибраний. У «Характеристиках» — формати, обкладинка паперового,
+  сторінки.
+- **Форма книги на сайті.** Під полями книги — рядки форматів (`BookFormatFormSet`:
+  щонайменше один, щонайбільше три). Книга й формати перевіряються разом і
+  зберігаються однією транзакцією (`BookFormatsMixin`); формат із замовлень не можна
+  видалити, лише зняти з продажу.
+- **Наявність.** Склад є лише в паперового формату (див. «Склад»); файл завжди
+  доступний. Книга «в наявності» (`Book.objects.with_availability()`, анотація
+  `available`), якщо в продажу є цифровий формат або паперовий з примірниками.
+  Нею користуються кнопка картки, «Відсутні в кінці», фільтр наявності («Мало» —
+  лише папір), пошук і `in_stock` в API.
+- **Кошик і замовлення** — за форматом (див. «Кошик», «Замовлення»).
+- **Фільтри.** `?book_type=ebook` — книги, які можна купити як електронні (формати в
+  продажу); `?cover_type=hard` — обкладинка паперового формату. Параметр не
+  `?format=`, бо DRF резервує його для формату відповіді (`?format=json`).
+- **API** — окремий ресурс `/api/formats/` (див. «REST API»).
+
+**Міграції** (усі можна відкотити):
+
+| Міграція | Що робить |
+|---|---|
+| `books 0013`, `0014` | таблиця `BookFormat`; кожна наявна книга отримує один формат зі своїх полів (тип, ціна, валюта, обкладинка, сторінки) |
+| `users 0007` | права на формати: Customers — перегляд; Editors і Managers — усі |
+| `inventory 0004`–`0006` | `Stock.book` → `Stock.format` (рядки паперового формату; рядки електронних видаляються) |
+| `orders 0008`–`0010` | `OrderItem.format` + `format_type`; старі рядки отримують формат своєї книги; унікальність (замовлення, формат) |
+| `books 0015`–`0017` | старі поля книги (`price`, `currency`, `book_type`, `cover_type`, `pages`) видаляються; назад — заповнюються з головного формату |
+
+`books 0015` залежить від `orders 0009`: та читає старі поля книги, тож на базі, що
+отримує всі міграції одним запуском (Railway), поля видаляються лише після неї.
+
 ## Адмінка
 
 - **Книги:**
-  - колонки: мініатюра обкладинки, автор, категорії, ознака наявності;
+  - колонки: мініатюра обкладинки, автор, формати з цінами (знятий з продажу
+    закреслено), ціна «від» у гривнях (із сортуванням), залишок, ознака наявності, категорії;
   - автор вибирається з пошуком під час введення (`autocomplete_fields`);
-  - ціну й кількість можна редагувати прямо у списку;
-  - фільтри: наявність (є / мало ≤ 5 / немає), валюта, категорії, тип книги, мова, видавництво, дата;
+  - inline з форматами (ціна, валюта, обкладинка, сторінки, «У продажу»); посилання
+    рядка відкриває сторінку формату, де в паперового — залишок за складами;
+  - фільтри: наявність (є / мало ≤ 5 / немає), категорії, формат, мова, видавництво, дата;
   - пошук за назвою, іменем автора, описом, категорією й видавництвом;
   - `date_hierarchy`, `fieldsets` із секціями «Details» (характеристики, кілька полів у
     рядку) і «Cover» (прев'ю обкладинки), inline для категорій;
   - видавництво, як і автор, вибирається з пошуком (`autocomplete_fields`).
+- **Формати книг:** окремий список (тип, ціна, валюта, «У продажу», залишок), фільтри
+  за типом, продажем і валютою.
 - **Автори:** кількість книг (із сортуванням), пошук за іменем, біографія.
 - **Видавництва:** кількість книг (із сортуванням), пошук за назвою.
 - **Категорії:** кількість книг (із сортуванням), автозаповнення `slug`,
@@ -1121,9 +1222,9 @@ EUR). Застосунок `currencies/`, курси — Національно�
 |---|---|---|
 | `Currency` | `code` (первинний ключ, `"USD"`), `name`, `symbol`, `is_active` | код за ISO 4217; UAH, USD, EUR створює міграція `0002_create_currencies` |
 | `ExchangeRate` | `currency`, `date`, `rate`, `source` (`nbu` / `manual`), `created_at`, `updated_at` | **уся історія**: рядок на валюту й день (`UniqueConstraint`); `rate > 0`; рядків для UAH немає |
-| `Book` | + `currency` | валюта ціни книги, `ForeignKey` з `PROTECT`, типово UAH |
+| `BookFormat` | + `currency` | валюта ціни формату, `ForeignKey` з `PROTECT`, типово UAH |
 | `Order` | + `currency`, `exchange_rate` | валюта замовлення й курс у день замовлення (гривень за 1 одиницю) |
-| `OrderItem` | + `original_price`, `original_currency`, `exchange_rate` | ціна книги в її валюті на момент замовлення й крос-курс, яким її перераховано |
+| `OrderItem` | + `original_price`, `original_currency`, `exchange_rate` | ціна формату в його валюті на момент замовлення й крос-курс, яким її перераховано |
 | `Payment` | + `currency` | завжди валюта замовлення |
 
 - **Курс — «скільки гривень за 1 одиницю»**, як у НБУ. Будь-яке перерахування йде
@@ -1195,13 +1296,14 @@ python manage.py update_exchange_rates --date 2026-11-13  # один день (�
 - **Перемикач у навбарі** (`POST /currency/`) зберігає код у сесії, як і кошик:
   працює для гостей і лишається після входу. Пропонуються лише активні валюти з
   курсом (`available_currencies()`), гривня перша.
-- **Ціна книги** — шаблонний тег `{% book_price book %}`: «14,31 $» українською,
-  «$14.31» англійською. На сторінці книги під перерахованою ціною —
-  «650,00 ₴ за курсом НБУ на 16.11.2026».
+- **Ціна формату** — шаблонний тег `{% book_price book_format %}`: «14,31 $»
+  українською, «$14.31» англійською; ціна «від» книги — `{% price_from book %}`. На
+  сторінці книги під перерахованою ціною — «650,00 ₴ за курсом НБУ на 16.11.2026».
 - **Сортування й фільтр за ціною** рахує база: `price_in("USD")` будує
   `CASE WHEN currency_id = 'UAH' THEN ROUND(price * 0.0220…, 2) … END` з курсами як
-  константами (без JOIN до таблиці курсів). Сортується й фільтрується саме те число,
-  яке видно на сторінці; книги без курсу (`NULL`) — в кінці.
+  константами (без JOIN до таблиці курсів), для кожного формату; ціна «від» — найменше
+  з них. Сортується й фільтрується саме те число, яке видно на сторінці; книги без
+  курсу чи без формату в продажу (`NULL`) — в кінці.
 - **Кошик** показує ціни й суму у валюті перемикача.
 
 ### Замовлення у валюті
@@ -1211,7 +1313,7 @@ python manage.py update_exchange_rates --date 2026-11-13  # один день (�
   POST -> create_order(..., currency="USD"):
     1. валюта пропонується (активна, з курсом)?  інакше помилка, нічого не збережено
     2. ОДНЕ читання курсів на все замовлення
-    3. кожна книга: price = convert(book.price, book.currency, "USD")
+    3. кожен формат: price = convert(format.price, format.currency, "USD")
        + original_price, original_currency, exchange_rate (крос-курс)
     4. Order.currency = "USD", Order.exchange_rate = 45.4274 (гривень за 1 $)
 ```
@@ -1240,10 +1342,10 @@ python manage.py update_exchange_rates --date 2026-11-13  # один день (�
 ### Адмінка
 
 - **Currencies**: список з поточним курсом; вимкнена валюта (`is_active`) зникає з
-  перемикача, але старі книги й замовлення в ній лишаються.
+  перемикача, але старі формати й замовлення в ній лишаються.
 - **Exchange rates**: історія, фільтр за валютою й джерелом; курс, внесений вручну,
   завжди `manual`.
-- Книга: поле валюти поруч із ціною; замовлення: валюта, курс, початкова ціна
+- Формат: поле валюти поруч із ціною; замовлення: валюта, курс, початкова ціна
   кожної позиції.
 
 ## Кошик
@@ -1251,19 +1353,27 @@ python manage.py update_exchange_rates --date 2026-11-13  # один день (�
 `cart/cart.py`, клас `Cart`. Кошик живе в сесії, тому працює й для гостей:
 
 ```python
-request.session["cart"] = {"15": {"quantity": 2}, "7": {"quantity": 1}}
+# ключ — id формату: та сама книга паперова й електронна — два рядки
+request.session["cart_formats"] = {"15": {"quantity": 2}, "16": {"quantity": 1}}
 ```
 
 - Ключі — рядки: сесія зберігається як JSON, а в JSON ключі завжди рядки.
 - Зберігається лише кількість. Ціна щоразу береться з бази й перераховується у
   валюту перемикача (`cart.currency`): кошик показує поточну ціну, і змінити її
   через сесію неможливо.
-- `add(book, quantity=1, override=False)`: кнопка «Add to cart» додає до наявного,
-  поле на сторінці кошика (`override=True`) задає точну кількість. Кількість обмежена
-  `book.stock`.
-- `remove(book)`, `clear()`; `for item in cart` → `book`, `quantity`, `price`, `cost`,
-  `exceeds_stock`. Усі книги одним запитом (`in_bulk`), результат кешується, тож
-  `cart.total` другого запиту не робить. Видалені з бази книги тихо зникають з кошика.
+- `add(book_format, quantity=1, override=False)`: кнопка «Add to cart» додає до
+  наявного, поле на сторінці кошика (`override=True`) задає точну кількість. Кількість
+  паперового обмежена залишком; електронна й аудіокнига — без обмеження.
+- `POST /cart/add/<book_id>/` читає вибраний `format` (формат іншої книги — 404, без
+  формату — головний формат книги, `Book.main_format`).
+- **Зміна формату в кошику**: список у рядку (`POST /cart/change_format/<format_id>/`,
+  `change_format()`), кількість переходить на новий формат; якщо він уже є в кошику —
+  кількості додаються.
+- `remove(book_format)`, `clear()`; `for item in cart` → `format`, `book`, `quantity`,
+  `price`, `cost`, `exceeds_stock`, `not_on_sale`, `format_choices`. Усі формати одним
+  запитом з книгами й залишком, результат кешується, тож `cart.total` другого запиту
+  не робить. Видалені з бази формати тихо зникають з кошика.
+- Старий кошик за книгами (ключ `cart`) один раз переводиться на головні формати.
 - `len(cart)` — кількість примірників, читає лише сесію, без SQL: лічильник у навбарі
   є на кожній сторінці (context processor `cart.context_processors.cart`).
 - Зміна вкладеного словника не позначає сесію зміненою, тому `_save()` щоразу
@@ -1280,11 +1390,12 @@ request.session["cart"] = {"15": {"quantity": 2}, "7": {"quantity": 1}}
 ```
 POST /orders/checkout/  (форма: full_name, phone, address + прихована currency)
   transaction.atomic():
-    1. SELECT ... FOR UPDATE книг із кошика, ORDER BY id
-    2. перевірка залишку кожної книги  -> проблема? OrderError -> ROLLBACK, усі проблеми разом
-    3. Order + OrderItem (bulk_create), назви й ціни копіюються з бази,
+    1. SELECT ... FOR UPDATE рядків складу паперових форматів, ORDER BY format_id
+    2. кожен формат у продажу, паперовий — з достатнім залишком
+       -> проблема? OrderError -> ROLLBACK, усі проблеми разом
+    3. Order + OrderItem (bulk_create), назви, тип формату й ціни копіюються з бази,
        ціни перераховуються у валюту замовлення (див. «Валюти»)
-    4. резерв: stock -= quantity (bulk_update)
+    4. резерв паперових: stock -= quantity (bulk_update); файлам резерв не потрібен
     5. on_commit(лист «order created»)
   COMMIT -> кошик очищається -> сторінка замовлення з кнопкою «Pay»
 ```
@@ -1295,7 +1406,7 @@ POST /orders/checkout/  (форма: full_name, phone, address + прихова�
   `stock = 1` і обидва купити останній примірник. З блокуванням другий чекає COMMIT
   першого й бачить `stock = 0`. Перевірено двома потоками: одне замовлення, друге
   отримує «out of stock».
-- **`ORDER BY id`:** усі транзакції блокують книги в однаковому порядку, тому не
+- **`ORDER BY format_id`:** усі транзакції блокують рядки в однаковому порядку, тому не
   чекають одна одну по колу (deadlock).
 - **Резерв** при оформленні, а не при оплаті: поки покупець платить, книги ніхто не забере.
 - **Лист після COMMIT** (`transaction.on_commit`): після ROLLBACK лист не піде.
@@ -1307,7 +1418,7 @@ POST /orders/checkout/  (форма: full_name, phone, address + прихова�
 
 ### Скасування: `orders.services.cancel_order()`
 
-- Блокує замовлення, перевіряє правила вже під блокуванням, повертає книги
+- Блокує замовлення, перевіряє правила вже під блокуванням, повертає паперові книги
   (`UPDATE ... SET stock = stock + n` через `F()`), ставить `cancelled`.
 - Покупець може скасувати лише своє замовлення в статусі `new` і `unpaid`
   (`can_be_cancelled_by_customer`); менеджер — будь-яке не скасоване.
@@ -1659,12 +1770,12 @@ open htmlcov/index.html               # непокриті рядки підсв
 
 | | Кількість | Що перевіряють |
 |---|---|---|
-| `tests/unit/` | 446 | одна функція, модель, форма або один запит; склад, валюти й курси, задачі Celery, Sentry, налаштування production, gunicorn |
+| `tests/unit/` | 453 | одна функція, модель, форма або один запит; склад, валюти й курси, задачі Celery, Sentry, налаштування production, gunicorn, версія у футері |
 | `tests/integration/` | 86 | сценарії з кількох кроків: кошик → замовлення → Stripe → webhook → лист; оплата у валюті; кеш |
 | `tests/api/` | 125 | REST API через `APIClient`: токени, права кожної ролі, фільтри, валюти, замовлення, CORS, throttling, кеш |
 | `tests/test_setup.py` | 7 | сама інфраструктура: налаштування, фабрики, фейки |
 
-Покриття **98.87%** (664 тести); `--cov-fail-under=70` у `pytest.ini`: якщо покриття впаде
+Покриття **98.89%** (786 тестів); `--cov-fail-under=70` у `pytest.ini`: якщо покриття впаде
 нижче 70%, `pytest` завершиться з помилкою. Ті самі тести запускає CI на кожен push
 і pull request, а звіт `htmlcov` лежить в артефактах запуску (див. «CI/CD»).
 
@@ -2143,7 +2254,7 @@ python manage.py update_exchange_rates             # курси одразу, н
   Signing secret → `STRIPE_WEBHOOK_SECRET` у web.
 - **Перенесення каталогу з локальної бази** (замість `seed_books`):
   ```bash
-  docker compose exec -T web python manage.py dumpdata books.Category books.Author books.Book books.BookCategory inventory.Warehouse inventory.Stock --indent 2 > catalog.json
+  docker compose exec -T web python manage.py dumpdata books.Category books.Author books.Publisher books.Book books.BookFormat books.BookCategory inventory.Warehouse inventory.Stock --indent 2 > catalog.json
   railway ssh --service web -- python manage.py loaddata --format=json - < catalog.json
   docker compose exec -T web tar -czf - -C /app/media covers | railway ssh --service web -- tar --no-same-owner -xzf - -C /app/media
   railway ssh --service web -- chown -R app:app /app/media
@@ -2153,8 +2264,22 @@ python manage.py update_exchange_rates             # курси одразу, н
   Railway перед цим має бути порожнім (інакше `id` перетнуться). Після
   завантаження варто очистити кеш (`cache.clear()`).
 
+**Версія у футері.** Внизу кожної сторінки:
+`Книгарня · домашнє завдання Hillel з Django · v1.1.0 (335de9f)`.
+
+- `v1.1.0` — `__version__` у `config/version.py`, змінюється вручну раз на
+  реліз (pull request у `main`): PATCH — виправлення, MINOR — нова можливість,
+  MAJOR — зміна, що ламає старе (наприклад, API).
+- `(335de9f)` — перші 7 символів задеплоєного коміту, посилання на нього в
+  GitHub. Railway сам дає кожному деплою з GitHub змінну
+  `RAILWAY_GIT_COMMIT_SHA`; деінде її можна задати як `APP_COMMIT`. Без змінної
+  (локальний Docker, `runserver`) видно лише версію.
+- Після злиття в `main` коміт у футері змінюється навіть тоді, коли версію не
+  піднімали, тож одразу видно, що новий код уже на сайті.
+
 **Перевірка після деплою:**
 
+- у футері коміт збігається з останнім комітом `main` (`git log -1 --oneline origin/main`);
 - `https://<домен>/health/` → `{"status": "ok", "database": "ok", "cache": "ok"}`;
 - логи worker: `celery@... ready.`, `beat: Starting...`, `mingle: all alone`;
 - `https://<домен flower>/` питає логін; після входу у Workers видно `celery@...`
@@ -2176,29 +2301,35 @@ python manage.py update_exchange_rates             # курси одразу, н
 
 ## Склад
 
-Застосунок `inventory`. Кількість примірників — не поле книги, а окремі таблиці:
+Застосунок `inventory`. Кількість примірників — не поле книги, а окремі таблиці, і
+лише для **паперового** формату: електронна книга й аудіокнига — файл, примірників
+у них немає.
 
 ```
 Warehouse: name, slug, is_default        # лише один склад за замовчуванням (UniqueConstraint з condition)
-Stock:     book → Book (CASCADE), warehouse → Warehouse (PROTECT), quantity ≥ 0
-           unique (book, warehouse)
+Stock:     format → BookFormat (CASCADE, лише paper), warehouse → Warehouse (PROTECT), quantity ≥ 0
+           unique (format, warehouse)
 ```
 
-- **Навіщо.** Книга — це лише опис (назва, автор, ціна, обкладинка). Кожна
+- **Навіщо.** Книга й формат — це лише опис (назва, автор, ціна, обкладинка). Кожна
   покупка змінює `Stock`, а `Book` лишається незмінною, тому кеш книги не
   застаріває від продажів (див. «Кешування»).
 - Продаж і повернення — зі складу за замовчуванням «General»
   (`Warehouse.objects.get_default()`).
-- `Book.objects.with_stock()` — анотація `stock` одним підзапитом для всього
-  списку; без неї `book.stock` робить один запит і запам'ятовує результат.
-- `create_order()` блокує рядки `Stock` (`select_for_update`, у порядку `book_id`,
+- `Book.objects.with_stock()` — анотація `stock` (примірники паперового формату)
+  одним підзапитом для всього списку; `BookFormat.objects.with_stock()` — те саме для
+  форматів (кошик). Без неї `book.stock` робить один запит і запам'ятовує результат.
+- `set_stock(книга або паперовий формат, кількість)`; для файлу — `ValueError`.
+- `create_order()` блокує рядки `Stock` (`select_for_update`, у порядку `format_id`,
   щоб два замовлення не чекали одне на одного) і списує кількість;
   `cancel_order()` повертає її через `return_to_stock()` (`F("quantity") + n` у SQL).
-- Нова книга одразу отримує рядок `Stock` з 0 (сигнал `post_save`).
+- Новий паперовий формат одразу отримує рядок `Stock` з 0 (сигнал `post_save`).
+- Щоденний звіт «малий залишок» — лише паперові формати в продажу.
 - Права: `inventory.change_stock` — група Managers; Editors лише переглядають.
 - Міграції перенесли дані: `inventory 0002` копіює `Book.stock` у `Stock`,
   `inventory 0003` переносить право `books.manage_stock` → `inventory.change_stock`,
-  `books 0009` видаляє поле. Усі три мають зворотну операцію.
+  `books 0009` видаляє поле. Усі три мають зворотну операцію. Перенесення на
+  паперовий формат — `inventory 0004`–`0006` (див. «Формати книг»).
 
 ## Кешування
 
@@ -2367,10 +2498,12 @@ docker compose exec web python manage.py shell --no-imports -c "import sentry_sd
 
 ### `seed_books`
 
-Створює 5 категорій, 10 авторів і 12 книг з характеристиками (видавництво, тип,
-обкладинка, мова, рік, сторінки: приблизні значення для фільтрів, а не точні реальні
-видання). Команду можна запускати повторно, дублікати не створюються; книгам, що вже є,
-команда заповнює лише порожні характеристики, тож введене менеджером лишається.
+Створює 5 категорій, 10 авторів і 12 книг з характеристиками (видавництво, мова, рік)
+і форматами (17 форматів: частина книг паперова, електронна й аудіокнига водночас,
+кілька — лише електронна чи аудіо, кілька цін у USD і EUR; приблизні значення для
+фільтрів, а не точні реальні видання). Команду можна запускати повторно, дублікати не
+створюються: книгам, що вже є, команда заповнює лише порожні характеристики, а
+формати додає лише книзі без жодного формату, тож введене менеджером лишається.
 
 ```bash
 python manage.py seed_books
@@ -2407,7 +2540,9 @@ python manage.py cancel_unpaid_orders --dry-run          # лише показа
 
 ### `book_stats`
 
-Виводить статистику книгарні та демонструє можливості ORM:
+Виводить статистику книгарні та демонструє можливості ORM. Ціна книги — ціна «від»
+у гривнях (найдешевший формат у продажу, `with_display_price`), «в наявності» —
+`with_availability()`, вартість запасу — за ціною паперового формату.
 
 1. **filter**:
    - у наявності й дешевші за задану ціну;
@@ -2419,7 +2554,7 @@ python manage.py cancel_unpaid_orders --dry-run          # лише показа
    - складна умова для акції;
 3. **annotate**:
    - статистика по категоріях;
-   - топ-5 книг за вартістю запасу (`F("price") * F("stock")`);
+   - топ-5 книг за вартістю запасу (`F("paper_price_uah") * F("stock")`);
    - категорії з понад 2 книгами (HAVING);
 4. **aggregate**: підсумок по всьому магазину.
 
@@ -2495,6 +2630,9 @@ ORDER BY:  андрій, Андрій, Борис, Гліб, Ґанна, Євг�
   рядку `Logout: user=...` від сигналу.
 - **Немає скидання пароля й підтвердження email.** Відправка листів уже є,
   лишилось підключити `PasswordResetView`; заплановано.
+- **Цифрові формати поки з доставкою.** Електронна книга й аудіокнига не мають
+  складу й завжди доступні, але замовлення все одно просить адресу, а файл не
+  видається (див. «Плани»).
 - **Курси лише НБУ.** Комісії й курси банку не враховуються: ціна в доларах — це
   ціна в гривнях за офіційним курсом. У вихідні й свята НБУ курс не змінює, сайт
   бере останній відомий.
@@ -2534,6 +2672,5 @@ ORDER BY:  андрій, Андрій, Борис, Гліб, Ґанна, Євг�
   недійсні токени після зміни пароля; потрібна міграція;
 - завантаження обкладинки через API: `multipart/form-data` у `POST` / `PATCH /api/books/`
   з тими самими перевірками, що в `BookForm` (JPG / PNG / WebP, до 2 МБ, справжнє зображення).
-- електронні книги й аудіокниги без складу: зараз тип книги (`book_type`) — лише
-  характеристика й фільтр, усі типи продаються як паперові (залишок на складі,
-  доставка); потрібні продаж без перевірки залишку й видача файлу або посилання.
+- видача електронної книги й аудіокниги: файл або посилання після оплати й
+  замовлення без адреси доставки, якщо в ньому лише цифрові формати.

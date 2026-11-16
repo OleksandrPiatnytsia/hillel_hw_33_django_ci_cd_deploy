@@ -1,4 +1,4 @@
-"""The details of the edition: publisher, type, cover, language, year, pages.
+"""The details of the edition: publisher, language, year (the cover and the pages: of the formats).
 
 Stage 1 of the new Book fields: the model and its checks, the data
 migrations (the publishers, the rights of the groups), the admin and the
@@ -20,26 +20,24 @@ from django.urls import reverse
 from django.utils import timezone, translation
 
 from books.cache import book_key, get_cached_book
-from books.forms import BookForm
-from books.models import Book, Publisher
+from books.forms import BookForm, BookFormatForm
+from books.models import Book, BookFormat, Publisher
 
 from ..factories import AuthorFactory, BookFactory
+from ..helpers import format_row
 
 pytestmark = pytest.mark.django_db
 
 
 # Generated with AI
-def test_a_book_without_details_is_valid_and_a_paper_book():
+def test_a_book_without_details_is_valid():
     book = BookFactory()
 
     book.full_clean()
 
-    assert book.book_type == Book.BookType.PAPER
     assert book.publisher is None
-    assert book.cover_type == ""
     assert book.language == ""
     assert book.publication_year is None
-    assert book.pages is None
 
 
 # Generated with AI
@@ -47,10 +45,10 @@ def test_all_details_are_saved_and_shown_with_their_labels():
     publisher = Publisher.objects.get(name="Видавництво Старого Лева")
     book = BookFactory(
         publisher=publisher,
-        book_type=Book.BookType.PAPER,
-        cover_type=Book.CoverType.DUST_JACKET,
         language=Book.Language.UKRAINIAN,
         publication_year=2020,
+        # The cover and the pages are of the format
+        cover_type=BookFormat.CoverType.DUST_JACKET,
         pages=352,
     )
 
@@ -58,26 +56,11 @@ def test_all_details_are_saved_and_shown_with_their_labels():
     book.refresh_from_db()
 
     assert book.publisher == publisher
+    paper = book.formats.get()
     with translation.override("en"):
-        assert book.get_cover_type_display() == "Dust jacket"
+        assert paper.get_cover_type_display() == "Dust jacket"
         assert book.get_language_display() == "Ukrainian"
-    assert (book.publication_year, book.pages) == (2020, 352)
-
-
-# Generated with AI
-@pytest.mark.parametrize("book_type", [Book.BookType.EBOOK, Book.BookType.AUDIOBOOK])
-def test_only_a_paper_book_has_a_cover_type(book_type):
-    book = BookFactory.build(book_type=book_type, cover_type=Book.CoverType.HARD)
-
-    with pytest.raises(ValidationError) as error:
-        book.clean()
-
-    assert "cover_type" in error.value.message_dict
-
-
-# Generated with AI
-def test_an_ebook_without_a_cover_type_is_valid():
-    BookFactory(book_type=Book.BookType.EBOOK).full_clean()
+    assert (book.publication_year, paper.pages) == (2020, 352)
 
 
 # Generated with AI
@@ -107,13 +90,13 @@ def test_publication_year_limits(year, valid):
 # Generated with AI
 @pytest.mark.parametrize("pages, valid", [(0, False), (1, True), (10000, True), (10001, False)])
 def test_pages_limits(pages, valid):
-    book = BookFactory(pages=pages)
+    paper = BookFactory(pages=pages).formats.get()
 
     if valid:
-        book.full_clean()
+        paper.full_clean()
     else:
         with pytest.raises(ValidationError):
-            book.full_clean()
+            paper.full_clean()
 
 
 # Generated with AI
@@ -201,8 +184,11 @@ def test_admin_book_page_has_the_details(superuser_client):
     response = superuser_client.get(reverse("admin:books_book_change", args=[book.pk]))
 
     content = response.content.decode()
-    for field in ["publisher", "book_type", "cover_type", "language", "publication_year", "pages"]:
+    for field in ["publisher", "language", "publication_year"]:
         assert f'name="{field}"' in content, field
+    # The type, the cover and the pages: in the rows of the formats
+    for field in ["format_type", "cover_type", "pages"]:
+        assert f'name="formats-0-{field}"' in content, field
 
 
 # Generated with AI
@@ -274,10 +260,7 @@ def _form_data(**changes):
     data = {
         "title": "Kobzar",
         "author": AuthorFactory().pk,
-        "price": "250.00",
-        "currency": "UAH",
         "description": "",
-        "book_type": "paper",
     }
     return {**data, **changes}
 
@@ -285,33 +268,27 @@ def _form_data(**changes):
 # Generated with AI
 def test_book_form_saves_the_details():
     publisher = Publisher.objects.get(name="Ранок")
-    form = BookForm(
-        data=_form_data(
-            publisher=publisher.pk,
-            cover_type="soft",
-            language="pl",
-            publication_year="2015",
-            pages="120",
-        )
-    )
+    form = BookForm(data=_form_data(publisher=publisher.pk, language="pl", publication_year="2015"))
 
     assert form.is_valid(), form.errors
     book = form.save()
 
-    assert (book.publisher, book.cover_type, book.language) == (publisher, "soft", "pl")
-    assert (book.publication_year, book.pages) == (2015, 120)
+    assert (book.publisher, book.language, book.publication_year) == (publisher, "pl", 2015)
 
 
 # Generated with AI
-def test_book_form_details_are_optional_except_the_type():
-    form = BookForm(data=_form_data(book_type=""))
+def test_book_form_details_are_optional():
+    form = BookForm(data=_form_data())
 
-    assert list(form.errors) == ["book_type"]
+    assert form.is_valid(), form.errors
+    # The type, the cover, the pages and the price belong to the formats
+    for name in ["book_type", "cover_type", "pages", "price", "currency"]:
+        assert name not in form.fields, name
 
 
 # Generated with AI
-def test_book_form_shows_the_cover_error_of_an_ebook_under_the_cover_field():
-    form = BookForm(data=_form_data(book_type="ebook", cover_type="hard"))
+def test_format_form_shows_the_cover_error_of_an_ebook_under_the_cover_field():
+    form = BookFormatForm(data=format_row("ebook", cover_type="hard"))
 
     assert list(form.errors) == ["cover_type"]
 
@@ -345,8 +322,12 @@ def test_book_form_page_has_the_details_block(manager_client):
     assert "<fieldset" in content
     for field in BookForm.DETAIL_FIELDS:
         assert f'name="{field}"' in content, field
-    # The cover after the details
-    assert content.index('name="pages"') < content.index('name="cover"')
+    # The details, then the formats, then the cover
+    assert (
+        content.index('name="publication_year"')
+        < content.index('name="formats-0-format_type"')
+        < content.index('name="cover"')
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -375,7 +356,7 @@ def test_book_page_shows_the_details_in_the_language_of_the_site(client):
 
     # Another cached fragment for English: the labels are English
     content = _page(client, book, "en")
-    for text in ["Details", "Hardcover", "English", "Paper book"]:
+    for text in ["Details", "Hardcover", "English", "Formats", "Paper"]:
         assert text in content, text
 
 
@@ -385,10 +366,46 @@ def test_book_page_hides_unknown_details(client):
 
     content = _page(client, book, "en")
 
-    # Only the type: the other details are not known
-    assert "Paper book" in content
+    # Only the formats: the other details are not known
+    assert '<dt class="col-sm-4 col-lg-3">Formats</dt>' in content
     for text in ["Publisher", "Publication year", "Pages"]:
         assert f'<dt class="col-sm-4 col-lg-3">{text}</dt>' not in content, text
+
+
+# Generated with AI
+def test_book_page_details_are_chips_that_open_the_filtered_catalog(client):
+    publisher = Publisher.objects.get(name="Фоліо")
+    book = BookFactory(
+        publisher=publisher, cover_type="hard", language="en", publication_year=2017, pages=224
+    )
+    catalog = reverse("books:list")
+
+    content = _page(client, book, "uk")
+
+    # Every value with a filter of the catalog: a chip with its GET parameters
+    for query, label in [
+        (f"publisher={publisher.pk}", "Фоліо"),
+        ("book_type=paper", "Паперова"),
+        ("cover_type=hard", "Тверда"),
+        ("language=en", "Англійська"),
+        ("year_min=2017&amp;year_max=2017", "2017"),
+    ]:
+        assert f'<a class="filter-chip" href="{catalog}?{query}">{label}</a>' in content, label
+    # The pages have no filter: plain text
+    assert '<dd class="col-sm-8 col-lg-9">224</dd>' in content
+
+
+# Generated with AI
+def test_a_details_chip_opens_the_catalog_with_only_the_matching_books(client):
+    BookFactory(title="Old", publication_year=2001, language="uk")
+    book = BookFactory(title="New", publication_year=2017, language="en")
+
+    for query in ["year_min=2017&year_max=2017", "language=en", "book_type=paper"]:
+        response = client.get(f"{reverse('books:list')}?{query}")
+        titles = [item.title for item in response.context["books"]]
+        assert book.title in titles, query
+        if query != "book_type=paper":  # both are paper books
+            assert "Old" not in titles, query
 
 
 # Generated with AI
@@ -414,12 +431,10 @@ def test_seed_books_fills_the_details():
 
     hobbit = Book.objects.get(title="Хоббіт")
     assert hobbit.publisher.name == "Видавництво Старого Лева"
-    assert (hobbit.cover_type, hobbit.language, hobbit.publication_year) == ("hard", "uk", 2019)
-    trees = Book.objects.get(title="Таємне життя дерев")
-    assert (trees.book_type, trees.cover_type, trees.pages) == ("audiobook", "", None)
+    assert (hobbit.language, hobbit.publication_year) == ("uk", 2019)
     # Different values for the filters of the catalog
-    assert set(Book.objects.values_list("book_type", flat=True)) == {"paper", "ebook", "audiobook"}
     assert set(Book.objects.values_list("language", flat=True)) == {"uk", "en"}
+    assert Book.objects.filter(publisher__isnull=True).count() == 1  # "Воно"
 
 
 # Generated with AI
@@ -428,20 +443,19 @@ def test_seed_books_fills_only_the_empty_details_of_existing_books():
     # Seeded before the details existed: no details at all
     old = BookFactory(title="Хоббіт", author=author)
     # A manager has typed some details in: they stay
-    edited = BookFactory(title="Володар перснів", author=author, language="en", pages=999)
+    edited = BookFactory(title="Володар перснів", author=author, language="en")
     out = StringIO()
 
     call_command("seed_books", stdout=out)
 
     old.refresh_from_db()
     edited.refresh_from_db()
-    assert (old.publisher.name, old.cover_type, old.pages) == (
+    assert (old.publisher.name, old.language, old.publication_year) == (
         "Видавництво Старого Лева",
-        "hard",
-        304,
+        "uk",
+        2019,
     )
-    assert (edited.language, edited.pages) == ("en", 999)
-    assert (edited.publisher.name, edited.cover_type) == ("Vivat", "dust_jacket")
+    assert (edited.publisher.name, edited.language) == ("Vivat", "en")
     assert "+ details of Хоббіт" in out.getvalue()
 
     # A second run changes nothing
@@ -478,7 +492,7 @@ def editions():
         ),
         "B": BookFactory(title="B", publisher=ranok, language="en", publication_year=2018),
         "C": BookFactory(
-            title="C", publisher=folio, language="en", book_type="ebook", publication_year=2022
+            title="C", publisher=folio, language="en", format_type="ebook", publication_year=2022
         ),
         "D": BookFactory(title="D"),
     }
@@ -522,7 +536,7 @@ def test_catalog_panel_offers_only_the_values_books_have(client, editions):
 def test_catalog_panel_has_the_blocks_in_the_language_of_the_site(client, editions):
     content = _catalog(client).content.decode()
 
-    for text in ["Видавництво", "Мова", "Тип книги", "Обкладинка", "Рік видання", "Тверда"]:
+    for text in ["Видавництво", "Мова", "Формат", "Обкладинка", "Рік видання", "Тверда"]:
         assert text in content, text
     # The year block: the oldest and the newest edition as hints
     assert 'placeholder="2010"' in content and 'placeholder="2022"' in content
@@ -530,7 +544,7 @@ def test_catalog_panel_has_the_blocks_in_the_language_of_the_site(client, editio
 
 # Generated with AI
 def test_catalog_panel_hides_the_blocks_without_values(client):
-    BookFactory()  # no details at all, only the type "paper"
+    BookFactory()  # no details at all, only its paper format
 
     content = _catalog(client, language="en").content.decode()
 
@@ -538,7 +552,7 @@ def test_catalog_panel_hides_the_blocks_without_values(client):
     assert 'id="filter-language"' not in content
     assert 'id="filter-cover_type"' not in content
     assert 'id="filter-year"' not in content
-    # The type is always known
+    # A book on sale always has a format
     assert 'id="filter-book_type"' in content
 
 

@@ -1,7 +1,6 @@
 """Unit tests of the forms: cleaning and validation, without views."""
 
 import io
-from decimal import Decimal
 
 import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -100,9 +99,6 @@ def _book_form_data():
     return {
         "title": "New book",
         "author": AuthorFactory().pk,
-        "price": "199.90",
-        "currency": "UAH",
-        "book_type": "paper",  # the select always sends one
         "description": "",
     }
 
@@ -112,7 +108,7 @@ def test_book_form_accepts_png_cover():
     form = BookForm(data=_book_form_data(), files={"cover": png_file()})
 
     assert form.is_valid(), form.errors
-    assert form.cleaned_data["price"] == Decimal("199.90")
+    assert form.cleaned_data["cover"].name == "cover.png"
 
 
 @pytest.mark.django_db

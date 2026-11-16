@@ -27,6 +27,7 @@ from inventory.services import set_stock
 from orders.services import create_order
 
 from ..factories import AuthorFactory, BookFactory, CategoryFactory, UserFactory
+from ..helpers import format_id
 
 pytestmark = pytest.mark.django_db
 
@@ -74,15 +75,16 @@ def test_second_visit_of_a_book_page_reads_the_book_from_the_cache(client, book)
 
 # Generated with AI
 def test_the_stock_is_fresh_while_the_book_is_cached(client, book):
-    assert 'max="5"' in page(client, book)
+    assert "Залишилося 5 примірників" in page(client, book)
 
     create_order(
-        UserFactory(), {book.pk: 3}, full_name="Ann", phone="+380671234567", address="Kyiv"
+        UserFactory(), {format_id(book): 3}, full_name="Ann", phone="+380671234567", address="Kyiv"
     )
 
     html = page(client, book)
-    assert 'max="2"' in html  # the quantity field: at most the 2 left
-    assert 'max="5"' not in html
+    # The stock badge: the 2 left, read fresh while the book is cached
+    assert "Залишилося 2 примірники" in html
+    assert "Залишилося 5 примірників" not in html
 
 
 # Generated with AI
@@ -192,7 +194,7 @@ def test_set_stock_needs_no_cache_invalidation(client, book):
 
     # The cached book stays (no stock in it), the page shows the new stock
     assert cache.get(book_key(book.pk)) is not None
-    assert 'max="1"' in page(client, book)
+    assert "Залишився 1 примірник" in page(client, book)
 
 
 # Generated with AI

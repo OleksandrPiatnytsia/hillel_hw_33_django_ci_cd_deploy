@@ -24,6 +24,7 @@ from orders.reports import build_daily_report
 from orders.services import CROSS_RATE_PLACES, OrderError, create_order
 
 from ..factories import BookFactory, UserFactory
+from ..helpers import format_id
 
 pytestmark = pytest.mark.django_db
 
@@ -52,7 +53,11 @@ def books():
 def order_in(currency, books, user=None):
     return create_order(
         user or UserFactory(),
-        {books["hryvnia"].pk: 3, books["dollar"].pk: 1, books["euro"].pk: 1},
+        {
+            format_id(books["hryvnia"]): 3,
+            format_id(books["dollar"]): 1,
+            format_id(books["euro"]): 1,
+        },
         currency=currency,
         **DELIVERY,
     )
@@ -121,7 +126,7 @@ def test_a_currency_that_is_not_offered_is_rejected_and_nothing_is_reserved(book
         order_in(code, books)
 
     assert not Order.objects.exists()
-    assert Stock.objects.get(book=books["hryvnia"]).quantity == 10
+    assert Stock.objects.get(format__book=books["hryvnia"]).quantity == 10
 
 
 # Generated with AI
@@ -130,7 +135,7 @@ def test_a_book_in_a_currency_without_a_rate_cannot_be_ordered():
     book = BookFactory(title="Zloty book", price=Decimal("40"), currency_id="PLN")
 
     with pytest.raises(OrderError, match="немає курсу PLN"):
-        create_order(UserFactory(), {book.pk: 1}, **DELIVERY)
+        create_order(UserFactory(), {format_id(book): 1}, **DELIVERY)
 
     assert not Order.objects.exists()
 
@@ -209,7 +214,7 @@ def test_order_email_is_in_the_order_currency(
 
     email = mailoutbox[0]
     assert email.subject.endswith("створено (62,93 $)")
-    assert "Hryvnia book: 3 x 14,31 $ = 42,93 $" in email.body
+    assert "Hryvnia book (Паперова): 3 x 14,31 $ = 42,93 $" in email.body
     assert "Разом: 62,93 $" in email.body
 
 
@@ -220,8 +225,10 @@ def test_order_email_is_in_the_order_currency(
 
 # Generated with AI
 def test_daily_report_adds_up_the_orders_in_hryvnias(books):
-    dollar_order = create_order(UserFactory(), {books["dollar"].pk: 2}, currency="USD", **DELIVERY)
-    hryvnia_order = create_order(UserFactory(), {books["hryvnia"].pk: 1}, **DELIVERY)
+    dollar_order = create_order(
+        UserFactory(), {format_id(books["dollar"]): 2}, currency="USD", **DELIVERY
+    )
+    hryvnia_order = create_order(UserFactory(), {format_id(books["hryvnia"]): 1}, **DELIVERY)
 
     report = build_daily_report(timezone.localdate(dollar_order.created_at))
 

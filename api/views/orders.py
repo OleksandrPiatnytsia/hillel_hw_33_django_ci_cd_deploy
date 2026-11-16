@@ -207,15 +207,20 @@ class OrderViewSet(
     def _replay(self, order, serializer):
         """The answer to a repeated request: the existing order, or 422.
 
-        "The same request" = the same books and quantities and the same
+        "The same request" = the same formats and quantities and the same
         delivery data (after the cleaning of the serializer: "+380 67 ..."
         and "+38067..." are equal). The order is shown as it is NOW: a
         repeat after the payment shows "paid".
         """
         data = serializer.validated_data
-        same = {item.book_id: item.quantity for item in order.items.all()} == (
-            serializer.quantities()
-        ) and (order.full_name, order.phone, order.address, order.currency_id) == (
+        # As the request names them: by format, or by book for a book_id
+        # line (OrderCreateSerializer.same_items)
+        same = serializer.same_items(order.items.all()) and (
+            order.full_name,
+            order.phone,
+            order.address,
+            order.currency_id,
+        ) == (
             data["full_name"],
             data["phone"],
             data["address"],

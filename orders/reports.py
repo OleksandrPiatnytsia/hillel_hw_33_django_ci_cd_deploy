@@ -8,7 +8,7 @@
 Three CSV attachments (open in Excel / Google Sheets):
     orders_<day>.csv      every order created that day, cancelled ones too
     top_books_<day>.csv   the best sellers of the day (not cancelled orders)
-    low_stock_<day>.csv   books with 0..LOW_STOCK_THRESHOLD copies NOW
+    low_stock_<day>.csv   paper books with 0..LOW_STOCK_THRESHOLD copies NOW
 
 "That day" is a calendar day in TIME_ZONE (UTC), like every date of the site.
 """
@@ -27,7 +27,7 @@ from django.db.models.functions import Round
 from django.template.loader import render_to_string
 from django.utils import timezone, translation
 
-from books.models import LOW_STOCK_THRESHOLD, Book
+from books.models import LOW_STOCK_THRESHOLD, Book, BookFormat
 from users.models import User
 
 from .models import Order, OrderItem
@@ -150,10 +150,15 @@ def build_daily_report(day):
         .order_by("-copies", "title")[:TOP_BOOKS_LIMIT]
     )
 
+    # Only the books sold on paper: an e-book has no copies to order more of
     low_stock = list(
         Book.objects.with_stock()
         .select_related("author")
-        .filter(stock__lte=LOW_STOCK_THRESHOLD)
+        .filter(
+            formats__format_type=BookFormat.FormatType.PAPER,
+            formats__is_active=True,
+            stock__lte=LOW_STOCK_THRESHOLD,
+        )
         .order_by("stock", "title")
     )
 

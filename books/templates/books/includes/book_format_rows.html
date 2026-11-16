@@ -1,0 +1,59 @@
+{% load i18n %}
+{% comment %}
+The formats of the book in the book form (books/book_form.html): one row
+per format, BookFormatFormSet of the view (books.views.BookFormatsMixin).
+
+formats: the formset. Its management form (TOTAL_FORMS, INITIAL_FORMS,
+...) tells Django how many rows came back; the hidden fields of a row
+(id, book) tie it to its BookFormat. An empty row is skipped; "Remove"
+deletes a saved format.
+{% endcomment %}
+<fieldset class="border rounded p-3 mb-3">
+  <legend class="float-none w-auto px-2 fs-6 fw-semibold mb-0">{% translate "Formats" %}</legend>
+  <p class="form-text mt-0">
+    {% translate "Paper, e-book and audiobook, each with its own price. Fill at least one row; an empty row is skipped." %}
+  </p>
+  {{ formats.management_form }}
+  {% for error in formats.non_form_errors %}
+    <div class="alert alert-danger py-2">{{ error }}</div>
+  {% endfor %}
+
+  {% for row in formats %}
+    <div class="book-format-row border-top pt-3 mt-3{% if forloop.first %} border-0 pt-0 mt-0{% endif %}">
+      {% for hidden in row.hidden_fields %}{{ hidden }}{% endfor %}
+      {% for error in row.non_field_errors %}
+        <div class="alert alert-danger py-2">{{ error }}</div>
+      {% endfor %}
+      <div class="row g-3">
+        <div class="col-sm-6 col-lg-4">
+          {% include "books/includes/book_form_field.html" with field=row.format_type %}
+        </div>
+        <div class="col-sm-6 col-lg-4">
+          {% include "books/includes/book_form_field.html" with field=row.price %}
+        </div>
+        <div class="col-sm-6 col-lg-4">
+          {% include "books/includes/book_form_field.html" with field=row.currency %}
+        </div>
+        <div class="col-sm-6 col-lg-4">
+          {% include "books/includes/book_form_field.html" with field=row.cover_type %}
+        </div>
+        <div class="col-sm-6 col-lg-4">
+          {% include "books/includes/book_form_field.html" with field=row.pages %}
+        </div>
+        <div class="col-sm-6 col-lg-4 d-flex flex-column justify-content-end gap-1">
+          <div class="form-check">
+            {{ row.is_active }}
+            <label class="form-check-label" for="{{ row.is_active.id_for_label }}">{{ row.is_active.label }}</label>
+          </div>
+          {# Only a saved format can be removed; a new row is simply left empty #}
+          {% if row.instance.pk %}
+            <div class="form-check">
+              {{ row.DELETE }}
+              <label class="form-check-label text-danger" for="{{ row.DELETE.id_for_label }}">{% translate "Remove" %}</label>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  {% endfor %}
+</fieldset>

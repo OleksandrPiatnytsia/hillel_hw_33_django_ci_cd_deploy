@@ -164,7 +164,7 @@ def convert(amount, from_code, to_code, rates=None):
 def price_in(to_code, *, price="price", currency="currency", rates=None):
     """SQL expression: a price converted to to_code, for annotate / filter / order_by.
 
-    Books have prices in different currencies, so "sort by price" or
+    Formats have prices in different currencies, so "sort by price" or
     "price from 10 to 20 USD" needs the price in ONE currency, calculated
     by the database for every row. With the rates as constants (from
     current_rates(), no JOIN to the rates table):
@@ -177,11 +177,11 @@ def price_in(to_code, *, price="price", currency="currency", rates=None):
     ROUND(..., 2) in PostgreSQL rounds half away from zero, the same as
     convert() (ROUND_HALF_UP for prices >= 0): the number the database
     filters and sorts by is the number the page shows.
-    A book in a currency without a rate gets NULL: a filter never matches
+    A price in a currency without a rate gets NULL: a filter never matches
     it, ORDER BY puts it last (ascending) or first (descending).
 
     price / currency: the field names, also across relations, e.g.
-    price="books__price", currency="books__currency" for Category.
+    price="formats__price", currency="formats__currency" for Book.
     Raises RateUnavailable if to_code itself has no rate.
     """
     rates = current_rates() if rates is None else rates

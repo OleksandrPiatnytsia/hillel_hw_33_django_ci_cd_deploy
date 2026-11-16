@@ -229,7 +229,9 @@ def test_models_str_and_urls():
     assert str(poetry) == "Poetry"
     assert str(author) == "Taras Shevchenko"
     assert str(BookCategory.objects.get(book=book)) == "Kobzar → Poetry"
-    assert str(item) == "Kobzar × 2"
+    # The title with the format (OrderItem.display_title), in the active language
+    with translation.override("en"):
+        assert str(item) == "Kobzar (Paper) × 2"
 
     assert book.get_absolute_url() == f"/{book.pk}/"  # the catalog is at the site root
     assert author.get_absolute_url() == f"/authors/{author.pk}/"

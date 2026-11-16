@@ -41,8 +41,10 @@ def test_anonymous_reads_books_with_nested_author_and_categories(api_client):
     # Nested serializers: objects, not just ids
     assert book["author"] == {"id": author.pk, "name": "Taras Shevchenko"}
     assert book["categories"] == [{"id": poetry.pk, "name": "Poetry", "slug": "poetry"}]
-    # Decimal as a string: no float rounding (250.5 vs 250.50)
-    assert book["price"] == "250.50"
+    # The price "from" (the cheapest format on sale) as a string: no float
+    # rounding (250.5 vs 250.50); the prices themselves are in the formats
+    assert book["display_price"] == "250.50"
+    assert [(f["format_type"], f["price"]) for f in book["formats"]] == [("paper", "250.50")]
     assert book["in_stock"] is True
     assert book["cover"] is None
     # write-only fields are not in the answer
@@ -65,13 +67,14 @@ def test_books_are_paginated_by_20(api_client):
 def test_book_list_takes_the_same_number_of_queries_for_any_page_size(
     api_client, django_assert_num_queries
 ):
-    # COUNT for the paginator + the books with their authors and currencies (JOIN) + the
-    # categories of the whole page (prefetch): 3, not 1 + 2 per book
+    # COUNT for the paginator + the books with their authors (JOIN) + the
+    # categories and the formats (with their currencies and stock) of the
+    # whole page (two prefetches): 4, not 1 + 3 per book
     category = CategoryFactory()
     BookFactory.create_batch(15, categories=[category])
     api_client.get("/api/books/")  # the rates and the currencies go to the cache
 
-    with django_assert_num_queries(3):
+    with django_assert_num_queries(4):
         response = api_client.get("/api/books/")
 
     assert len(response.json()["results"]) == 15
@@ -185,7 +188,6 @@ def new_book_data(author, categories=(), **changes):
         "title": "Kobzar",
         "author_id": author.pk,
         "category_ids": [category.pk for category in categories],
-        "price": "250.50",
         "description": "Poems",
     }
     return {**data, **changes}
@@ -222,75 +224,38 @@ def test_editor_creates_a_book_with_a_jwt_token(api_client, editor, get_tokens):
     assert book.title == "Kobzar"
     assert book.author == author
     assert list(book.categories.all()) == [poetry]
-    # The default stock: an editor doesn't set it
-    assert book.stock == 0
     # The answer is the new book in the reading format (nested author)
-    assert response.json()["author"]["name"] == "Taras Shevchenko"
-
-
-def test_editor_cannot_set_the_stock_of_a_new_book(as_user, editor):
-    response = as_user(editor).post(
-        "/api/books/", new_book_data(AuthorFactory(), stock=50), format="json"
-    )
-
-    assert response.status_code == 403
-    assert not Book.objects.exists()
-
-
-def test_editor_changes_the_price_but_not_the_stock(as_user, editor):
-    book = BookFactory(price=Decimal("100"), stock=10)
-    client = as_user(editor)
-
-    price = client.patch(f"/api/books/{book.pk}/", {"price": "120.00"}, format="json")
-    stock = client.patch(f"/api/books/{book.pk}/", {"stock": 99}, format="json")
-    # PUT with everything read before, the unchanged stock included: allowed
-    full = client.get(f"/api/books/{book.pk}/").json()
-    put = client.put(
-        f"/api/books/{book.pk}/",
-        {**full, "title": "New title", "author_id": book.author_id, "category_ids": []},
-        format="json",
-    )
-
-    assert price.status_code == 200
-    assert stock.status_code == 403
-    assert put.status_code == 200
-    book.refresh_from_db()
-    assert book.price == Decimal("120.00")
-    assert book.stock == 10
-    assert book.title == "New title"
-
-
-def test_manager_changes_the_stock(as_user, manager):
-    book = BookFactory(stock=10)
-
-    response = as_user(manager).patch(f"/api/books/{book.pk}/", {"stock": 3}, format="json")
-
-    assert response.status_code == 200
-    book.refresh_from_db()
-    assert book.stock == 3
+    data = response.json()
+    assert data["author"]["name"] == "Taras Shevchenko"
+    # No formats yet: not on sale until POST /api/formats/
+    assert (data["formats"], data["display_price"], data["in_stock"]) == ([], None, False)
 
 
 # Generated with AI
-def test_manager_creates_a_book_with_its_first_copies(as_user, manager):
-    response = as_user(manager).post(
-        "/api/books/", new_book_data(AuthorFactory(), stock=7), format="json"
+def test_the_old_price_and_stock_fields_of_a_book_are_ignored(as_user, manager):
+    # The prices and the stock belong to the formats (/api/formats/): the
+    # fields of the old API are unknown fields now, DRF ignores them
+    book = BookFactory(price=Decimal("100"), stock=10)
+
+    response = as_user(manager).patch(
+        f"/api/books/{book.pk}/", {"price": "1.00", "stock": 1, "title": "New"}, format="json"
     )
 
-    assert response.status_code == 201
-    assert response.json()["stock"] == 7
-    # Written to the default warehouse (inventory.Stock), not to the book
-    assert Book.objects.get().stocks.get().quantity == 7
+    assert response.status_code == 200
+    assert "price" not in response.json() and "stock" not in response.json()
+    paper = book.formats.get()
+    assert (paper.price, paper.stock) == (Decimal("100.00"), 10)
 
 
 def test_invalid_book_data_is_400_with_the_errors_of_the_fields(as_user, editor):
     response = as_user(editor).post(
         "/api/books/",
-        {"title": "", "author_id": 999999, "price": "-1"},
+        {"title": "", "author_id": 999999, "publication_year": 1000},
         format="json",
     )
 
     assert response.status_code == 400
-    assert set(response.json()) == {"title", "author_id", "price"}
+    assert set(response.json()) == {"title", "author_id", "publication_year"}
 
 
 def test_only_manager_deletes_a_book(as_user, editor, manager):
@@ -402,6 +367,7 @@ def test_api_root_lists_the_sections(api_client):
 
     assert set(response.json()) == {
         "books",
+        "formats",
         "authors",
         "publishers",
         "categories",

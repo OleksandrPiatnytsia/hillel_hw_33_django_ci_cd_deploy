@@ -17,7 +17,7 @@ from pytest_django.asserts import assertRedirects
 from books.models import Book
 
 from ..factories import AuthorFactory, BookFactory, CategoryFactory, OrderFactory, UserFactory
-from ..helpers import message_levels
+from ..helpers import format_row, formats_data, message_levels
 
 pytestmark = pytest.mark.django_db
 
@@ -32,9 +32,6 @@ def book_form_data(author, **changes):
     data = {
         "title": "Kobzar",
         "author": author.pk,
-        "price": "250.50",
-        "currency": "UAH",
-        "book_type": "paper",  # the select always sends one
         "categories": [],
         "description": "Poems",
     }
@@ -48,23 +45,39 @@ def test_manager_creates_edits_and_deletes_a_book(manager_client):
     # Create: the form page, then POST -> the new book's page
     assert manager_client.get(reverse("books:create")).status_code == 200
     created = manager_client.post(
-        reverse("books:create"), book_form_data(author, categories=[poetry.pk])
+        reverse("books:create"),
+        {
+            **book_form_data(author, categories=[poetry.pk]),
+            **formats_data(format_row(price="250.50"), format_row("ebook", price="99.00")),
+        },
     )
     book = Book.objects.get(title="Kobzar")
     assertRedirects(created, book.get_absolute_url(), fetch_redirect_response=False)
     # A new book has 0 copies: the stock is set in the admin
-    assert (book.price, book.stock, list(book.categories.all())) == (Decimal("250.50"), 0, [poetry])
+    assert (book.stock, list(book.categories.all())) == (0, [poetry])
+    assert list(book.formats.values_list("format_type", "price")) == [
+        ("paper", Decimal("250.50")),
+        ("ebook", Decimal("99.00")),
+    ]
 
-    # Edit: the price; the page has no stock field
+    # Edit: the price of the paper format, the e-book removed; no stock field
     form_page = manager_client.get(reverse("books:update", args=[book.pk]))
     assert "stock" not in form_page.context["form"].fields
+    paper, ebook = book.formats.all()
     edited = manager_client.post(
         reverse("books:update", args=[book.pk]),
-        book_form_data(author, price="300.00"),
+        {
+            **book_form_data(author),
+            **formats_data(
+                format_row(price="300.00", id=paper.pk),
+                format_row("ebook", price="99.00", id=ebook.pk, DELETE="on"),
+                initial=2,
+            ),
+        },
         follow=True,
     )
     book.refresh_from_db()
-    assert book.price == Decimal("300.00")
+    assert list(book.formats.values_list("format_type", "price")) == [("paper", Decimal("300.00"))]
     assert message_levels(edited)[-1] == "success"  # "created" is still in the list
 
     # Delete: the confirmation page shows the title and the button, POST deletes
@@ -82,21 +95,71 @@ def test_invalid_book_form_shows_errors_and_saves_nothing(manager_client):
     author = AuthorFactory()
 
     response = manager_client.post(
-        reverse("books:create"), book_form_data(author, title="", price="-1")
+        reverse("books:create"),
+        {**book_form_data(author, title=""), **formats_data(format_row(price="-1"))},
     )
 
     assert response.status_code == 200  # the form again, not a redirect
-    assert set(response.context["form"].errors) == {"title", "price"}
+    # The errors of both: the book form and the row of the format
+    assert set(response.context["form"].errors) == {"title"}
+    assert set(response.context["formats"].errors[0]) == {"price"}
     assert not Book.objects.exists()
+
+
+def test_a_book_without_any_format_is_not_saved(manager_client):
+    response = manager_client.post(
+        reverse("books:create"), {**book_form_data(AuthorFactory()), **formats_data()}
+    )
+
+    assert response.status_code == 200
+    assert response.context["formats"].non_form_errors()
+    assert not Book.objects.exists()
+
+
+def test_a_book_with_two_paper_formats_is_not_saved(manager_client):
+    response = manager_client.post(
+        reverse("books:create"),
+        {
+            **book_form_data(AuthorFactory()),
+            **formats_data(format_row(), format_row(price="300.00")),
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.context["formats"].non_form_errors()
+    assert not Book.objects.exists()
+
+
+def test_main_format_is_the_first_one_on_sale(manager_client):
+    # Audiobook first in the rows, paper not on sale: the e-book is the main
+    # one ("Add to cart" without a chosen format), not the first row
+    manager_client.post(
+        reverse("books:create"),
+        {
+            **book_form_data(AuthorFactory()),
+            **formats_data(
+                format_row("audiobook", price="150.00"),
+                format_row(price="400.00", is_active=""),
+                format_row("ebook", price="5.00", currency="USD"),
+            ),
+        },
+    )
+
+    main = Book.objects.get().main_format
+    assert (main.format_type, main.price, main.currency_id) == ("ebook", Decimal("5.00"), "USD")
 
 
 def test_editing_a_book_does_not_change_the_stock(editor_client):
     book = BookFactory(title="Kobzar", stock=5)
 
     # No stock field in the form: a POSTed value is ignored
+    paper = book.formats.get()
     editor_client.post(
         reverse("books:update", args=[book.pk]),
-        book_form_data(book.author, title="Kobzar (2nd ed.)", stock="999"),
+        {
+            **book_form_data(book.author, title="Kobzar (2nd ed.)", stock="999"),
+            **formats_data(format_row(id=paper.pk), initial=1),
+        },
     )
 
     book.refresh_from_db()
@@ -127,8 +190,8 @@ def test_a_book_in_orders_is_not_deleted_and_the_manager_sees_why(manager_client
     # No red "Yes, delete" button (its text is translated, so the button
     # is found by its class; the navbar has other submit buttons)
     assert 'class="btn btn-danger"' not in confirm.content.decode()
-    # Instead: the book in the admin, where its stock can be set to 0
-    assert reverse("admin:books_book_change", args=[book.pk]) in confirm.content.decode()
+    # Instead: the book form, where its formats are taken off sale
+    assert reverse("books:update", args=[book.pk]) in confirm.content.decode()
     assertRedirects(deleted, book.get_absolute_url())
     assert message_levels(deleted) == ["error"]
     assert Book.objects.filter(pk=book.pk).exists()

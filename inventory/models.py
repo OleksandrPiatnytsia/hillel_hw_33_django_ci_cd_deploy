@@ -1,21 +1,26 @@
-"""Warehouses and the stock of books in them.
+"""Warehouses and the stock of paper books in them.
 
 Before hw_31 the stock was a column of the book (Book.stock). Now a book
 keeps only the information about the book itself, and the number of copies
 lives here:
 
     Warehouse  "General" (is_default=True)
-    Stock      book + warehouse + quantity, one row per book per warehouse
+    Stock      paper format + warehouse + quantity, one row per format per warehouse
 
 Why: the data of a book (title, price, description) changes rarely and
 can be cached for a long time (stage 2), while the stock changes with
 every order. In one table every purchase would make the cached book stale.
 
-The site sells from the default warehouse only. book.stock and
-Book.objects.with_stock() (books.models) read the quantity of that
-warehouse; inventory.services changes it.
+Only the PAPER format of a book (books.BookFormat) has copies: an e-book
+or an audiobook is a file, always available, it has no Stock rows.
+
+The site sells from the default warehouse only. book_format.stock,
+book.stock (the copies of its paper format) and the with_stock() of both
+querysets (books.models) read the quantity of that warehouse;
+inventory.services changes it.
 """
 
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import Q
 from django.utils.translation import gettext_lazy as _
@@ -74,15 +79,16 @@ class Warehouse(models.Model):
 
 
 class Stock(models.Model):
-    """How many copies of a book are in a warehouse."""
+    """How many copies of a paper book are in a warehouse."""
 
-    book = models.ForeignKey(
-        "books.Book",
-        verbose_name=_("book"),
-        # CASCADE: the stock of a deleted book means nothing. A book that
-        # is in orders can't be deleted anyway (OrderItem.book is PROTECT)
+    format = models.ForeignKey(
+        "books.BookFormat",
+        verbose_name=_("format"),
+        # CASCADE: the stock of a deleted format means nothing. A format
+        # that is in orders can't be deleted anyway (OrderItem.format is
+        # PROTECT)
         on_delete=models.CASCADE,
-        related_name="stocks",  # book.stocks.all()
+        related_name="stocks",  # book_format.stocks.all()
     )
     warehouse = models.ForeignKey(
         Warehouse,
@@ -97,18 +103,25 @@ class Stock(models.Model):
     quantity = models.PositiveIntegerField(_("quantity"), default=0)
 
     class Meta:
-        ordering = ["book__title", "warehouse__name"]
+        ordering = ["format__book__title", "warehouse__name"]
         verbose_name = _("stock")
         verbose_name_plural = _("stock")
         constraints = [
-            # One row per book per warehouse: the quantity is never split
+            # One row per format per warehouse: the quantity is never split
             # between two rows that would have to be added up
             models.UniqueConstraint(
-                fields=["book", "warehouse"],
-                name="unique_book_warehouse",
+                fields=["format", "warehouse"],
+                name="unique_format_warehouse",
             ),
         ]
 
     def __str__(self):
-        # book.title, not str(book): str(book) also needs the author
-        return f"{self.book.title} — {self.warehouse.name}: {self.quantity}"
+        # str(format): "<title> — Paper", the book title without the author
+        return f"{self.format} — {self.warehouse.name}: {self.quantity}"
+
+    def clean(self):
+        # A file has no copies: only the paper format is counted. Called by
+        # the admin form; inventory.services never makes such a row.
+        super().clean()
+        if self.format_id and not self.format.is_paper:
+            raise ValidationError({"format": _("Only a paper format has copies in a warehouse.")})
