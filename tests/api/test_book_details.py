@@ -27,8 +27,10 @@ def test_a_book_has_its_details(api_client, folio):
     book = api_client.get("/api/books/").json()["results"][0]
 
     assert book["publisher"] == {"id": folio.pk, "name": "Фоліо"}
-    assert (book["book_type"], book["cover_type"], book["language"]) == ("paper", "hard", "uk")
-    assert (book["publication_year"], book["pages"]) == (2017, 224)
+    assert (book["language"], book["publication_year"]) == ("uk", 2017)
+    # The type, the cover and the pages belong to the format
+    paper = book["formats"][0]
+    assert (paper["format_type"], paper["cover_type"], paper["pages"]) == ("paper", "hard", 224)
     assert "publisher_id" not in book  # write only
 
 
@@ -39,7 +41,8 @@ def test_a_book_without_details_has_nulls_and_empty_codes(api_client):
     book = api_client.get("/api/books/").json()["results"][0]
 
     assert book["publisher"] is None
-    assert (book["cover_type"], book["language"], book["publication_year"]) == ("", "", None)
+    assert (book["language"], book["publication_year"]) == ("", None)
+    assert (book["formats"][0]["cover_type"], book["formats"][0]["pages"]) == ("", None)
 
 
 # Generated with AI
@@ -100,38 +103,16 @@ def test_editor_creates_a_book_with_details(as_user, editor, folio):
         {
             "title": "Kobzar",
             "author_id": author.pk,
-            "price": "250.00",
             "publisher_id": folio.pk,
-            "book_type": "paper",
-            "cover_type": "soft",
             "language": "uk",
             "publication_year": 2015,
-            "pages": 400,
         },
         format="json",
     )
 
     assert response.status_code == 201, response.json()
     book = Book.objects.get(title="Kobzar")
-    assert (book.publisher, book.cover_type, book.pages) == (folio, "soft", 400)
-
-
-# Generated with AI
-def test_an_ebook_with_a_cover_type_is_400(as_user, editor):
-    book = BookFactory(cover_type="hard")
-    client = as_user(editor)
-
-    # PATCH only the type: the cover the book already has makes it wrong
-    response = client.patch(f"/api/books/{book.pk}/", {"book_type": "ebook"}, format="json")
-
-    assert response.status_code == 400
-    assert "cover_type" in response.json()
-
-    # Both together are fine: the cover is removed
-    response = client.patch(
-        f"/api/books/{book.pk}/", {"book_type": "ebook", "cover_type": ""}, format="json"
-    )
-    assert response.status_code == 200, response.json()
+    assert (book.publisher, book.language, book.publication_year) == (folio, "uk", 2015)
 
 
 # Generated with AI

@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Bookstore\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-16 20:50+0000\n"
+"POT-Creation-Date: 2026-11-16 21:16+0000\n"
 "PO-Revision-Date: 2026-11-10 16:00+0200\n"
 "Last-Translator: Bookstore\n"
 "Language-Team: Ukrainian\n"
@@ -29,50 +29,100 @@ msgstr ""
 "Цей Idempotency-Key уже використано для іншого замовлення. Для нового "
 "замовлення надішліть новий ключ."
 
-#: api/serializers/catalog.py:257
+#: api/serializers/catalog.py:136
 #, python-format
 msgid "The currency %(code)s is turned off."
 msgstr "Валюту %(code)s вимкнено."
 
-#: api/serializers/catalog.py:278 books/models.py:381 books/models.py:629
-msgid "Only a paper book has a cover type."
-msgstr "Тип обкладинки буває лише в паперової книги."
-
-#: api/serializers/catalog.py:283
-msgid "Only a paper book has copies in stock."
-msgstr "Примірники на складі бувають лише в паперової книги."
-
-#: api/serializers/catalog.py:301
+#: api/serializers/catalog.py:241
 msgid "Only users with the “manage stock” permission can change it."
 msgstr "Змінювати можуть лише користувачі з правом «керування залишками»."
 
-#: api/serializers/orders.py:191 api/views/catalog.py:157
-#, python-format
-msgid "“%(code)s” is not offered. Choose one of: %(offered)s."
-msgstr "Валюта «%(code)s» недоступна. Оберіть одну з: %(offered)s."
+#: api/serializers/catalog.py:263
+msgid "The book of a format can't be changed."
+msgstr "Книгу формату змінити не можна."
 
-#: api/serializers/orders.py:214
-msgid "Every book may be in the list only once; use quantity."
-msgstr "Кожна книга може бути в списку лише один раз; використовуйте quantity."
+#: api/serializers/catalog.py:266
+msgid "The type of a format can't be changed; add a new format instead."
+msgstr "Тип формату змінити не можна; натомість додайте новий формат."
 
-#: api/serializers/orders.py:222 cart/views.py:45 cart/views.py:88
+#: api/serializers/catalog.py:271 books/models.py:381 books/models.py:629
+msgid "Only a paper book has a cover type."
+msgstr "Тип обкладинки буває лише в паперової книги."
+
+#: api/serializers/catalog.py:273 books/models.py:631
+msgid "An audiobook has no pages."
+msgstr "В аудіокниги немає сторінок."
+
+#: api/serializers/catalog.py:275
+msgid "Only a paper book has copies in stock."
+msgstr "Примірники на складі бувають лише в паперової книги."
+
+#: api/serializers/catalog.py:278 books/models.py:616
+msgid "The book already has this format."
+msgstr "Книга вже має цей формат."
+
+#: api/serializers/orders.py:194
+msgid "Send “format_id” (or “book_id”)."
+msgstr "Передайте «format_id» (або «book_id»)."
+
+#: api/serializers/orders.py:196
+msgid "Send either “format_id” or “book_id”, not both."
+msgstr "Передайте або «format_id», або «book_id», не обидва."
+
+#: api/serializers/orders.py:201 api/serializers/orders.py:210
+#: cart/views.py:45 cart/views.py:88
 #, python-format
 msgid "“%(title)s” is not on sale."
 msgstr "«%(title)s» не продається."
 
-#: api/views/catalog.py:139
+#: api/serializers/orders.py:217
+#, python-format
+msgid ""
+"“%(title)s” is sold in several formats (%(formats)s): send “format_id”."
+msgstr ""
+"«%(title)s» продається в кількох форматах (%(formats)s): передайте "
+"«format_id»."
+
+#: api/serializers/orders.py:261 api/views/catalog.py:142
+#, python-format
+msgid "“%(code)s” is not offered. Choose one of: %(offered)s."
+msgstr "Валюта «%(code)s» недоступна. Оберіть одну з: %(offered)s."
+
+#: api/serializers/orders.py:285
+msgid "Every format may be in the list only once; use quantity."
+msgstr ""
+"Кожен формат може бути в списку лише один раз; використовуйте quantity."
+
+#: api/views/catalog.py:204
 msgid "The book is in orders and can't be deleted."
 msgstr "Книга є в замовленнях, її не можна видалити."
 
-#: api/views/catalog.py:223
+#: api/views/catalog.py:238
+msgid ""
+"The format is in orders and can't be deleted; turn it off instead "
+"(is_active: false)."
+msgstr ""
+"Формат є в замовленнях, його не можна видалити; натомість зніміть його з "
+"продажу (is_active: false)."
+
+#: api/views/catalog.py:257
+msgid ""
+"A book needs at least one format; turn this one off instead (is_active: "
+"false)."
+msgstr ""
+"Книга повинна мати хоча б один формат; натомість зніміть цей з продажу "
+"(is_active: false)."
+
+#: api/views/catalog.py:314
 msgid "The author has books and can't be deleted."
 msgstr "В автора є книги, його не можна видалити."
 
-#: api/views/catalog.py:236
+#: api/views/catalog.py:327
 msgid "The publisher has books and can't be deleted."
 msgstr "У видавництва є книги, його не можна видалити."
 
-#: api/views/catalog.py:249
+#: api/views/catalog.py:340
 msgid "The category has books and can't be deleted."
 msgstr "У категорії є книги, її не можна видалити."
 
@@ -85,7 +135,8 @@ msgstr "Не більше %(max)s символів."
 msgid "category"
 msgstr "категорія"
 
-#: books/admin.py:30 books/admin.py:253 books/models.py:196 books/models.py:350
+#: books/admin.py:30 books/admin.py:253 books/models.py:196
+#: books/models.py:350
 msgid "categories"
 msgstr "категорії"
 
@@ -492,14 +543,6 @@ msgstr "формат книги"
 msgid "book formats"
 msgstr "формати книг"
 
-#: books/models.py:616
-msgid "The book already has this format."
-msgstr "Книга вже має цей формат."
-
-#: books/models.py:631
-msgid "An audiobook has no pages."
-msgstr "В аудіокниги немає сторінок."
-
 #: books/models.py:700
 msgid "book category"
 msgstr "категорія книги"
@@ -590,7 +633,8 @@ msgstr "Ви точно хочете видалити цю книгу?"
 
 #: books/templates/books/book_confirm_delete.html:27
 msgid "Its category links will be removed too. Categories themselves stay."
-msgstr "Її зв'язки з категоріями теж буде видалено. Самі категорії залишаться."
+msgstr ""
+"Її зв'язки з категоріями теж буде видалено. Самі категорії залишаться."
 
 #: books/templates/books/book_confirm_delete.html:41
 msgid "Yes, delete"
@@ -806,8 +850,8 @@ msgstr "Сторінки"
 
 #: books/templates/books/includes/book_format_rows.html:14
 msgid ""
-"Paper, e-book and audiobook, each with its own price. Fill at least one row; "
-"an empty row is skipped."
+"Paper, e-book and audiobook, each with its own price. Fill at least one row;"
+" an empty row is skipped."
 msgstr ""
 "Паперова, електронна та аудіокнига, кожна зі своєю ціною. Заповніть хоча б "
 "один рядок; порожній рядок пропускається."
@@ -1515,8 +1559,8 @@ msgstr "Ваше замовлення"
 
 #: orders/templates/orders/checkout.html:134
 msgid ""
-"The books are reserved when you place the order. Then you pay with the “Pay” "
-"button on the order page."
+"The books are reserved when you place the order. Then you pay with the “Pay”"
+" button on the order page."
 msgstr ""
 "Книги резервуються, щойно ви оформите замовлення. Потім ви оплачуєте його "
 "кнопкою «Оплатити» на сторінці замовлення."
@@ -1615,8 +1659,8 @@ msgid ""
 "<strong>%(order)s</strong> was not paid in time, so we cancelled it and "
 "returned the reserved books to the store."
 msgstr ""
-"<strong>%(order)s</strong> не було оплачено вчасно, тому ми його скасували, а"
-" зарезервовані книги повернули в магазин."
+"<strong>%(order)s</strong> не було оплачено вчасно, тому ми його скасували, "
+"а зарезервовані книги повернули в магазин."
 
 #: orders/templates/orders/emails/order_cancelled.html:28
 #: orders/templates/orders/emails/order_created.html:32
@@ -1638,8 +1682,8 @@ msgstr "Відкрити замовлення"
 #: orders/templates/orders/emails/order_cancelled.txt:4
 #, python-format
 msgid ""
-"%(order)s was not paid in time, so we cancelled it and returned the reserved "
-"books to the store."
+"%(order)s was not paid in time, so we cancelled it and returned the reserved"
+" books to the store."
 msgstr ""
 "%(order)s не було оплачено вчасно, тому ми його скасували, а зарезервовані "
 "книги повернули в магазин."
@@ -1706,7 +1750,8 @@ msgstr "Книгарня: %(order)s створено (%(total)s)"
 
 #: orders/templates/orders/order_detail.html:9
 #: orders/templates/orders/order_list.html:4
-#: orders/templates/orders/order_list.html:7 templates/includes/navbar.html:139
+#: orders/templates/orders/order_list.html:7
+#: templates/includes/navbar.html:139
 msgid "My orders"
 msgstr "Мої замовлення"
 
@@ -1937,8 +1982,8 @@ msgid ""
 "The order is <strong>fully paid</strong>. We'll let you know when it's "
 "shipped."
 msgstr ""
-"Замовлення <strong>повністю оплачено</strong>. Ми повідомимо, коли його буде "
-"відправлено."
+"Замовлення <strong>повністю оплачено</strong>. Ми повідомимо, коли його буде"
+" відправлено."
 
 #: payments/templates/payments/emails/payment_received.html:46
 #, python-format
@@ -2022,7 +2067,8 @@ msgid "Open %(order)s"
 msgstr "Відкрити: %(order)s"
 
 #: payments/views.py:60
-msgid "The payment was not completed. You can pay later with the “Pay” button."
+msgid ""
+"The payment was not completed. You can pay later with the “Pay” button."
 msgstr "Оплату не завершено. Оплатити можна пізніше кнопкою «Оплатити»."
 
 #: templates/403.html:10 templates/403.html:15
@@ -2188,7 +2234,8 @@ msgstr "звичайний користувач"
 msgid "Groups"
 msgstr "Групи"
 
-#: users/templates/users/profile.html:38 users/templates/users/profile.html:117
+#: users/templates/users/profile.html:38
+#: users/templates/users/profile.html:117
 msgid "none"
 msgstr "немає"
 

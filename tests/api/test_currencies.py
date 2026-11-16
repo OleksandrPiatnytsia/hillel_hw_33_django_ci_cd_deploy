@@ -3,7 +3,7 @@
     GET /api/currencies/              the currencies offered, with today's rate
     GET /api/books/?currency=USD      display_price in dollars; the price
                                       filters and ?ordering=price use it
-    POST /api/books/ {"currency"}     the currency of the book's price
+    POST /api/formats/ {"currency"}   the currency of the format's price
     POST /api/orders/ {"currency"}    the currency of the order
 
 The rates of every test: 1 USD = 45.4274 UAH, 1 EUR = 50.3379 UAH.
@@ -14,10 +14,9 @@ from decimal import Decimal
 
 import pytest
 
-from books.models import Book
 from currencies.models import Currency, ExchangeRate
 from orders.models import Order
-from tests.factories import AuthorFactory, BookFactory, UserFactory
+from tests.factories import BookFactory, UserFactory
 
 pytestmark = pytest.mark.django_db
 
@@ -85,7 +84,12 @@ def test_books_have_their_price_currency_and_the_price_in_uah(api_client, books)
     response = api_client.get("/api/books/", {"ordering": "title"})
 
     assert [
-        (book["price"], book["currency"], book["display_price"], book["display_currency"])
+        (
+            book["formats"][0]["price"],
+            book["formats"][0]["currency"],
+            book["display_price"],
+            book["display_currency"],
+        )
         for book in response.json()["results"]
     ] == [
         ("20.00", "USD", "908.55", "UAH"),
@@ -154,22 +158,26 @@ def test_one_book_in_the_currency_of_the_parameter(api_client, books):
 
 
 # Generated with AI
-def test_editor_creates_a_book_priced_in_dollars(as_user, editor):
+def test_editor_creates_a_format_priced_in_dollars(as_user, editor):
+    book = BookFactory(formats=False)
+
     response = as_user(editor).post(
-        "/api/books/?currency=UAH",
-        {"title": "Dune", "author_id": AuthorFactory().pk, "price": "20.00", "currency": "USD"},
+        "/api/formats/?currency=UAH",
+        {"book_id": book.pk, "format_type": "ebook", "price": "20.00", "currency": "USD"},
         format="json",
     )
 
     assert response.status_code == 201
-    assert Book.objects.get().currency_id == "USD"
+    assert book.formats.get().currency_id == "USD"
     assert (response.json()["currency"], response.json()["display_price"]) == ("USD", "908.55")
 
 
 # Generated with AI
-def test_a_new_book_without_a_currency_is_in_hryvnias(as_user, editor):
+def test_a_new_format_without_a_currency_is_in_hryvnias(as_user, editor):
+    book = BookFactory(formats=False)
+
     response = as_user(editor).post(
-        "/api/books/", {"title": "Kobzar", "author_id": AuthorFactory().pk, "price": "250.00"}
+        "/api/formats/", {"book_id": book.pk, "format_type": "ebook", "price": "250.00"}
     )
 
     assert response.json()["currency"] == "UAH"
@@ -177,21 +185,27 @@ def test_a_new_book_without_a_currency_is_in_hryvnias(as_user, editor):
 
 # Generated with AI
 def test_changing_the_price_answers_with_the_new_display_price(as_user, editor, books):
+    paper = books[1].formats.get()
+
     response = as_user(editor).patch(
-        f"/api/books/{books[1].pk}/?currency=USD", {"price": "25.00"}, format="json"
+        f"/api/formats/{paper.pk}/?currency=USD", {"price": "25.00"}, format="json"
     )
+    book = as_user(editor).get(f"/api/books/{books[1].pk}/", {"currency": "USD"}).json()
 
     assert response.json()["display_price"] == "25.00"
+    # The price "from" of the book follows its format
+    assert book["display_price"] == "25.00"
 
 
 # Generated with AI
-def test_a_turned_off_currency_only_for_a_book_that_has_it(as_user, editor, books):
+def test_a_turned_off_currency_only_for_a_format_that_has_it(as_user, editor, books):
     Currency.objects.filter(code="EUR").update(is_active=False)
     client = as_user(editor)
+    euro, hryvnia = books[2].formats.get(), books[0].formats.get()
 
-    kept = client.patch(f"/api/books/{books[2].pk}/", {"currency": "EUR"}, format="json")
-    refused = client.patch(f"/api/books/{books[0].pk}/", {"currency": "EUR"}, format="json")
-    unknown = client.patch(f"/api/books/{books[0].pk}/", {"currency": "GBP"}, format="json")
+    kept = client.patch(f"/api/formats/{euro.pk}/", {"currency": "EUR"}, format="json")
+    refused = client.patch(f"/api/formats/{hryvnia.pk}/", {"currency": "EUR"}, format="json")
+    unknown = client.patch(f"/api/formats/{hryvnia.pk}/", {"currency": "GBP"}, format="json")
 
     assert kept.status_code == 200
     assert refused.status_code == unknown.status_code == 400
@@ -296,17 +310,20 @@ def test_the_docs_describe_the_currency_parameter_and_endpoint(api_client):
 
 
 # Generated with AI
-def test_a_new_book_in_a_currency_without_a_rate_has_no_display_price(as_user, editor):
+def test_a_format_in_a_currency_without_a_rate_has_no_display_price(as_user, editor):
     Currency.objects.create(code="PLN", name="Zloty", symbol="zł")  # active, no rate yet
+    book = BookFactory(formats=False)
 
     response = as_user(editor).post(
-        "/api/books/",
-        {"title": "Lalka", "author_id": AuthorFactory().pk, "price": "40.00", "currency": "PLN"},
+        "/api/formats/",
+        {"book_id": book.pk, "format_type": "paper", "price": "40.00", "currency": "PLN"},
         format="json",
     )
+    answer = as_user(editor).get(f"/api/books/{book.pk}/").json()
 
     assert response.status_code == 201
     assert response.json()["display_price"] is None
+    assert answer["display_price"] is None
 
 
 # Generated with AI

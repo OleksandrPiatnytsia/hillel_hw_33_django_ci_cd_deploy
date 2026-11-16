@@ -1,4 +1,4 @@
-"""ViewSets of the catalog: books, authors, publishers, categories.
+"""ViewSets of the catalog: books, their formats, authors, publishers, categories.
 
 A ModelViewSet = 5 actions in one class; the router (api/urls.py) gives
 them two URLs:
@@ -14,8 +14,11 @@ Who may do what:
     books       read: everybody; write: the model permissions of the user's
                 groups (DjangoModelPermissionsOrAnonReadOnly): add_book for
                 POST, change_book for PUT/PATCH, delete_book for DELETE.
-                "Editors" add and change, "Managers" also delete. The stock
-                only with inventory.change_stock (BookSerializer.validate_stock).
+                "Editors" add and change, "Managers" also delete.
+    formats     the same, with add/change/delete_bookformat (Editors and
+                Managers all three); the stock of a paper format only with
+                inventory.change_stock (BookFormatSerializer.validate_stock).
+                Turned off formats: only for those who may change them.
     authors,    read: everybody; write: IsAdminUser (is_staff) AND the
     publishers, model permission (like the admin): "Managers" may delete a
     categories
@@ -25,7 +28,7 @@ Who may do what:
 
 import logging
 
-from django.db.models import Count, ProtectedError
+from django.db.models import Count, Prefetch, ProtectedError
 from django.utils.decorators import method_decorator
 from django.utils.translation import gettext_lazy as _
 from rest_framework import viewsets
@@ -38,18 +41,26 @@ from rest_framework.permissions import (
     IsAdminUser,
 )
 
-from books.models import Author, Book, Category, Publisher
+from books.models import Author, Book, BookFormat, Category, Publisher
 from currencies.models import BASE_CURRENCY
-from currencies.services import available_currencies, price_in
+from currencies.services import available_currencies, current_rates
 
 from ..cache import cache_api_response
-from ..docs import author_schema, book_schema, category_schema, publisher_schema
+from ..docs import (
+    author_schema,
+    book_schema,
+    category_schema,
+    format_schema,
+    publisher_schema,
+)
 from ..exceptions import Conflict
 from ..filters import BookFilter
 from ..serializers.catalog import (
     AuthorSerializer,
+    BookFormatSerializer,
     BookSerializer,
     CategorySerializer,
+    copy_main_format_to_book,
     PublisherSerializer,
 )
 
@@ -103,40 +114,14 @@ class LoggedModelViewSet(viewsets.ModelViewSet):
         )
 
 
-@book_schema
-class BookViewSet(LoggedModelViewSet):
-    """Books of the catalog.
+class DisplayCurrencyMixin:
+    """?currency=USD: the prices of the answer in this currency (UAH without it).
 
-    Filters (api.filters.BookFilter): ?category=<slug>, ?author=<id> (both
-    may repeat: ?author=1&author=5),
-    ?price_min=, ?price_max=, ?stock=in_stock|low|out, ?publisher=<id>,
-    ?language=, ?book_type=, ?cover_type= (may repeat), ?year_min=, ?year_max=.
-    ?search=kobz  — in the title and the author's name.
-    ?ordering=price | -price | title | -created_at | author__name.
-    ?currency=USD — display_price in this currency (UAH by default); the
-    price filters and the price ordering use display_price too.
+    Books and formats: "display_price" converted at today's NBU rate, the
+    same number the site shows with the currency switcher. The rates are
+    read once per request (current_rates(): the cache) and given to the
+    serializer and to the SQL of the queryset.
     """
-
-    queryset = (
-        Book.objects
-        # ForeignKey: the author, the publisher and the currency in the same
-        # SQL query (JOIN)
-        .select_related("author", "publisher", "currency")
-        # ManyToMany: the categories of the whole page in one extra query
-        .prefetch_related("categories")
-        # "stock" (of the paper format) and "available" (in_stock) in the
-        # same SQL query; also needed by the ?stock= filter
-        .with_availability().order_by("title", "pk")
-    )
-    serializer_class = BookSerializer
-    permission_classes = [DjangoModelPermissionsOrAnonReadOnly]
-    filterset_class = BookFilter
-    search_fields = ["title", "author__name"]
-    ordering_fields = ["title", "price", "created_at", "author__name"]
-    # ?ordering=price: by the converted price (api.filters.StableOrderingFilter)
-    ordering_aliases = {"price": "display_price"}
-    log_name = "Book"
-    protected_message = _("The book is in orders and can't be deleted.")
 
     def display_currency(self):
         """The checked code of ?currency= (UAH without it); 400 for others.
@@ -162,13 +147,119 @@ class BookViewSet(LoggedModelViewSet):
             self._display_currency = code
         return self._display_currency
 
-    def get_queryset(self):
-        # display_price: calculated by the database (CASE ... ROUND), so the
-        # filters and the ordering can use it like a column
-        return super().get_queryset().annotate(display_price=price_in(self.display_currency()))
+    def rates(self):
+        if not hasattr(self, "_rates"):
+            self._rates = current_rates()
+        return self._rates
 
     def get_serializer_context(self):
-        return {**super().get_serializer_context(), "display_currency": self.display_currency()}
+        context = super().get_serializer_context()
+        if getattr(self, "swagger_fake_view", False):  # building /api/docs/: no rates
+            return context
+        return {**context, "display_currency": self.display_currency(), "rates": self.rates()}
+
+
+@book_schema
+class BookViewSet(DisplayCurrencyMixin, LoggedModelViewSet):
+    """Books of the catalog.
+
+    Filters (api.filters.BookFilter): ?category=<slug>, ?author=<id> (both
+    may repeat: ?author=1&author=5),
+    ?price_min=, ?price_max=, ?stock=in_stock|low|out, ?publisher=<id>,
+    ?language=, ?book_type=, ?cover_type= (may repeat), ?year_min=, ?year_max=.
+    ?search=kobz  — in the title and the author's name.
+    ?ordering=price | -price | title | -created_at | author__name.
+    ?currency=USD — display_price in this currency (UAH by default); the
+    price filters and the price ordering use display_price too.
+    """
+
+    queryset = (
+        Book.objects
+        # ForeignKey: the author and the publisher in the same SQL query (JOIN)
+        .select_related("author", "publisher")
+        # ManyToMany: the categories of the whole page in one extra query;
+        # the formats on sale with their stock in one more (book.active_formats)
+        .prefetch_related(
+            "categories",
+            Prefetch(
+                "formats",
+                queryset=BookFormat.objects.filter(is_active=True)
+                .select_related("currency")
+                .with_stock(),
+                to_attr="prefetched_active_formats",
+            ),
+        )
+        # "stock" (of the paper format) and "available" (in_stock) in the
+        # same SQL query; also needed by the ?stock= filter
+        .with_availability().order_by("title", "pk")
+    )
+    serializer_class = BookSerializer
+    permission_classes = [DjangoModelPermissionsOrAnonReadOnly]
+    filterset_class = BookFilter
+    search_fields = ["title", "author__name"]
+    ordering_fields = ["title", "price", "created_at", "author__name"]
+    # ?ordering=price: by the price "from" (api.filters.StableOrderingFilter)
+    ordering_aliases = {"price": "display_price"}
+    log_name = "Book"
+    protected_message = _("The book is in orders and can't be deleted.")
+
+    def get_queryset(self):
+        # display_price: the cheapest format on sale, converted by the
+        # database, so the filters and the ordering can use it like a column
+        queryset = super().get_queryset()
+        if getattr(self, "swagger_fake_view", False):  # building /api/docs/
+            return queryset
+        return queryset.with_display_price(self.display_currency(), rates=self.rates())
+
+
+@format_schema
+class BookFormatViewSet(DisplayCurrencyMixin, LoggedModelViewSet):
+    """Formats of the books: paper, e-book, audiobook, each with its own price.
+
+    ?book=<id>            the formats of one book
+    ?format_type=paper | ebook | audiobook
+    ?is_active=true | false
+    ?currency=USD         display_price in this currency
+
+    Read: everybody, the formats on sale; a user who may change formats
+    (Editors, Managers) also sees the turned off ones. Write: the model
+    permissions of the group (add/change/delete_bookformat). The stock only
+    with inventory.change_stock (BookFormatSerializer.validate_stock).
+    """
+
+    queryset = BookFormat.objects.select_related("book", "currency").with_stock()
+    serializer_class = BookFormatSerializer
+    permission_classes = [DjangoModelPermissionsOrAnonReadOnly]
+    filterset_fields = ["book", "format_type", "is_active"]
+    # Without ?ordering= the order of BookFormat.Meta: by book, paper first
+    ordering_fields = ["price"]
+    log_name = "BookFormat"
+    protected_message = _(
+        "The format is in orders and can't be deleted; turn it off instead (is_active: false)."
+    )
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        if self.request.user.has_perm("books.change_bookformat"):
+            return queryset
+        return queryset.filter(is_active=True)
+
+    def perform_destroy(self, instance):
+        """A book keeps at least one format, like the form of the site (min 1).
+
+        A book without formats has no price at all. To stop selling it,
+        the format is turned off (is_active: false), not deleted.
+        """
+        book = instance.book
+        if not book.formats.exclude(pk=instance.pk).exists():
+            raise Conflict(
+                _(
+                    "A book needs at least one format; turn this one off instead "
+                    "(is_active: false)."
+                )
+            )
+        super().perform_destroy(instance)
+        copy_main_format_to_book(book)
 
 
 class StaffWriteMixin:

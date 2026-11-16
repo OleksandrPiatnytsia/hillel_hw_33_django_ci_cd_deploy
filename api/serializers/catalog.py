@@ -15,7 +15,15 @@ For writing the client sends only the ids: "author_id": 3,
 "category_ids": [1, 2]. Writable nested objects ("create the author
 together with the book") would need our own create()/update(); authors
 and categories have their own endpoints for that.
+
+The formats of a book (paper, e-book, audiobook, each with its own
+price) are nested in the book for reading and written through their own
+endpoint /api/formats/ (BookFormatSerializer): one simple request per
+format instead of a list in the book where a missing row would mean
+"delete it".
 """
+
+from decimal import Decimal
 
 from django.utils.translation import gettext_lazy as _
 from rest_framework import serializers
@@ -92,45 +100,235 @@ class CategoryShortSerializer(serializers.ModelSerializer):
         fields = ["id", "name", "slug"]
 
 
-def _sync_format(book):
-    """The format of the book's type gets the book's price, currency, cover and pages.
+def copy_main_format_to_book(book):
+    """The old fields of the book (price, currency, type, cover, pages) copy its main format.
 
-    A bridge until the API writes formats itself: a book made or changed
-    by the API is sold on the site with the price the client sent. The
-    other formats of the book (made on the site) stay as they are.
+    The same as BookFormatsMixin on the site: the book admin, the
+    "book_stats" report and the delete page still read these fields until
+    they are removed (the next stage). Called after every format change
+    through the API. The main format: the first one on sale, else the
+    first one (paper, e-book, audiobook: BookFormat.Meta.ordering).
+
+    update(), not save(): only these columns, no "updated_at" and no
+    signals of the book (the format signals already dropped the caches).
     """
-    paper = book.book_type == BookFormat.FormatType.PAPER
-    BookFormat.objects.update_or_create(
-        book=book,
-        format_type=book.book_type,
-        defaults={
-            "price": book.price,
-            "currency_id": book.currency_id,
-            "cover_type": book.cover_type if paper else "",
-            "pages": None if book.book_type == BookFormat.FormatType.AUDIOBOOK else book.pages,
-        },
+    # A book keeps at least one format (BookFormatViewSet.perform_destroy)
+    formats = list(book.formats.all())
+    main = next((f for f in formats if f.is_active), formats[0])
+    Book.objects.filter(pk=book.pk).update(
+        price=main.price,
+        currency_id=main.currency_id,
+        book_type=main.format_type,
+        cover_type=main.cover_type,
+        pages=main.pages,
     )
-    # The formats on sale were read before (or not at all): read again
-    book.__dict__.pop("prefetched_active_formats", None)
-    book.__dict__.pop("_available", None)
+
+
+def validate_offered_currency(value, current):
+    """A turned off currency only for an object that already has it.
+
+    Like the forms on the site: a PUT sends back every field it read, and
+    a format priced in a currency turned off later must stay editable.
+    """
+    if not value.is_active and value.code != current:
+        raise serializers.ValidationError(
+            _("The currency %(code)s is turned off.") % {"code": value.code}
+        )
+    return value
+
+
+def converted_price(book_format, context):
+    """The price of a format in the currency of ?currency= (UAH without it); None without a rate."""
+    target = context.get("display_currency", BASE_CURRENCY)
+    rates = context.get("rates")
+    try:
+        return convert(book_format.price, book_format.currency_id, target, rates)
+    except RateUnavailable:
+        return None
+
+
+class BookFormatSerializer(serializers.ModelSerializer):
+    """/api/formats/: one way to buy a book (paper, e-book, audiobook) with its own price.
+
+        {"id": 12, "book_id": 7, "format_type": "paper",
+         "format_type_display": "Паперова", "price": "350.00",
+         "currency": "UAH", "display_price": "7.71", "display_currency": "USD",
+         "cover_type": "hard", "pages": 640, "is_active": true,
+         "stock": 10, "in_stock": true}
+
+    Writing:
+        book_id, format_type   only when the format is created: the stock
+                               rows and the copies of the type in the
+                               orders point to them. Another type = a new
+                               format (and this one turned off or deleted).
+        cover_type             only for paper; pages: not for an audiobook
+                               (the same rules as BookFormat.clean())
+        stock                  only for paper (a file has no copies) and
+                               only with inventory.change_stock (Managers);
+                               null for an e-book or an audiobook
+    """
+
+    book_id = serializers.PrimaryKeyRelatedField(source="book", queryset=Book.objects.all())
+    format_type_display = serializers.CharField(source="get_format_type_display", read_only=True)
+    # A code ("UAH", "USD"); not required: UAH by default (the model default)
+    currency = serializers.SlugRelatedField(
+        slug_field="code", queryset=Currency.objects.all(), required=False
+    )
+    # Set in to_representation() (converted_price): the same number the
+    # format tile of the site shows with the currency switcher
+    display_price = serializers.DecimalField(
+        max_digits=12, decimal_places=2, read_only=True, allow_null=True
+    )
+    display_currency = serializers.SerializerMethodField()
+    # max_value: the largest PositiveIntegerField value in PostgreSQL;
+    # allow_null: an e-book answers null, and a client may send it back
+    stock = serializers.IntegerField(
+        min_value=0, max_value=2147483647, required=False, allow_null=True
+    )
+    in_stock = serializers.BooleanField(read_only=True)
+
+    class Meta:
+        model = BookFormat
+        fields = [
+            "id",
+            "book_id",
+            "format_type",
+            "format_type_display",
+            "price",
+            "currency",
+            "display_price",
+            "display_currency",
+            "cover_type",
+            "pages",
+            "is_active",
+            "stock",
+            "in_stock",
+        ]
+        # No automatic validator from UniqueConstraint(book, format_type):
+        # validate() answers on "format_type" with the text of the model
+        validators = []
+
+    def get_display_currency(self, book_format) -> str:
+        return self.context.get("display_currency", BASE_CURRENCY)
+
+    def to_representation(self, book_format):
+        book_format.display_price = converted_price(book_format, self.context)
+        data = super().to_representation(book_format)
+        if not book_format.is_paper:
+            data["stock"] = None  # a file has no copies, not "0 copies"
+        return data
+
+    def validate_currency(self, value):
+        return validate_offered_currency(
+            value, self.instance.currency_id if self.instance else None
+        )
+
+    def validate_stock(self, value):
+        """Only users with inventory.change_stock may CHANGE the stock.
+
+        Sending the current value is allowed: a client that edits a format
+        with PUT sends back every field it has read, the stock too (null
+        for a file). New format: the current value is 0 (its new Stock row).
+        """
+        request = self.context.get("request")
+        if value is None or request is None or request.user.has_perm("inventory.change_stock"):
+            return value
+        current = self.instance.stock if self.instance else 0
+        if value != current:
+            # 403, not 400: the value is fine, the user is not allowed
+            raise PermissionDenied(
+                _("Only users with the “manage stock” permission can change it.")
+            )
+        return value
+
+    def validate(self, attrs):
+        """The rules of BookFormat.clean() + one format of a type per book.
+
+        A ModelSerializer doesn't call the model's clean(). PATCH may send
+        only some fields: the others are the current values of the format.
+        """
+        attrs = super().validate(attrs)
+        instance = self.instance
+
+        def value(name, default):
+            if name in attrs:
+                return attrs[name]
+            return getattr(instance, name) if instance else default
+
+        errors = {}
+        if instance is not None:
+            # The same value is allowed: PUT sends back what it read
+            if "book" in attrs and attrs["book"].pk != instance.book_id:
+                errors["book_id"] = [_("The book of a format can't be changed.")]
+            if "format_type" in attrs and attrs["format_type"] != instance.format_type:
+                errors["format_type"] = [
+                    _("The type of a format can't be changed; add a new format instead.")
+                ]
+        format_type = value("format_type", "")
+        paper = format_type == BookFormat.FormatType.PAPER
+        if value("cover_type", "") and not paper:
+            errors["cover_type"] = [_("Only a paper book has a cover type.")]
+        if value("pages", None) and format_type == BookFormat.FormatType.AUDIOBOOK:
+            errors["pages"] = [_("An audiobook has no pages.")]
+        if attrs.get("stock") and not paper:
+            errors["stock"] = [_("Only a paper book has copies in stock.")]
+        if instance is None and "book" in attrs and "format_type" not in errors:
+            if attrs["book"].formats.filter(format_type=format_type).exists():
+                errors["format_type"] = [_("The book already has this format.")]
+        if errors:
+            raise serializers.ValidationError(errors)
+        return attrs
+
+    def create(self, validated_data):
+        # BookFormat(**validated_data) would only put the number into the
+        # object: take it out and write it to the default warehouse
+        stock = validated_data.pop("stock", None)
+        book_format = super().create(validated_data)
+        if stock:  # None or 0: the row made by inventory.signals already has 0
+            set_stock(book_format, stock)
+        copy_main_format_to_book(book_format.book)
+        return book_format
+
+    def update(self, instance, validated_data):
+        stock = validated_data.pop("stock", None)
+        book_format = super().update(instance, validated_data)
+        # Only a value different from the current one is written: PUT sends
+        # back every field it read, and an unchanged stock needs no UPDATE.
+        # Like any PUT without a version check (ETag / If-Match), a stock
+        # changed by an order between the client's GET and its PUT can
+        # still be overwritten by the old number.
+        if stock is not None and book_format.is_paper and stock != book_format.stock:
+            set_stock(book_format, stock)
+        copy_main_format_to_book(book_format.book)
+        return book_format
+
+
+class BookFormatInBookSerializer(BookFormatSerializer):
+    """A format inside a book: the same fields without book_id (it is the book's id)."""
+
+    class Meta(BookFormatSerializer.Meta):
+        fields = [name for name in BookFormatSerializer.Meta.fields if name != "book_id"]
+        read_only_fields = fields
 
 
 class BookSerializer(serializers.ModelSerializer):
-    """/api/books/: read with nested author and categories, write with ids.
+    """/api/books/: read with nested author, categories and formats, write with ids.
 
-    Writing the stock is allowed only with the permission
-    inventory.change_stock (group "Managers"), like in BookForm on the
-    site: an editor may create and edit books, the stock stays as it is.
+    The prices, the types, the covers, the pages and the stock belong to
+    the formats (BookFormat): a book is sold as paper, e-book and
+    audiobook, each with its own price. "formats" lists the formats on
+    sale (read only); they are written through /api/formats/.
 
-    "stock" is not a field of Book (inventory.Stock: the copies of the
-    paper format in the default warehouse): declared here, read from
-    book.stock (the with_availability() annotation of the ViewSet), written
-    in create() / update(). Only a paper book has copies.
+        {"id": 7, "title": "Kobzar", ...,
+         "display_price": "149.00", "display_currency": "UAH",
+         "formats": [{"id": 11, "format_type": "paper", "price": "350.00", ...},
+                     {"id": 12, "format_type": "ebook", "price": "149.00", ...}],
+         "in_stock": true}
 
-    Until the API gets its own formats (the next stage), the price, the
-    currency, the type, the cover and the pages of a book written here
-    are copied to the format of its type (_sync_format): the site sells
-    formats, and a book made by the API must be on sale there too.
+    display_price: the price "from" (the cheapest format on sale) in the
+    currency of ?currency=, like the card of the site; null when no format
+    is on sale. A new book has no formats: it is not on sale until the
+    first format is added (POST /api/formats/).
     """
 
     # Reading: nested objects (read_only: they are never parsed from a request)
@@ -138,6 +336,9 @@ class BookSerializer(serializers.ModelSerializer):
     categories = CategoryShortSerializer(many=True, read_only=True)
     # null for a book without a publisher
     publisher = PublisherShortSerializer(read_only=True)
+    # Book.active_formats: from the Prefetch of BookViewSet (with the
+    # stock), one query for the whole page
+    formats = BookFormatInBookSerializer(source="active_formats", many=True, read_only=True)
 
     # Writing: ids. source= points to the model field; the serializer finds
     # the objects itself and answers 400 for an unknown id:
@@ -161,14 +362,9 @@ class BookSerializer(serializers.ModelSerializer):
         allow_null=True,
     )
 
-    # The currency of "price": a code ("UAH", "USD"). Not required: a new
-    # book without it is in UAH (the model default)
-    currency = serializers.SlugRelatedField(
-        slug_field="code", queryset=Currency.objects.all(), required=False
-    )
-    # The price converted to the currency of ?currency= (UAH without it) at
-    # today's NBU rate: the same number the site shows with the switcher.
-    # Read only; null if there is no rate for the book's currency.
+    # The price "from" in the currency of ?currency= (UAH without it), at
+    # today's NBU rate: the annotation of BookViewSet (with_display_price).
+    # Read only; null without a format on sale (or without a rate).
     display_price = serializers.DecimalField(
         max_digits=12, decimal_places=2, read_only=True, allow_null=True
     )
@@ -177,8 +373,6 @@ class BookSerializer(serializers.ModelSerializer):
     # Absolute URL of the uploaded cover, null without one. Read only:
     # covers are uploaded on the site (BookForm checks size and type)
     cover = serializers.SerializerMethodField()
-    # max_value: the largest PositiveIntegerField value in PostgreSQL
-    stock = serializers.IntegerField(min_value=0, max_value=2147483647, required=False)
     in_stock = serializers.SerializerMethodField()
 
     class Meta:
@@ -190,21 +384,16 @@ class BookSerializer(serializers.ModelSerializer):
             "author_id",
             "categories",
             "category_ids",
-            "price",
-            "currency",
             "display_price",
             "display_currency",
             "description",
-            # The details of the edition; book_type, cover_type and language
-            # are codes ("ebook", "hard", "uk"), the API documentation lists them
+            # The details of the edition; language is a code ("uk"), the API
+            # documentation lists them
             "publisher",
             "publisher_id",
-            "book_type",
-            "cover_type",
             "language",
             "publication_year",
-            "pages",
-            "stock",
+            "formats",
             "in_stock",
             "cover",
             "created_at",
@@ -224,7 +413,7 @@ class BookSerializer(serializers.ModelSerializer):
         return request.build_absolute_uri(url) if request else url
 
     def get_in_stock(self, book) -> bool:
-        # Can it be bought: an e-book on sale always, a paper book with copies
+        # Can it be bought: a digital format on sale, or paper with copies
         return book.available
 
     def get_display_currency(self, book) -> str:
@@ -234,95 +423,18 @@ class BookSerializer(serializers.ModelSerializer):
 
     def to_representation(self, book):
         # A book just made by POST is not from the annotated queryset of the
-        # ViewSet (and after PUT the annotation has the old price): its
-        # display_price is calculated here
+        # ViewSet: its price "from" is the cheapest of its formats on sale
+        # (none for a new book). Formats without a rate only when nothing else.
         if not hasattr(book, "display_price"):
-            try:
-                book.display_price = convert(
-                    book.price, book.currency_id, self.get_display_currency(book)
-                )
-            except RateUnavailable:
-                book.display_price = None
+            prices = [converted_price(f, self.context) for f in book.active_formats]
+            known = [price for price in prices if price is not None]
+            book.display_price = min(known) if known else None
         return super().to_representation(book)
 
-    def validate_currency(self, value):
-        """A turned off currency only for a book that already has it.
-
-        Like BookForm on the site: a PUT sends back every field it read,
-        and a book priced in a currency turned off later must stay editable.
-        """
-        current = self.instance.currency_id if self.instance else None
-        if not value.is_active and value.code != current:
-            raise serializers.ValidationError(
-                _("The currency %(code)s is turned off.") % {"code": value.code}
-            )
-        return value
-
-    def validate(self, attrs):
-        """A cover type only for a paper book, like Book.clean() on the site.
-
-        A ModelSerializer doesn't call the model's clean(). PATCH may send
-        only one of the two fields: the other one is the book's current value.
-        """
-        attrs = super().validate(attrs)
-
-        def value(name, default):
-            if name in attrs:
-                return attrs[name]
-            return getattr(self.instance, name) if self.instance else default
-
-        cover_type = value("cover_type", "")
-        book_type = value("book_type", Book.BookType.PAPER)
-        if cover_type and book_type != Book.BookType.PAPER:
-            raise serializers.ValidationError(
-                {"cover_type": [_("Only a paper book has a cover type.")]}
-            )
-        if attrs.get("stock") and book_type != Book.BookType.PAPER:
-            # A file has no copies (inventory.Stock is only for paper)
-            raise serializers.ValidationError(
-                {"stock": [_("Only a paper book has copies in stock.")]}
-            )
-        return attrs
-
-    def validate_stock(self, value):
-        """Only users with inventory.change_stock may CHANGE the stock.
-
-        Sending the current value is allowed: a client that edits a book
-        with PUT sends back every field it has read, the stock too.
-        New book: the current value is 0 (its new Stock row).
-        """
-        request = self.context.get("request")
-        if request is None or request.user.has_perm("inventory.change_stock"):
-            return value
-        current = self.instance.stock if self.instance else 0
-        if value != current:
-            # 403, not 400: the value is fine, the user is not allowed
-            raise PermissionDenied(
-                _("Only users with the “manage stock” permission can change it.")
-            )
-        return value
-
     def create(self, validated_data):
-        # Book(**validated_data) would only put the number into the object:
-        # take it out and write it to the default warehouse after the book
-        stock = validated_data.pop("stock", None)
-        book = super().create(validated_data)
-        _sync_format(book)
-        if stock:  # None or 0: the row made by inventory.signals already has 0
-            set_stock(book, stock)
-        return book
-
-    def update(self, instance, validated_data):
-        stock = validated_data.pop("stock", None)
-        book = super().update(instance, validated_data)
-        _sync_format(book)
-        # Only a value different from the current one is written: PUT sends
-        # back every field it read, and an unchanged stock needs no UPDATE.
-        # Like any PUT without a version check (ETag / If-Match), a stock
-        # changed by an order between the client's GET and its PUT can
-        # still be overwritten by the old number.
-        if stock is not None and stock != book.stock:
-            set_stock(book, stock)
-        # Calculated again from the new price / currency (to_representation)
-        book.__dict__.pop("display_price", None)
-        return book
+        # The old required column Book.price (removed in the next stage):
+        # 0 until the first format is added, then it copies the main format
+        # (copy_main_format_to_book). Nobody sees it: the API, the catalog
+        # and the cart show the prices of the formats.
+        validated_data.setdefault("price", Decimal("0.00"))
+        return super().create(validated_data)

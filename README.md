@@ -163,10 +163,12 @@ ViewSets і права працюють з моделями `books` і `orders` 
 | `POST /api/token/` | усі, 10/хв | `username` + `password` → `access` + `refresh` |
 | `POST /api/token/refresh/` | усі | `refresh` → новий `access` |
 | `POST /api/token/verify/` | усі | чи дійсний токен (200 / 401) |
-| `GET /api/books/`, `/api/books/<id>/` | усі | книги з вкладеними автором і категоріями; `?currency=USD` → `display_price` у доларах |
-| `POST /api/books/` | `books.add_book` (Editors, Managers) | нова книга |
-| `PUT`, `PATCH /api/books/<id>/` | `books.change_book` | змінити книгу; `stock` — лише з `inventory.change_stock` |
+| `GET /api/books/`, `/api/books/<id>/` | усі | книги з вкладеними автором, категоріями й форматами в продажу; `display_price` — ціна «від»; `?currency=USD` → у доларах |
+| `POST /api/books/` | `books.add_book` (Editors, Managers) | нова книга (без форматів вона не продається) |
+| `PUT`, `PATCH /api/books/<id>/` | `books.change_book` | змінити книгу |
 | `DELETE /api/books/<id>/` | `books.delete_book` (Managers) | видалити; книга в замовленнях → 409 |
+| `GET /api/formats/[<id>/]` | усі (зняті з продажу — лише Editors, Managers) | формати книг; `?book=<id>`, `?format_type=`, `?is_active=` |
+| `POST`, `PUT`, `PATCH`, `DELETE /api/formats/<id>/` | `books.add/change/delete_bookformat` (Editors, Managers) | формат: ціна, валюта, обкладинка, сторінки, «у продажу»; `stock` паперового — лише з `inventory.change_stock`; останній формат або формат у замовленнях → 409 |
 | `GET /api/authors/[<id>/]`, `/api/publishers/[<id>/]`, `/api/categories/[<id>/]` | усі | автори, видавництва й категорії з `books_count` |
 | `POST`, `PUT`, `PATCH`, `DELETE` авторів, видавництв і категорій | `IsAdminUser` (`is_staff`) **і** право моделі | як в адмінці; є книги → 409 на `DELETE` |
 | `GET /api/currencies/`, `/api/currencies/<code>/` | усі | валюти, які пропонує магазин, з курсом НБУ на сьогодні |
@@ -247,7 +249,7 @@ class OrderViewSet(...):
   `is_staff` відчиняє двері, група вирішує, що можна (Managers видаляють категорію,
   редактор має `add_author`, але не `is_staff`). `get_permissions()` замість
   `permission_classes`, бо читання відкрите всім, а `IsAdminUser` не має варіанта «або лише читання».
-- **Залишок (`stock`)** — як в адмінці: без `inventory.change_stock` змінити його
+- **Залишок (`stock`)** паперового формату — як в адмінці: без `inventory.change_stock` змінити його
   не можна (403). Надіслати *поточне* значення можна: клієнт, що робить `PUT`
   з усіма прочитаними полями, не отримає помилку.
 - Анонім на запис отримує **401** (з токеном запит міг би пройти), залогінений
@@ -260,14 +262,17 @@ GET /api/books/7/
 {"id": 7, "title": "Kobzar",
  "author": {"id": 3, "name": "Taras Shevchenko"},
  "categories": [{"id": 1, "name": "Poetry", "slug": "poetry"}],
- "price": "250.50", "stock": 4, "in_stock": true,
- "publisher": {"id": 12, "name": "Фоліо"}, "book_type": "paper", "cover_type": "hard",
- "language": "uk", "publication_year": 2017, "pages": 224,
+ "display_price": "149.00", "display_currency": "UAH", "in_stock": true,
+ "publisher": {"id": 12, "name": "Фоліо"}, "language": "uk", "publication_year": 2017,
+ "formats": [
+   {"id": 11, "format_type": "paper", "format_type_display": "Паперова",
+    "price": "350.00", "currency": "UAH", "cover_type": "hard", "pages": 224,
+    "is_active": true, "stock": 4, "in_stock": true, ...},
+   {"id": 12, "format_type": "ebook", "price": "149.00", "stock": null, "in_stock": true, ...}],
  "cover": "http://localhost:8000/media/covers/2026/11/kobzar.jpg", ...}
 
 POST /api/books/
-{"title": "Kobzar", "author_id": 3, "category_ids": [1], "price": "250.50",
- "publisher_id": 12, "language": "uk"}
+{"title": "Kobzar", "author_id": 3, "category_ids": [1], "publisher_id": 12, "language": "uk"}
 ```
 
 ```python
@@ -275,16 +280,36 @@ class BookSerializer(serializers.ModelSerializer):
     author = AuthorShortSerializer(read_only=True)                       # читання: об'єкт
     author_id = serializers.PrimaryKeyRelatedField(source="author",      # запис: id
                                                    queryset=Author.objects.all(), write_only=True)
+    formats = BookFormatInBookSerializer(source="active_formats", many=True, read_only=True)
 ```
 
-Ціни — рядки (`"250.50"`), а не числа: так у JSON не губляться копійки на округленні float.
+Ціни — рядки (`"350.00"`), а не числа: так у JSON не губляться копійки на округленні float.
+`display_price` книги — найдешевший формат у продажу у валюті `?currency=`, як «від» у
+картці сайту; за ним працюють `?price_min=`, `?price_max=` і `?ordering=price`.
 
-Характеристики: `book_type`, `cover_type` і `language` — коди (`ebook`, `dust_jacket`,
-`uk`), їхній перелік є в документації `/api/docs/`; невідоме значення — `""`, невідомий
-рік, сторінки чи видавництво — `null`. `ModelSerializer` не викликає `Book.clean()`,
-тому «обкладинка лише в паперової книги» перевіряє `BookSerializer.validate()`; у `PATCH`
-поле, якого немає в запиті, береться з книги (`{"book_type": "ebook"}` для книги з
-твердою обкладинкою → 400).
+### Формати: окремий ресурс `/api/formats/`
+
+Ціна, валюта, тип, обкладинка, сторінки й залишок належать формату, а не книзі.
+**Рішення**: формати пишуться окремим ресурсом, а в книзі вони лише для читання.
+Вкладений запис (`"formats": [...]` у `PUT` книги) потребував би власних
+`create()` / `update()`, а пропущений рядок означав би «видалити формат», що
+ламається на форматі з замовлень.
+
+```json
+POST /api/formats/
+{"book_id": 7, "format_type": "ebook", "price": "149.00", "currency": "UAH"}
+
+PATCH /api/formats/11/
+{"price": "320.00", "stock": 10}
+```
+
+- `book_id` і `format_type` задаються лише під час створення: на тип посилаються
+  рядок складу й копія типу в замовленнях. Інший тип — новий формат.
+- `BookFormatSerializer.validate()` повторює `BookFormat.clean()` (обкладинка лише
+  в паперового, сторінки не в аудіокниги) і перевіряє «один формат типу на книгу».
+- `stock` — лише в паперового формату; для файлу у відповіді `null`.
+- `DELETE`: формат із замовлень (`on_delete=PROTECT`) або останній формат книги → **409**;
+  зняти з продажу — `{"is_active": false}`.
 
 ### Замовлення без кошика
 
@@ -296,16 +321,22 @@ class BookSerializer(serializers.ModelSerializer):
 POST /api/orders/
 {"full_name": "Ann Shevchenko", "phone": "+380 67 123 45 67", "address": "Kyiv, Khreshchatyk 1",
  "currency": "USD",
- "items": [{"book_id": 7, "quantity": 2}, {"book_id": 9, "quantity": 1}]}
+ "items": [{"format_id": 12, "quantity": 2}, {"book_id": 9, "quantity": 1}]}
 ```
+
+Рядок замовлення називає **формат** (`format_id`). `book_id` дозволено лише для
+книги з одним форматом у продажу; якщо їх кілька — **400** з переліком форматів:
+API не обирає формат за клієнта. У відповіді кожна позиція має
+`"format": {"id": 12, "format_type": "ebook", "format_type_display": "Електронна"}`.
 
 `currency` — необов'язкова, типово `UAH`; код з `/api/currencies/`, інший → 400.
 
 1. `OrderCreateSerializer` перевіряє запит; позиції — вкладений
-   `OrderItemCreateSerializer(many=True)`: книга існує, `quantity >= 1`, одна
-   книга — один рядок. Телефон — та сама `normalize_phone()`, що на сайті.
+   `OrderItemCreateSerializer(many=True)`: формат існує й у продажу, `quantity >= 1`,
+   один формат — один рядок. Телефон — та сама `normalize_phone()`, що на сайті.
 2. `create_order()` — та сама функція, що на сайті: блокування книг
-   (`select_for_update`), перевірка залишку, ціни з каталогу, резерв, лист після COMMIT.
+   (`select_for_update`), перевірка залишку, ціни з каталогу, резерв лише паперових
+   примірників, лист після COMMIT.
 3. Не вистачає примірників → **400** `{"items": ["«Kobzar»: залишився лише 1 примірник, а ви замовили 3."]}`,
    нічого не збережено.
 4. **201** — замовлення у форматі `GET /api/orders/<id>/`.
@@ -329,9 +360,14 @@ POST /api/orders/
 |---|---|
 | перший з ключем | **201**, нове замовлення; ключ зберігається в `Order.idempotency_key` |
 | той самий ключ і те саме тіло | **201**, **те саме** замовлення + заголовок `Idempotent-Replayed: true`; нічого не створюється й не резервується, другого листа немає |
-| той самий ключ, інші книги чи адреса | **422**: ключ скопійовано замість нового — помилка клієнта |
+| той самий ключ, інші формати чи адреса | **422**: ключ скопійовано замість нового — помилка клієнта |
 | запит не вдався (400, не вистачає книг) | нічого не збережено, ключ теж: його можна надіслати знову |
 | без заголовка | як раніше, кожен запит — нове замовлення |
+
+«Те саме тіло» порівнюється так, як запит називає позиції: рядок `format_id` — з
+форматом позиції замовлення, рядок `book_id` — з її книгою
+(`OrderCreateSerializer.same_items()`). Формат для `book_id` обирається заново й
+міг змінитися між запитами, а книга та сама.
 
 ```python
 # orders/models.py — унікальність у базі, а не лише перевірка в коді

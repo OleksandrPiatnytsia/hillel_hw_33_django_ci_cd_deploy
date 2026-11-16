@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Bookstore\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-16 20:51+0000\n"
+"POT-Creation-Date: 2026-11-16 21:16+0000\n"
 "PO-Revision-Date: 2026-11-10 16:00+0200\n"
 "Last-Translator: Bookstore\n"
 "Language-Team: English\n"
@@ -27,50 +27,92 @@ msgid ""
 "for a new order."
 msgstr ""
 
-#: api/serializers/catalog.py:257
+#: api/serializers/catalog.py:136
 #, python-format
 msgid "The currency %(code)s is turned off."
 msgstr ""
 
-#: api/serializers/catalog.py:278 books/models.py:381 books/models.py:629
-msgid "Only a paper book has a cover type."
-msgstr ""
-
-#: api/serializers/catalog.py:283
-msgid "Only a paper book has copies in stock."
-msgstr ""
-
-#: api/serializers/catalog.py:301
+#: api/serializers/catalog.py:241
 msgid "Only users with the “manage stock” permission can change it."
 msgstr ""
 
-#: api/serializers/orders.py:191 api/views/catalog.py:157
-#, python-format
-msgid "“%(code)s” is not offered. Choose one of: %(offered)s."
+#: api/serializers/catalog.py:263
+msgid "The book of a format can't be changed."
 msgstr ""
 
-#: api/serializers/orders.py:214
-msgid "Every book may be in the list only once; use quantity."
+#: api/serializers/catalog.py:266
+msgid "The type of a format can't be changed; add a new format instead."
 msgstr ""
 
-#: api/serializers/orders.py:222 cart/views.py:45 cart/views.py:88
+#: api/serializers/catalog.py:271 books/models.py:381 books/models.py:629
+msgid "Only a paper book has a cover type."
+msgstr ""
+
+#: api/serializers/catalog.py:273 books/models.py:631
+msgid "An audiobook has no pages."
+msgstr ""
+
+#: api/serializers/catalog.py:275
+msgid "Only a paper book has copies in stock."
+msgstr ""
+
+#: api/serializers/catalog.py:278 books/models.py:616
+msgid "The book already has this format."
+msgstr ""
+
+#: api/serializers/orders.py:194
+msgid "Send “format_id” (or “book_id”)."
+msgstr ""
+
+#: api/serializers/orders.py:196
+msgid "Send either “format_id” or “book_id”, not both."
+msgstr ""
+
+#: api/serializers/orders.py:201 api/serializers/orders.py:210 cart/views.py:45
+#: cart/views.py:88
 #, python-format
 msgid "“%(title)s” is not on sale."
 msgstr ""
 
-#: api/views/catalog.py:139
+#: api/serializers/orders.py:217
+#, python-format
+msgid "“%(title)s” is sold in several formats (%(formats)s): send “format_id”."
+msgstr ""
+
+#: api/serializers/orders.py:261 api/views/catalog.py:142
+#, python-format
+msgid "“%(code)s” is not offered. Choose one of: %(offered)s."
+msgstr ""
+
+#: api/serializers/orders.py:285
+msgid "Every format may be in the list only once; use quantity."
+msgstr ""
+
+#: api/views/catalog.py:204
 msgid "The book is in orders and can't be deleted."
 msgstr ""
 
-#: api/views/catalog.py:223
+#: api/views/catalog.py:238
+msgid ""
+"The format is in orders and can't be deleted; turn it off instead "
+"(is_active: false)."
+msgstr ""
+
+#: api/views/catalog.py:257
+msgid ""
+"A book needs at least one format; turn this one off instead (is_active: "
+"false)."
+msgstr ""
+
+#: api/views/catalog.py:314
 msgid "The author has books and can't be deleted."
 msgstr ""
 
-#: api/views/catalog.py:236
+#: api/views/catalog.py:327
 msgid "The publisher has books and can't be deleted."
 msgstr ""
 
-#: api/views/catalog.py:249
+#: api/views/catalog.py:340
 msgid "The category has books and can't be deleted."
 msgstr ""
 
@@ -484,14 +526,6 @@ msgstr ""
 
 #: books/models.py:609
 msgid "book formats"
-msgstr ""
-
-#: books/models.py:616
-msgid "The book already has this format."
-msgstr ""
-
-#: books/models.py:631
-msgid "An audiobook has no pages."
 msgstr ""
 
 #: books/models.py:700

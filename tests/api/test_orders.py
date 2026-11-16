@@ -68,6 +68,11 @@ def test_customer_sees_only_own_orders_with_items(as_user, customer, other_custo
     assert order["items"] == [
         {
             "book": {"id": book.pk, "title": "Kobzar"},
+            "format": {
+                "id": book.formats.get().pk,
+                "format_type": "paper",
+                "format_type_display": "Паперова",
+            },
             "title": "Kobzar",
             "price": "250.50",
             "original_price": "250.50",

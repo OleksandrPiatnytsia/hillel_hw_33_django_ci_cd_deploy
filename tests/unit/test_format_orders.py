@@ -371,8 +371,10 @@ def test_low_stock_report_lists_only_books_sold_on_paper():
 
 
 # Generated with AI
-def test_api_order_of_a_book_takes_its_main_format(client, customer):
-    _book, paper, ebook = _two_formats(stock=0)
+def test_api_order_of_a_book_with_several_formats_needs_format_id(client, customer):
+    # The bridge of stage 3 (book_id -> main format) is gone: with two
+    # formats on sale the API doesn't choose for the client
+    _book, paper, _ebook = _two_formats(stock=0)
     client.force_login(customer)
 
     response = client.post(
@@ -381,8 +383,8 @@ def test_api_order_of_a_book_takes_its_main_format(client, customer):
         content_type="application/json",
     )
 
-    assert response.status_code == 201
-    assert OrderItem.objects.get().format == ebook
+    assert response.status_code == 400
+    assert not OrderItem.objects.exists()
 
 
 # Generated with AI
@@ -398,26 +400,6 @@ def test_api_order_of_a_book_not_on_sale_is_400(client, customer):
 
     assert response.status_code == 400
     assert "items" in response.json()
-
-
-# Generated with AI
-def test_api_book_of_a_file_type_can_not_get_copies(client, manager):
-    client.force_login(manager)
-
-    response = client.post(
-        "/api/books/",
-        {
-            "title": "Audio",
-            "author_id": BookFactory().author_id,
-            "price": "99.00",
-            "book_type": "audiobook",
-            "stock": 3,
-        },
-        content_type="application/json",
-    )
-
-    assert response.status_code == 400
-    assert "stock" in response.json()
 
 
 # ---------------------------------------------------------------------------

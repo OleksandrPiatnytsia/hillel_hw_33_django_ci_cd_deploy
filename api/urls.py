@@ -10,11 +10,14 @@
 
     /api/books/             books: list, create; ?filters, ?search, ?ordering
     /api/books/<pk>/        one book: read, update, delete
+    /api/formats/[<pk>/]    formats of the books (paper, e-book, audiobook):
+                            price, cover, pages, stock; ?book=<id>
     /api/authors/[<pk>/]    authors, the same actions
     /api/publishers/[<pk>/] publishers, the same actions
     /api/categories/[<pk>/] categories, the same actions
     /api/currencies/[<code>/] the currencies offered, with today's rate
     /api/orders/            my orders (staff: all); POST a new order with items
+                            (by format_id; book_id for a book with one format)
     /api/orders/<pk>/       one order
     /api/orders/<pk>/cancel/  POST: cancel my new unpaid order
 
@@ -36,7 +39,13 @@ from .views.auth import (
     PublicAPIRootView,
     ThrottledTokenObtainPairView,
 )
-from .views.catalog import AuthorViewSet, BookViewSet, CategoryViewSet, PublisherViewSet
+from .views.catalog import (
+    AuthorViewSet,
+    BookFormatViewSet,
+    BookViewSet,
+    CategoryViewSet,
+    PublisherViewSet,
+)
 from .views.currencies import CurrencyViewSet
 from .views.orders import OrderViewSet
 
@@ -52,6 +61,8 @@ router = Router()
 # register(prefix, ViewSet): /api/books/ and /api/books/<pk>/, URL names
 # "api:book-list" and "api:book-detail" (basename from the queryset model)
 router.register("books", BookViewSet)
+# "api:bookformat-list", "api:bookformat-detail"
+router.register("formats", BookFormatViewSet)
 router.register("authors", AuthorViewSet)
 router.register("publishers", PublisherViewSet)
 router.register("categories", CategoryViewSet)
