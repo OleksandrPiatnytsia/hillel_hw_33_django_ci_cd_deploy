@@ -3,7 +3,7 @@ from decimal import Decimal
 from django.core.management.base import BaseCommand
 from django.db import transaction
 
-from books.models import Author, Book, Category, Publisher
+from books.models import Author, Book, BookFormat, Category, Publisher
 from currencies.models import BASE_CURRENCY
 from inventory.services import set_stock
 
@@ -145,6 +145,8 @@ class Command(BaseCommand):
                 self.stdout.write(f"+ book {book}")
             elif self._fill_details(book, DETAILS.get(title)):
                 self.stdout.write(f"+ details of {book}")
+            if self._add_format(book):
+                self.stdout.write(f"+ format of {book}")
 
         self.stdout.write(
             self.style.SUCCESS(
@@ -153,6 +155,26 @@ class Command(BaseCommand):
                 f"{Book.objects.count()} books."
             )
         )
+
+    def _add_format(self, book):
+        """One format for a book that has none, from the book's own fields.
+
+        The same values as the data migration books.0014 gives the books
+        that existed before the formats: a new database (migrations first,
+        then seed_books) gets its demo books with formats too. A book that
+        already has a format keeps it. True if a format was created.
+        """
+        if book.formats.exists():
+            return False
+        paper = book.book_type == BookFormat.FormatType.PAPER
+        book.formats.create(
+            format_type=book.book_type,
+            price=book.price,
+            currency_id=book.currency_id,
+            cover_type=book.cover_type if paper else "",
+            pages=None if book.book_type == BookFormat.FormatType.AUDIOBOOK else book.pages,
+        )
+        return True
 
     def _fill_details(self, book, details):
         """Fill the details of the edition that the book doesn't have yet.

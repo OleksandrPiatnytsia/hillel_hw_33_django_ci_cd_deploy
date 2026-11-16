@@ -10,6 +10,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.utils.text import format_lazy
 from django.utils.translation import gettext_lazy as _
+from django.utils.translation import pgettext_lazy
 
 from currencies.models import BASE_CURRENCY
 
@@ -339,6 +340,117 @@ class Book(models.Model):
     @property
     def is_low_stock(self):
         return 0 < self.stock <= LOW_STOCK_THRESHOLD
+
+
+class BookFormat(models.Model):
+    """One way to buy a book: paper, e-book or audiobook, each with its own price.
+
+    The same book (title, author, description, publisher, language, year,
+    categories, cover image) is sold in up to three formats:
+
+        «Тигролови»  paper      450 UAH, hard cover, 320 pages
+                     ebook      199 UAH
+                     audiobook  249 UAH
+
+    The format is chosen on the book page before the cart and can be
+    changed in the cart. The price, the cover type and the pages belong to
+    the format: an e-book has no cover, a paper book costs more.
+
+    One format of a type per book (unique book + format_type). is_active:
+    the format is not sold now (sold out for good, rights expired), but
+    stays for the old orders.
+    """
+
+    class FormatType(models.TextChoices):
+        # The value is stored in the database and in the URL of the filter
+        # (?format=ebook); the label is shown on the format tiles.
+        # pgettext: the context "book format" gives these labels their own
+        # translations, short for a tile («Електронна»), while the same
+        # English "E-book" of Book.BookType stays «Електронна книга»
+        PAPER = "paper", pgettext_lazy("book format", "Paper")
+        EBOOK = "ebook", pgettext_lazy("book format", "E-book")
+        AUDIOBOOK = "audiobook", pgettext_lazy("book format", "Audiobook")
+
+    book = models.ForeignKey(
+        Book,
+        verbose_name=_("book"),
+        # CASCADE: the formats of a deleted book mean nothing. A book with
+        # orders can't be deleted anyway (OrderItem.book is PROTECT)
+        on_delete=models.CASCADE,
+        related_name="formats",  # book.formats.all()
+    )
+    format_type = models.CharField(_("format"), max_length=10, choices=FormatType.choices)
+    price = models.DecimalField(
+        _("price"),
+        max_digits=10,
+        decimal_places=2,
+        validators=[MinValueValidator(Decimal("0.00"))],
+    )
+    # The currency of the price, like Book.currency: a paper book in UAH,
+    # its e-book in USD is allowed
+    currency = models.ForeignKey(
+        "currencies.Currency",
+        verbose_name=_("currency"),
+        on_delete=models.PROTECT,
+        default=BASE_CURRENCY,
+        related_name="book_formats",  # currency.book_formats.all()
+    )
+    # Only for the paper format (see clean()); empty = not known
+    cover_type = models.CharField(
+        _("cover"), max_length=11, choices=Book.CoverType.choices, blank=True
+    )
+    # Paper and e-book; an audiobook has hours, not pages (not stored)
+    pages = models.PositiveSmallIntegerField(
+        _("pages"),
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(1), MaxValueValidator(10000)],
+    )
+    is_active = models.BooleanField(
+        _("on sale"),
+        default=True,
+        help_text=_("Turn off to stop selling this format; old orders keep it."),
+    )
+
+    class Meta:
+        # Paper first, then e-book, then audiobook: the order of the tiles
+        # on the book page. Alphabetical order of the values would put the
+        # audiobook first. "book_id", not "book": "book" would sort by the
+        # ordering of Book (its title) through a JOIN.
+        ordering = [
+            "book_id",
+            models.Case(
+                models.When(format_type="paper", then=0),
+                models.When(format_type="ebook", then=1),
+                default=2,
+            ),
+        ]
+        verbose_name = _("book format")
+        verbose_name_plural = _("book formats")
+        constraints = [
+            # One paper format per book, one e-book, one audiobook: two
+            # "paper" rows would have two prices for the same thing
+            models.UniqueConstraint(
+                fields=["book", "format_type"],
+                name="unique_book_format_type",
+                violation_error_message=_("The book already has this format."),
+            ),
+        ]
+
+    def __str__(self):
+        # book.title, not str(book): str(book) also needs the author
+        return f"{self.book.title} — {self.get_format_type_display()}"
+
+    def clean(self):
+        # The same rule as Book.clean(): a cover is a part of a printed book
+        super().clean()
+        errors = {}
+        if self.cover_type and self.format_type != self.FormatType.PAPER:
+            errors["cover_type"] = _("Only a paper book has a cover type.")
+        if self.pages and self.format_type == self.FormatType.AUDIOBOOK:
+            errors["pages"] = _("An audiobook has no pages.")
+        if errors:
+            raise ValidationError(errors)
 
 
 class BookCategory(models.Model):

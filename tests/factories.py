@@ -3,6 +3,7 @@
     BookFactory()                       a book with a new author, 10 in stock
     BookFactory(stock=0, price="99.90") override any field (stock: a Stock row)
     BookFactory(categories=[fiction])   ManyToMany through BookCategory
+    BookFormatFactory(book=book, format_type="ebook")   one more format of a book
     UserFactory(groups=["Managers"])    groups by name (made by migrations)
     OrderFactory(user=ann, items=[(book, 2)])   an order with its lines and total
 
@@ -18,7 +19,7 @@ import factory
 from django.contrib.auth.models import Group
 from factory.django import DjangoModelFactory, Password
 
-from books.models import Author, Book, Category
+from books.models import Author, Book, BookFormat, Category
 from inventory.services import set_stock
 from orders.models import Order, OrderItem
 from payments.models import Payment
@@ -103,6 +104,17 @@ class BookFactory(DjangoModelFactory):
         if not create or not extracted:
             return
         self.categories.add(*extracted)
+
+
+class BookFormatFactory(DjangoModelFactory):
+    """BookFormatFactory(book=book, format_type="ebook", price="199.00")."""
+
+    class Meta:
+        model = BookFormat
+
+    book = factory.SubFactory(BookFactory)
+    format_type = BookFormat.FormatType.PAPER
+    price = Decimal("250.00")
 
 
 class OrderFactory(DjangoModelFactory):

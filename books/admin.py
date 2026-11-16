@@ -5,7 +5,7 @@ from django.utils.translation import gettext_lazy as _
 
 from inventory.models import Stock
 
-from .models import Author, Book, BookCategory, BookQuerySet, Category, Publisher
+from .models import Author, Book, BookCategory, BookFormat, BookQuerySet, Category, Publisher
 
 # ---------------------------------------------------------------------------
 # Inlines
@@ -60,6 +60,26 @@ class StockInline(admin.TabularInline):
         if obj is None:
             return False
         return super().has_add_permission(request, obj)
+
+
+class BookFormatInline(admin.TabularInline):
+    """Formats of the book (paper, e-book, audiobook) with their prices, on the Book page.
+
+    One row per format. BookFormat.clean() refuses a cover for a non-paper
+    format and pages for an audiobook; the unique (book, format_type)
+    constraint refuses a second row of the same format.
+    Rights: books.add/change/delete_bookformat (Editors and Managers).
+    """
+
+    model = BookFormat
+    fields = ["format_type", "price", "currency", "cover_type", "pages", "is_active"]
+    verbose_name = _("format")
+    verbose_name_plural = _("formats")
+
+    def get_extra(self, request, obj=None, **kwargs):
+        # A new book (obj is None): one empty row to fill; an existing book:
+        # only its formats, "Add another" for one more
+        return 1 if obj is None else 0
 
 
 # ---------------------------------------------------------------------------
@@ -170,7 +190,7 @@ class BookAdmin(admin.ModelAdmin):
     # (needs search_fields in AuthorAdmin and PublisherAdmin)
     autocomplete_fields = ["author", "publisher"]
     readonly_fields = ["cover_preview", "created_at", "updated_at"]
-    inlines = [StockInline, BookCategoryInline]
+    inlines = [BookFormatInline, StockInline, BookCategoryInline]
     fieldsets = [
         (None, {"fields": ["title", "author", "description"]}),
         # The edition; tuples = fields on one line
