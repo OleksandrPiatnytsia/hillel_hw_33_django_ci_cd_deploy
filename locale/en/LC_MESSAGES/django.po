@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Bookstore\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-16 22:04+0000\n"
+"POT-Creation-Date: 2026-11-16 22:09+0000\n"
 "PO-Revision-Date: 2026-11-10 16:00+0200\n"
 "Last-Translator: Bookstore\n"
 "Language-Team: English\n"
@@ -667,24 +667,19 @@ msgstr ""
 msgid "No description yet."
 msgstr ""
 
-#: books/templates/books/book_detail.html:126
-#, python-format
-msgid "Added %(added)s · updated %(updated)s"
-msgstr ""
-
-#: books/templates/books/book_detail.html:134 templates/403.html:27
+#: books/templates/books/book_detail.html:127 templates/403.html:27
 #: templates/404.html:20 templates/500.html:42
 msgid "Back to catalog"
 msgstr ""
 
-#: books/templates/books/book_detail.html:138
+#: books/templates/books/book_detail.html:131
 #: books/templates/books/book_form.html:18
 #: users/templates/users/profile.html:51
 #: users/templates/users/profile_edit.html:12
 msgid "Edit"
 msgstr ""
 
-#: books/templates/books/book_detail.html:141
+#: books/templates/books/book_detail.html:134
 msgid "Delete"
 msgstr ""
 

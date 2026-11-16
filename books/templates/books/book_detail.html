@@ -120,13 +120,6 @@
     {% endif %}
 
     {% include "books/includes/book_details.html" %}
-
-    <p class="small text-body-secondary mb-0">
-      {# Filters are not allowed inside blocktranslate: "with" applies them first #}
-      {% blocktranslate trimmed with added=book.created_at|date:"d.m.Y H:i" updated=book.updated_at|date:"d.m.Y H:i" %}
-        Added {{ added }} · updated {{ updated }}
-      {% endblocktranslate %}
-    </p>
     {% endcache %}
   </div>
 
