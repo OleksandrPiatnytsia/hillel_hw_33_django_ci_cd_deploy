@@ -147,8 +147,10 @@ def test_book_list_panel_has_a_folding_block_per_filter_with_chosen_boxes(client
 
     html = client.get(reverse("books:list"), {"author": shevchenko.pk, "stock": "low"}).text
 
-    for name in ("q", "category", "author", "stock", "price"):
+    for name in ("category", "author", "stock", "price"):
         assert f'data-bs-target="#filter-{name}"' in html
+    # The text search is the one in the navbar, not a block of the panel
+    assert 'data-bs-target="#filter-q"' not in html
     assert f'type="checkbox" name="author" value="{shevchenko.pk}" class="form-check-input"' in html
     assert re.search(rf'value="{shevchenko.pk}"[^>]*checked', html)
     assert re.search(r'type="radio" name="stock" value="low"[^>]*checked', html)
@@ -157,6 +159,13 @@ def test_book_list_panel_has_a_folding_block_per_filter_with_chosen_boxes(client
     assert html.count("data-show-all") == 1
     assert "js/filter_panel.js" in html
     assert "<noscript>" in html  # "Apply" without JavaScript
+
+
+def test_book_list_panel_keeps_the_search_of_the_navbar(client):
+    """A checkbox sends the panel form: the ?q= of the navbar must go with it."""
+    html = client.get(reverse("books:list"), {"q": "kobzar"}).text
+
+    assert '<input type="hidden" name="q" value="kobzar">' in html
 
 
 def test_book_list_sorts_by_price(client):

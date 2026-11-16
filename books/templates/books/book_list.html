@@ -19,8 +19,8 @@
   {# ---------- Filters (sidebar) ---------- #}
   {# One GET form (filters are part of the URL: the page can be bookmarked). #}
   {# Every block folds; a checkbox or a radio sends the form at once #}
-  {# (static/js/filter_panel.js), the search and the price wait for Enter or #}
-  {# their button. Without JavaScript: the "Apply" button in <noscript>. #}
+  {# (static/js/filter_panel.js), the price waits for its button. The text #}
+  {# search is the one in the navbar. Without JavaScript: the "Apply" button in <noscript>. #}
   <aside class="col-lg-3">
     <form class="card shadow-sm filters-sidebar" method="get" action="{% url 'books:list' %}"
           data-filter-form>
@@ -36,15 +36,17 @@
         {% if not out_last %}
           <input type="hidden" name="out_last" value="0">
         {% endif %}
+        {# The text of the search in the navbar (?q=): a checkbox keeps it; #}
+        {# it is removed by its chip above the list #}
+        {% if filter_form.q.value %}
+          <input type="hidden" name="q" value="{{ filter_form.q.value }}">
+        {% endif %}
 
         {% if filter_form.non_field_errors %}
           <div class="alert alert-danger py-2 small mt-3 mb-0">
             {% for error in filter_form.non_field_errors %}{{ error }}{% endfor %}
           </div>
         {% endif %}
-
-        {% translate "Search" as search_label %}
-        {% include "books/includes/filter_section.html" with name="q" label=search_label body="books/includes/search_filter.html" field=None %}
 
         {# The blocks in the order of the filters (books/filters.py): a new #}
         {# checkbox filter there appears here by itself #}

@@ -1,8 +1,8 @@
 // The filter panel of the catalog (books/book_list.html, filter_section.html).
 //
 // - a checkbox or a radio button sends the form at once (no "Apply");
-//   the search and the price wait for Enter or their own button;
-// - empty fields are not sent: "?q=&price_min=" would only make the URL
+//   the price waits for its own button;
+// - empty fields are not sent: "?price_min=&price_max=" would only make the URL
 //   and the links of the chips longer;
 // - a long list shows its first 5 options (and every chosen one) and a
 //   "Show all" button; the search box above it hides the options that

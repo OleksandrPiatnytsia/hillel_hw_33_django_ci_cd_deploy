@@ -1981,7 +1981,3 @@ msgstr "Показати всі"
 #: books/templates/books/includes/filter_section.html
 msgid "Show less"
 msgstr "Згорнути"
-
-#: books/templates/books/includes/search_filter.html
-msgid "Find"
-msgstr "Знайти"
