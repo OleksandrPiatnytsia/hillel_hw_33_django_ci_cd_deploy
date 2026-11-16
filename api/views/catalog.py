@@ -101,7 +101,8 @@ class LoggedModelViewSet(viewsets.ModelViewSet):
 class BookViewSet(LoggedModelViewSet):
     """Books of the catalog.
 
-    Filters (api.filters.BookFilter): ?category=<slug>, ?author=<id>,
+    Filters (api.filters.BookFilter): ?category=<slug>, ?author=<id> (both
+    may repeat: ?author=1&author=5),
     ?price_min=, ?price_max=, ?stock=in_stock|low|out.
     ?search=kobz  — in the title and the author's name.
     ?ordering=price | -price | title | -created_at | author__name.

@@ -1,18 +1,17 @@
 """Filters of the catalog API (django-filter) and a stable ordering.
 
 A FilterSet turns GET parameters into .filter() calls:
-    /api/books/?category=fantasy&price_min=100&stock=in_stock
+    /api/books/?category=fantasy&author=3&author=7&price_min=100&stock=in_stock
 Unknown parameters are ignored; a wrong value (?price_min=abc,
 ?category=no-such-slug) -> 400 with the error of the parameter.
 """
 
-import django_filters
 from django import forms
 from django.db.models import F
 from django.utils.translation import gettext_lazy as _
 from rest_framework.filters import OrderingFilter
 
-from books.models import Author, Book, BookQuerySet, Category
+import books.filters
 
 
 class BookFilterForm(forms.Form):
@@ -35,11 +34,12 @@ class BookFilterForm(forms.Form):
         return cleaned_data
 
 
-class BookFilter(django_filters.FilterSet):
-    """The same filters as the catalog page of the site (books.forms.BookFilterForm).
+class BookFilter(books.filters.BookFilter):
+    """The same filters as the catalog page of the site (books/filters.py).
 
-    ?category=<slug>      books of a category (slug, like on the site)
-    ?author=<id>          books of an author
+    ?category=<slug>      books of a category (slug, like on the site);
+                          several: ?category=poetry&category=prose (or)
+    ?author=<id>          books of an author; several: ?author=1&author=5
     ?price_min= / ?price_max=   price range, both ends included, in the
                           currency of ?currency= (display_price, UAH by
                           default): books of every currency are compared
@@ -48,33 +48,8 @@ class BookFilter(django_filters.FilterSet):
     SearchFilter / OrderingFilter in the ViewSet.
     """
 
-    category = django_filters.ModelChoiceFilter(
-        field_name="categories",
-        queryset=Category.objects.all(),
-        to_field_name="slug",
-    )
-    author = django_filters.ModelChoiceFilter(queryset=Author.objects.all())
-    # display_price: the annotation of BookViewSet (the converted price)
-    price_min = django_filters.NumberFilter(
-        field_name="display_price", lookup_expr="gte", min_value=0
-    )
-    price_max = django_filters.NumberFilter(
-        field_name="display_price", lookup_expr="lte", min_value=0
-    )
-    stock = django_filters.ChoiceFilter(
-        choices=BookQuerySet.STOCK_STATUS_CHOICES,
-        method="filter_stock",
-    )
-
-    class Meta:
-        model = Book
-        fields = ["category", "author", "price_min", "price_max", "stock"]
+    class Meta(books.filters.BookFilter.Meta):
         form = BookFilterForm
-
-    def filter_stock(self, queryset, name, value):
-        # method=: our own filtering instead of field_name + lookup_expr;
-        # the rule "low = 1..5" lives in one place, the model's queryset
-        return queryset.by_stock_status(value)
 
 
 class StableOrderingFilter(OrderingFilter):
