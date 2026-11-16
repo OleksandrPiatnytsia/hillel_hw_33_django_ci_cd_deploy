@@ -651,7 +651,8 @@ def test_book_page_details_list_the_formats_and_the_paper_cover(client):
     content = _page(client, book, "en")
 
     details = content.split("book-details")[1].split("</dl>")[0]
-    for text in ["Formats", "Paper, E-book", "Hardcover", "320"]:
+    # Every format on sale is its own chip (a link to the filtered catalog)
+    for text in ["Formats", ">Paper</a>", ">E-book</a>", ">Hardcover</a>", "320"]:
         assert text in details, text
 
 

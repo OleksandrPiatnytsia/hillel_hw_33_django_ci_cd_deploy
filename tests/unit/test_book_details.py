@@ -373,6 +373,42 @@ def test_book_page_hides_unknown_details(client):
 
 
 # Generated with AI
+def test_book_page_details_are_chips_that_open_the_filtered_catalog(client):
+    publisher = Publisher.objects.get(name="Фоліо")
+    book = BookFactory(
+        publisher=publisher, cover_type="hard", language="en", publication_year=2017, pages=224
+    )
+    catalog = reverse("books:list")
+
+    content = _page(client, book, "uk")
+
+    # Every value with a filter of the catalog: a chip with its GET parameters
+    for query, label in [
+        (f"publisher={publisher.pk}", "Фоліо"),
+        ("book_type=paper", "Паперова"),
+        ("cover_type=hard", "Тверда"),
+        ("language=en", "Англійська"),
+        ("year_min=2017&amp;year_max=2017", "2017"),
+    ]:
+        assert f'<a class="filter-chip" href="{catalog}?{query}">{label}</a>' in content, label
+    # The pages have no filter: plain text
+    assert '<dd class="col-sm-8 col-lg-9">224</dd>' in content
+
+
+# Generated with AI
+def test_a_details_chip_opens_the_catalog_with_only_the_matching_books(client):
+    BookFactory(title="Old", publication_year=2001, language="uk")
+    book = BookFactory(title="New", publication_year=2017, language="en")
+
+    for query in ["year_min=2017&year_max=2017", "language=en", "book_type=paper"]:
+        response = client.get(f"{reverse('books:list')}?{query}")
+        titles = [item.title for item in response.context["books"]]
+        assert book.title in titles, query
+        if query != "book_type=paper":  # both are paper books
+            assert "Old" not in titles, query
+
+
+# Generated with AI
 def test_a_renamed_publisher_is_shown_on_the_book_page_at_once(client):
     publisher = Publisher.objects.create(name="Old name")
     book = BookFactory(publisher=publisher)
