@@ -18,7 +18,8 @@ Redis, Celery, nginx). У цьому ДЗ:
   захищені cookies, HSTS, `DATABASE_URL` і `REDIS_URL` (див. «Налаштування»);
 - **деплой на Railway**: web (gunicorn + uvicorn), worker (Celery з Beat), Flower,
   PostgreSQL, Redis, Volume для обкладинок; статика через **WhiteNoise**,
-  перевірка здоров'я `/health/` (див. «Деплой на Railway»);
+  перевірка здоров'я `/health/`; у футері версія сайту і задеплоєний коміт
+  (див. «Деплой на Railway»);
 - **валюти**: курси НБУ з історією (Celery Beat), ціна книги в будь-якій
   валюті, перемикач валюти на сайті, замовлення й оплата Stripe у вибраній
   валюті, валюти в API (див. «Валюти»);
@@ -31,7 +32,7 @@ Redis, Celery, nginx). У цьому ДЗ:
   (див. «Моделі», «Фільтри каталогу»);
 - єдиний стиль коду: black + flake8 (`pyproject.toml`, `.flake8`), перевіряються
   ще до коміту хуком pre-commit (`.pre-commit-config.yaml`);
-- 664 тести, покриття 98.87%.
+- 671 тест, покриття 98.87%.
 
 ## Стек
 
@@ -437,6 +438,8 @@ config/
 │   ├── development.py       # runserver: DEBUG, Debug Toolbar (типово для manage.py)
 │   ├── production.py        # Docker і Railway: без DEBUG, HTTPS, WhiteNoise (типово для asgi/wsgi/celery)
 │   └── test.py              # pytest: швидкий хеш паролів, LocMemCache, без файлу логів
+├── version.py               # __version__ (вручну) і deployed_commit() (від Railway)
+├── context_processors.py    # app_version і app_commit для футера
 ├── env.py                   # env_bool(), env_list(), DATABASE_URL або POSTGRES_*, redis_url()
 ├── uvicorn_worker.py        # воркер gunicorn: uvicorn без подій lifespan
 ├── urls.py                  # admin + books + accounts/ + cart/ + orders/ + payments/ + api/ + health/ + sentry-debug/ + i18n/
@@ -1659,12 +1662,12 @@ open htmlcov/index.html               # непокриті рядки підсв
 
 | | Кількість | Що перевіряють |
 |---|---|---|
-| `tests/unit/` | 446 | одна функція, модель, форма або один запит; склад, валюти й курси, задачі Celery, Sentry, налаштування production, gunicorn |
+| `tests/unit/` | 453 | одна функція, модель, форма або один запит; склад, валюти й курси, задачі Celery, Sentry, налаштування production, gunicorn, версія у футері |
 | `tests/integration/` | 86 | сценарії з кількох кроків: кошик → замовлення → Stripe → webhook → лист; оплата у валюті; кеш |
 | `tests/api/` | 125 | REST API через `APIClient`: токени, права кожної ролі, фільтри, валюти, замовлення, CORS, throttling, кеш |
 | `tests/test_setup.py` | 7 | сама інфраструктура: налаштування, фабрики, фейки |
 
-Покриття **98.87%** (664 тести); `--cov-fail-under=70` у `pytest.ini`: якщо покриття впаде
+Покриття **98.87%** (671 тест); `--cov-fail-under=70` у `pytest.ini`: якщо покриття впаде
 нижче 70%, `pytest` завершиться з помилкою. Ті самі тести запускає CI на кожен push
 і pull request, а звіт `htmlcov` лежить в артефактах запуску (див. «CI/CD»).
 
@@ -2153,8 +2156,22 @@ python manage.py update_exchange_rates             # курси одразу, н
   Railway перед цим має бути порожнім (інакше `id` перетнуться). Після
   завантаження варто очистити кеш (`cache.clear()`).
 
+**Версія у футері.** Внизу кожної сторінки:
+`Книгарня · домашнє завдання Hillel з Django · v1.0.0 (335de9f)`.
+
+- `v1.0.0` — `__version__` у `config/version.py`, змінюється вручну раз на
+  реліз (pull request у `main`): PATCH — виправлення, MINOR — нова можливість,
+  MAJOR — зміна, що ламає старе (наприклад, API).
+- `(335de9f)` — перші 7 символів задеплоєного коміту, посилання на нього в
+  GitHub. Railway сам дає кожному деплою з GitHub змінну
+  `RAILWAY_GIT_COMMIT_SHA`; деінде її можна задати як `APP_COMMIT`. Без змінної
+  (локальний Docker, `runserver`) видно лише версію.
+- Після злиття в `main` коміт у футері змінюється навіть тоді, коли версію не
+  піднімали, тож одразу видно, що новий код уже на сайті.
+
 **Перевірка після деплою:**
 
+- у футері коміт збігається з останнім комітом `main` (`git log -1 --oneline origin/main`);
 - `https://<домен>/health/` → `{"status": "ok", "database": "ok", "cache": "ok"}`;
 - логи worker: `celery@... ready.`, `beat: Starting...`, `mingle: all alone`;
 - `https://<домен flower>/` питає логін; після входу у Workers видно `celery@...`

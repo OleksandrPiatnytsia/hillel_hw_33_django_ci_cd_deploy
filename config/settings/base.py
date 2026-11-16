@@ -30,6 +30,7 @@ from django.utils.translation import gettext_lazy as _
 from dotenv import load_dotenv
 
 from config.env import database_settings, env_list, redis_url
+from config.version import __version__, deployed_commit
 
 # The project folder (the one with manage.py): config/settings/base.py is
 # three levels below it. Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -151,6 +152,8 @@ TEMPLATES = [
                 # "display_currency" and "currency_choices": the currency
                 # switcher in the navbar
                 "currencies.context_processors.currency",
+                # "app_version" and "app_commit": the footer of base.html
+                "config.context_processors.version",
             ],
         },
     },
@@ -158,6 +161,13 @@ TEMPLATES = [
 
 # runserver and `manage.py` use WSGI; Docker runs the ASGI application
 # (config/asgi.py) with gunicorn + uvicorn workers: see the Dockerfile
+# The version in the footer (config/version.py): the number written by hand
+# and the deployed commit, which Railway gives as RAILWAY_GIT_COMMIT_SHA
+APP_VERSION = __version__
+APP_COMMIT = deployed_commit()
+# The commit in the footer links to it on GitHub
+APP_REPOSITORY_URL = "https://github.com/OleksandrPiatnytsia/hillel_hw_33_django_ci_cd_deploy"
+
 WSGI_APPLICATION = "config.wsgi.application"
 ASGI_APPLICATION = "config.asgi.application"
 

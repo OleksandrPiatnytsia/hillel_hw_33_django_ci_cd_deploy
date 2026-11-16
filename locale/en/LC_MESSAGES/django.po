@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Bookstore\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-16 19:02+0000\n"
+"POT-Creation-Date: 2026-11-16 19:55+0000\n"
 "PO-Revision-Date: 2026-11-10 16:00+0200\n"
 "Last-Translator: Bookstore\n"
 "Language-Team: English\n"
@@ -359,11 +359,11 @@ msgstr ""
 msgid "Dust jacket"
 msgstr ""
 
-#: books/models.py:183 config/settings/base.py:369
+#: books/models.py:183 config/settings/base.py:379
 msgid "Ukrainian"
 msgstr ""
 
-#: books/models.py:184 config/settings/base.py:370
+#: books/models.py:184 config/settings/base.py:380
 msgid "English"
 msgstr ""
 
@@ -1867,6 +1867,14 @@ msgstr ""
 
 #: templates/base.html:34
 msgid "Bookstore · Hillel Django homework"
+msgstr ""
+
+#: templates/base.html:38
+msgid "Version of the site"
+msgstr ""
+
+#: templates/base.html:40
+msgid "Deployed commit"
 msgstr ""
 
 #: templates/includes/navbar.html:31
