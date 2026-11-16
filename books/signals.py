@@ -7,6 +7,7 @@ changes must delete them:
 
     Book saved / deleted                -> that book
     Author saved (name)                 -> all books of the author
+    Publisher saved (name)              -> all books of the publisher
     Category saved / deleted (name)     -> all books of the category
     Book <-> Category link changed      -> that book (or the books of
       (form, admin inline, .add())         the category, from its side)
@@ -21,7 +22,7 @@ from django.db.models.signals import m2m_changed, post_delete, post_save
 from django.dispatch import receiver
 
 from .cache import invalidate_books
-from .models import Author, Book, BookCategory, Category
+from .models import Author, Book, BookCategory, Category, Publisher
 
 
 @receiver([post_save, post_delete], sender=Book)
@@ -34,6 +35,13 @@ def author_changed(sender, instance, **kwargs):
     # values_list: only the ids, one small query. An author with books
     # can't be deleted (PROTECT), so post_delete has nothing to clean.
     invalidate_books(instance.books.values_list("pk", flat=True), "Author saved")
+
+
+@receiver(post_save, sender=Publisher)
+def publisher_changed(sender, instance, **kwargs):
+    # The same as the author: the name is shown on the book page. A
+    # publisher with books can't be deleted (PROTECT)
+    invalidate_books(instance.books.values_list("pk", flat=True), "Publisher saved")
 
 
 @receiver([post_save, post_delete], sender=Category)
