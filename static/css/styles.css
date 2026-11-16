@@ -95,6 +95,17 @@ main {
     }
 }
 
+/* ---------- The catalog results while the new list loads (catalog_live.js) ---------- */
+
+.catalog-results {
+    transition: opacity 0.15s;
+}
+
+.catalog-results[aria-busy="true"] {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
 /* ---------- Blocks of the filter panel (filter_section.html) ---------- */
 
 .filter-section + .filter-section {

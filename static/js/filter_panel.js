@@ -81,6 +81,9 @@
     };
 
     more.addEventListener("click", () => { expanded = !expanded; paint(); });
+    // New values from the server (static/js/catalog_live.js): a ticked
+    // option must not stay hidden after "Show all" was closed
+    form.addEventListener("catalog:updated", paint);
     search.addEventListener("input", paint);
     // Enter in the search box of a list must not send the form
     search.addEventListener("keydown", (event) => {

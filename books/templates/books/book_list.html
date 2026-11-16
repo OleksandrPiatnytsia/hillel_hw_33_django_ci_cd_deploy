@@ -42,11 +42,14 @@
           <input type="hidden" name="q" value="{{ filter_form.q.value }}">
         {% endif %}
 
-        {% if filter_form.non_field_errors %}
-          <div class="alert alert-danger py-2 small mt-3 mb-0">
-            {% for error in filter_form.non_field_errors %}{{ error }}{% endfor %}
-          </div>
-        {% endif %}
+        {# Always there (empty without errors): catalog_live.js puts the new errors in #}
+        <div data-form-errors>
+          {% if filter_form.non_field_errors %}
+            <div class="alert alert-danger py-2 small mt-3 mb-0">
+              {% for error in filter_form.non_field_errors %}{{ error }}{% endfor %}
+            </div>
+          {% endif %}
+        </div>
 
         {# The blocks in the order of the filters (books/filters.py): a new #}
         {# checkbox filter there appears here by itself #}
@@ -70,7 +73,9 @@
   </aside>
 
   {# ---------- Results ---------- #}
-  <section class="col-lg-9">
+  {# data-catalog-results: the part static/js/catalog_live.js replaces #}
+  {# after a filter, a chip, the sort or a page (no page reload) #}
+  <section class="col-lg-9 catalog-results" data-catalog-results>
     {# The active filters: one chip per chosen value, "x" removes only it #}
     {% if filter_chips %}
       <div class="d-flex flex-wrap align-items-center gap-2 mb-3 filter-chips">
@@ -231,4 +236,6 @@
   <script src="{% static 'js/auto_submit.js' %}" defer></script>
   <script src="{% static 'js/price_range.js' %}" defer></script>
   <script src="{% static 'js/filter_panel.js' %}" defer></script>
+  {# After the two above: it uses their "formdata" and "input" listeners #}
+  <script src="{% static 'js/catalog_live.js' %}" defer></script>
 {% endblock %}

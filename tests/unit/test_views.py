@@ -158,6 +158,11 @@ def test_book_list_panel_has_a_folding_block_per_filter_with_chosen_boxes(client
     assert html.count("data-option-search") == 1
     assert html.count("data-show-all") == 1
     assert "js/filter_panel.js" in html
+    # No reload: the script replaces [data-catalog-results] and puts the
+    # new errors of the form into [data-form-errors] (always on the page)
+    assert "js/catalog_live.js" in html
+    assert "data-catalog-results" in html
+    assert "<div data-form-errors>" in html
     assert "<noscript>" in html  # "Apply" without JavaScript
 
 
