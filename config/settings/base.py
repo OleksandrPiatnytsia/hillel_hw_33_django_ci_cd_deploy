@@ -231,6 +231,14 @@ CACHES = {
     "default": {
         "BACKEND": "django.core.cache.backends.redis.RedisCache",
         "LOCATION": redis_url(REDIS_URL, 0),
+        # Every deploy starts with its own, empty set of keys: the prefix is
+        # the deployed commit (APP_COMMIT, see config/version.py). Otherwise
+        # the new code would read what the old code cached: HTML fragments of
+        # the old templates and pickled Book objects of the old model, for up
+        # to BOOK_CACHE_TIMEOUT after the deploy. The old keys simply expire.
+        # Sessions are not lost: cached_db reads them from the database on a
+        # cache miss. No commit (runserver, local Docker): no prefix.
+        "KEY_PREFIX": APP_COMMIT[:7],
     }
 }
 

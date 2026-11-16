@@ -20,10 +20,11 @@ from django.urls import reverse
 from django.utils import timezone, translation
 
 from books.cache import book_key, get_cached_book
-from books.forms import BookForm
+from books.forms import BookForm, BookFormatForm
 from books.models import Book, Publisher
 
 from ..factories import AuthorFactory, BookFactory
+from ..helpers import format_row
 
 pytestmark = pytest.mark.django_db
 
@@ -274,10 +275,7 @@ def _form_data(**changes):
     data = {
         "title": "Kobzar",
         "author": AuthorFactory().pk,
-        "price": "250.00",
-        "currency": "UAH",
         "description": "",
-        "book_type": "paper",
     }
     return {**data, **changes}
 
@@ -285,33 +283,30 @@ def _form_data(**changes):
 # Generated with AI
 def test_book_form_saves_the_details():
     publisher = Publisher.objects.get(name="Ранок")
-    form = BookForm(
-        data=_form_data(
-            publisher=publisher.pk,
-            cover_type="soft",
-            language="pl",
-            publication_year="2015",
-            pages="120",
-        )
-    )
+    form = BookForm(data=_form_data(publisher=publisher.pk, language="pl", publication_year="2015"))
 
     assert form.is_valid(), form.errors
-    book = form.save()
+    # The price is set from the formats by the view (BookFormatsMixin)
+    book = form.save(commit=False)
+    book.price = 1
+    book.save()
 
-    assert (book.publisher, book.cover_type, book.language) == (publisher, "soft", "pl")
-    assert (book.publication_year, book.pages) == (2015, 120)
-
-
-# Generated with AI
-def test_book_form_details_are_optional_except_the_type():
-    form = BookForm(data=_form_data(book_type=""))
-
-    assert list(form.errors) == ["book_type"]
+    assert (book.publisher, book.language, book.publication_year) == (publisher, "pl", 2015)
 
 
 # Generated with AI
-def test_book_form_shows_the_cover_error_of_an_ebook_under_the_cover_field():
-    form = BookForm(data=_form_data(book_type="ebook", cover_type="hard"))
+def test_book_form_details_are_optional():
+    form = BookForm(data=_form_data())
+
+    assert form.is_valid(), form.errors
+    # The type, the cover and the pages belong to a format now
+    for name in ["book_type", "cover_type", "pages", "price", "currency"]:
+        assert name not in form.fields, name
+
+
+# Generated with AI
+def test_format_form_shows_the_cover_error_of_an_ebook_under_the_cover_field():
+    form = BookFormatForm(data=format_row("ebook", cover_type="hard"))
 
     assert list(form.errors) == ["cover_type"]
 
@@ -345,8 +340,12 @@ def test_book_form_page_has_the_details_block(manager_client):
     assert "<fieldset" in content
     for field in BookForm.DETAIL_FIELDS:
         assert f'name="{field}"' in content, field
-    # The cover after the details
-    assert content.index('name="pages"') < content.index('name="cover"')
+    # The details, then the formats, then the cover
+    assert (
+        content.index('name="publication_year"')
+        < content.index('name="formats-0-format_type"')
+        < content.index('name="cover"')
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -375,7 +374,7 @@ def test_book_page_shows_the_details_in_the_language_of_the_site(client):
 
     # Another cached fragment for English: the labels are English
     content = _page(client, book, "en")
-    for text in ["Details", "Hardcover", "English", "Paper book"]:
+    for text in ["Details", "Hardcover", "English", "Formats", "Paper"]:
         assert text in content, text
 
 
@@ -385,8 +384,8 @@ def test_book_page_hides_unknown_details(client):
 
     content = _page(client, book, "en")
 
-    # Only the type: the other details are not known
-    assert "Paper book" in content
+    # Only the formats: the other details are not known
+    assert '<dt class="col-sm-4 col-lg-3">Formats</dt>' in content
     for text in ["Publisher", "Publication year", "Pages"]:
         assert f'<dt class="col-sm-4 col-lg-3">{text}</dt>' not in content, text
 
@@ -522,7 +521,7 @@ def test_catalog_panel_offers_only_the_values_books_have(client, editions):
 def test_catalog_panel_has_the_blocks_in_the_language_of_the_site(client, editions):
     content = _catalog(client).content.decode()
 
-    for text in ["Видавництво", "Мова", "Тип книги", "Обкладинка", "Рік видання", "Тверда"]:
+    for text in ["Видавництво", "Мова", "Формат", "Обкладинка", "Рік видання", "Тверда"]:
         assert text in content, text
     # The year block: the oldest and the newest edition as hints
     assert 'placeholder="2010"' in content and 'placeholder="2022"' in content
@@ -530,7 +529,7 @@ def test_catalog_panel_has_the_blocks_in_the_language_of_the_site(client, editio
 
 # Generated with AI
 def test_catalog_panel_hides_the_blocks_without_values(client):
-    BookFactory()  # no details at all, only the type "paper"
+    BookFactory()  # no details at all, only its paper format
 
     content = _catalog(client, language="en").content.decode()
 
@@ -538,7 +537,7 @@ def test_catalog_panel_hides_the_blocks_without_values(client):
     assert 'id="filter-language"' not in content
     assert 'id="filter-cover_type"' not in content
     assert 'id="filter-year"' not in content
-    # The type is always known
+    # A book on sale always has a format
     assert 'id="filter-book_type"' in content
 
 

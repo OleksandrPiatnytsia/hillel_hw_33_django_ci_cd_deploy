@@ -51,8 +51,8 @@
           </div>
         </div>
         <div class="text-end">
-          <div class="fw-semibold">{% book_price book %}</div>
-          {% include "books/includes/stock_badge.html" with book=book %}
+          <div>{% include "books/includes/price_from.html" with book=book %}</div>
+          {% if book.paper_format %}{% include "books/includes/stock_badge.html" with book=book %}{% endif %}
         </div>
       </a>
     {% empty %}

@@ -6,6 +6,7 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.mixins import PermissionRequiredMixin
 from django.contrib.messages.views import SuccessMessageMixin
+from django.db import transaction
 from django.db.models import Case, Count, F, Max, Min, ProtectedError, Q, When
 from django.http import Http404, JsonResponse
 from django.shortcuts import redirect
@@ -22,12 +23,11 @@ from django.views.generic import (
 )
 
 from cart.cart import Cart
-from currencies.display import book_price, display_currency, request_rates
-from currencies.services import price_in
+from currencies.display import display_currency, price_from, request_rates
 
 from .cache import get_cached_book
 from .filters import CatalogFilter
-from .forms import BookForm
+from .forms import BookForm, BookFormatFormSet
 from .models import Author, Book
 
 logger = logging.getLogger(__name__)  # "books.views"
@@ -85,17 +85,20 @@ class BookListView(ElidedPaginationMixin, ListView):
             # Copies in the default warehouse, in the same SQL query
             # (a subquery): the badge and the "Add to cart" button need it
             .with_stock()
+            # The formats on sale of all books on the page in one extra
+            # query: the price "from" and the button of the card
+            .with_active_formats()
         )
 
-        # Prices of the books are in different currencies (650 UAH, 20 USD):
-        # "Price from / to" and the sort by price work with the price in the
-        # currency of the switcher, calculated by the database (one CASE
-        # WHEN per currency, currencies.services.price_in). The same rounded
-        # number the card shows, so "to 14.31 $" includes a book shown as
-        # 14,31 $.
+        # A book is sold in formats with own prices in different currencies
+        # (paper 650 UAH, e-book 5 USD): "Price from / to" and the sort by
+        # price work with the price "from" (the cheapest format on sale) in
+        # the currency of the switcher, calculated by the database
+        # (Book.objects.with_display_price). The same rounded number the
+        # card shows, so "to 14.31 $" includes a book shown as "from 14,31 $".
         self.currency = display_currency(self.request)
-        queryset = queryset.annotate(
-            display_price=price_in(self.currency.code, rates=request_rates(self.request))
+        queryset = queryset.with_display_price(
+            self.currency.code, rates=request_rates(self.request)
         )
 
         # The filters (books/filters.py, the same set as the API). Unbound
@@ -175,7 +178,7 @@ class BookListView(ElidedPaginationMixin, ListView):
         return {"min": years["low"], "max": years["high"]}
 
     def price_range(self):
-        """The ends of the price slider: the cheapest and the dearest book.
+        """The ends of the price slider: the cheapest and the dearest price "from".
 
         Of the whole catalog in the currency of the switcher, not of the
         filtered list: then the slider keeps its scale while the user moves
@@ -184,8 +187,10 @@ class BookListView(ElidedPaginationMixin, ListView):
         as the filter). None when there is nothing to slide: no books, or
         all of them at one price.
         """
-        price = price_in(self.currency.code, rates=request_rates(self.request))
-        bounds = Book.objects.aggregate(low=Min(price), high=Max(price))
+        books = Book.objects.with_display_price(
+            self.currency.code, rates=request_rates(self.request)
+        )
+        bounds = books.aggregate(low=Min("display_price"), high=Max("display_price"))
         if bounds["low"] is None:
             return None
         low, high = math.floor(bounds["low"]), math.ceil(bounds["high"])
@@ -228,7 +233,58 @@ class BookDetailView(DetailView):
 # So a separate LoginRequiredMixin is not needed here.
 
 
-class BookCreateView(PermissionRequiredMixin, SuccessMessageMixin, CreateView):
+class BookFormatsMixin:
+    """The book form + the rows of its formats (BookFormatFormSet) on one page.
+
+    Both are checked before anything is saved: a valid book with a wrong
+    format (an e-book with a cover) shows the page again with the error,
+    and nothing is written. Then the book and its formats are saved in one
+    transaction.
+
+    The old fields of the book (price, currency, book type, cover, pages)
+    copy the main format: the cart, the orders and the API still read them
+    until they move to the formats.
+    """
+
+    def get_formats(self):
+        if not hasattr(self, "formats"):
+            self.formats = BookFormatFormSet(
+                data=self.request.POST if self.request.method == "POST" else None,
+                # A new book: an empty Book, the rows have nothing to load
+                instance=self.object or Book(),
+                prefix="formats",
+            )
+        return self.formats
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["formats"] = self.get_formats()
+        return context
+
+    def post(self, request, *args, **kwargs):
+        # CreateView: no object yet; UpdateView: the edited book
+        self.object = self.get_object() if "pk" in self.kwargs else None
+        form = self.get_form()
+        # Both validated, so the page shows the errors of both at once
+        form_ok, formats_ok = form.is_valid(), self.get_formats().is_valid()
+        if form_ok and formats_ok:
+            return self.form_valid(form)
+        return self.form_invalid(form)
+
+    def form_valid(self, form):
+        main = self.formats.main_format()
+        book = form.instance
+        book.price, book.currency = main["price"], main["currency"]
+        book.book_type = main["format_type"]
+        book.cover_type, book.pages = main["cover_type"], main["pages"]
+        with transaction.atomic():
+            response = super().form_valid(form)  # saves the book -> self.object
+            self.formats.instance = self.object
+            self.formats.save()
+        return response
+
+
+class BookCreateView(PermissionRequiredMixin, SuccessMessageMixin, BookFormatsMixin, CreateView):
     """New book. Template: books/book_form.html (shared with update).
 
     No success_url: after saving, Django redirects to book.get_absolute_url().
@@ -251,7 +307,7 @@ class BookCreateView(PermissionRequiredMixin, SuccessMessageMixin, CreateView):
         return response
 
 
-class BookUpdateView(PermissionRequiredMixin, SuccessMessageMixin, UpdateView):
+class BookUpdateView(PermissionRequiredMixin, SuccessMessageMixin, BookFormatsMixin, UpdateView):
     """Edit a book. Template: books/book_form.html (shared with create)."""
 
     permission_required = "books.change_book"
@@ -364,7 +420,9 @@ class AuthorDetailView(DetailView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         # Reverse side of ForeignKey: related_name="books" -> author.books
-        context["books"] = self.object.books.prefetch_related("categories").with_stock()
+        context["books"] = (
+            self.object.books.prefetch_related("categories").with_stock().with_active_formats()
+        )
         return context
 
 
@@ -395,6 +453,9 @@ async def book_search(request):
         # The stock in the same query: book.stock without it would be a
         # sync query inside an async view (SynchronousOnlyOperation)
         .with_stock()
+        # The formats for the price "from": prefetch_related works with
+        # `async for` too (one more query, not one per book)
+        .with_active_formats()
         .filter(Q(title__icontains=query) | Q(author__name__icontains=query))
         .order_by("title", "pk")[:SEARCH_LIMIT]
     )
@@ -402,7 +463,7 @@ async def book_search(request):
     # The prices in the currency of the switcher: display_currency() reads
     # the session and the cached rates, which are sync code, so it runs in
     # a thread (sync_to_async), like the ORM would without `async for`
-    prices = await sync_to_async(lambda: [str(book_price(request, book)) for book in books])()
+    prices = await sync_to_async(lambda: [_price_text(request, book) for book in books])()
     results = [
         {
             "title": book.title,
@@ -415,3 +476,13 @@ async def book_search(request):
         for book, price in zip(books, prices)
     ]
     return JsonResponse({"results": results})
+
+
+def _price_text(request, book):
+    """ "250,00 ₴", "from 199,00 ₴" (several formats) or "" (nothing on sale)."""
+    price = price_from(request, book)
+    if price is None:
+        return ""
+    if len(book.active_formats) > 1:
+        return gettext("from %(price)s") % {"price": price}
+    return str(price)

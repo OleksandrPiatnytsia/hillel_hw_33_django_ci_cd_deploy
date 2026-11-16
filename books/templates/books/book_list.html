@@ -241,28 +241,42 @@
               </div>
               {% endcache %}
 
+              {% with formats=book.active_formats %}
               <div class="mt-auto d-flex justify-content-between align-items-center">
-                {# In the currency of the switcher (currencies/display.py) #}
-                <span class="fw-semibold">{% book_price book %}</span>
-                {% include "books/includes/stock_badge.html" with book=book %}
+                {# The price "from" of the cheapest format on sale; the formats #}
+                {# come from with_active_formats() of the view, no query per card #}
+                {% include "books/includes/price_from.html" with book=book %}
+                {% if book.paper_format %}{% include "books/includes/stock_badge.html" with book=book %}{% endif %}
               </div>
 
               {# The stretched-link above covers the whole card with a link #}
-              {# (::after, z-index 1); position-relative + z-2 put the form #}
+              {# (::after, z-index 1); position-relative + z-2 put the button #}
               {# above it, so the button gets the click, not the link #}
-              <form class="position-relative z-2 mt-2 d-grid" method="post"
-                    action="{% url 'cart:add' book.pk %}">
-                {% csrf_token %}
-                <input type="hidden" name="quantity" value="1">
-                {# Back to this page with its filters and page number #}
-                <input type="hidden" name="next" value="{{ request.get_full_path }}">
-                {# Out of stock: invisible (visibility: hidden) keeps the button's #}
-                {# space, so price rows stay aligned across the cards in a row; #}
-                {# the "Out of stock" badge already explains why. disabled: the #}
-                {# form can't be sent anyway (Cart.add() would refuse it too). #}
-                <button class="btn btn-sm btn-outline-primary {% if not book.stock %}invisible{% endif %}"
-                        type="submit" {% if not book.stock %}disabled{% endif %}>{% translate "Add to cart" %}</button>
-              </form>
+              {% if formats|length > 1 %}
+                {# Several formats: the format and its price are chosen on the #}
+                {# book page (the tiles), not guessed here #}
+                <a class="btn btn-sm btn-outline-primary position-relative z-2 mt-2"
+                   href="{{ book.get_absolute_url }}">{% translate "Choose format" %}</a>
+              {% else %}
+                <form class="position-relative z-2 mt-2 d-grid" method="post"
+                      action="{% url 'cart:add' book.pk %}">
+                  {% csrf_token %}
+                  <input type="hidden" name="quantity" value="1">
+                  {% if formats %}<input type="hidden" name="format" value="{{ formats.0.pk }}">{% endif %}
+                  {# Back to this page with its filters and page number #}
+                  <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                  {# Out of stock or not on sale: invisible (visibility: hidden) #}
+                  {# keeps the button's space, so price rows stay aligned across #}
+                  {# the cards in a row; the badge already explains why. disabled: #}
+                  {# the form can't be sent anyway (Cart.add() would refuse it too). #}
+                  {% if book.stock and formats %}
+                    <button class="btn btn-sm btn-outline-primary" type="submit">{% translate "Add to cart" %}</button>
+                  {% else %}
+                    <button class="btn btn-sm btn-outline-primary invisible" type="submit" disabled>{% translate "Add to cart" %}</button>
+                  {% endif %}
+                </form>
+              {% endif %}
+              {% endwith %}
             </div>
           </article>
         </div>

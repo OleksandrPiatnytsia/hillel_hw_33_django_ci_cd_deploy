@@ -58,6 +58,9 @@ that's how we tell "add" from "edit".
             </div>
           </fieldset>
 
+          {# Paper, e-book, audiobook: price, currency, cover, pages of each #}
+          {% include "books/includes/book_format_rows.html" %}
+
           <div class="mb-3">
             {% include "books/includes/book_form_field.html" with field=form.cover %}
           </div>

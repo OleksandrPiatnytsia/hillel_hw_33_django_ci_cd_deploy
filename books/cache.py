@@ -63,6 +63,9 @@ def get_cached_book(pk):
         book = (
             Book.objects.select_related("author", "publisher")
             .prefetch_related("categories")
+            # The formats on sale (the tiles and the price of the book
+            # page); books.signals drops the cache when a format changes
+            .with_active_formats()
             .get(pk=pk)
         )
         # Never the stock: it would be stale after the first order

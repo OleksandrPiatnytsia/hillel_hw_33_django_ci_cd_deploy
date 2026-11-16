@@ -10,12 +10,12 @@ from django.db.models import Avg
 from django.db.models.deletion import ProtectedError
 from django.urls import reverse
 
-from books.forms import BookForm
-from books.models import Book, Category
+from books.forms import BookFormatForm
+from books.models import Book, BookFormat, Category
 from currencies.models import Currency, ExchangeRate
 from currencies.services import RateUnavailable, convert, price_in
 
-from ..factories import AuthorFactory, BookFactory, CategoryFactory
+from ..factories import BookFactory, CategoryFactory
 
 pytestmark = pytest.mark.django_db
 
@@ -31,14 +31,8 @@ def rates(monkeypatch):
 
 
 def form_data(**changes):
-    data = {
-        "title": "Kobzar",
-        "author": AuthorFactory().pk,
-        "price": "20.00",
-        "currency": "USD",
-        "book_type": "paper",  # the select always sends one
-        "description": "",
-    }
+    """One format of the book form: the price and its currency live there."""
+    data = {"format_type": "paper", "price": "20.00", "currency": "USD", "is_active": "on"}
     return {**data, **changes}
 
 
@@ -60,18 +54,18 @@ def test_a_currency_with_books_cannot_be_deleted():
 
 
 # Generated with AI
-def test_book_form_saves_the_currency():
-    form = BookForm(data=form_data())
+def test_format_form_saves_the_currency():
+    form = BookFormatForm(data=form_data(), instance=BookFormat(book=BookFactory(formats=False)))
 
     assert form.is_valid(), form.errors
     assert form.save().currency_id == "USD"
 
 
 # Generated with AI
-def test_book_form_offers_active_currencies_with_uah_preselected():
+def test_format_form_offers_active_currencies_with_uah_preselected():
     Currency.objects.filter(code="EUR").update(is_active=False)
 
-    form = BookForm()
+    form = BookFormatForm()
 
     choices = [label for _value, label in form.fields["currency"].choices]
     assert choices == ["UAH (₴)", "USD ($)"]  # no empty "------" choice
@@ -79,20 +73,20 @@ def test_book_form_offers_active_currencies_with_uah_preselected():
 
 
 # Generated with AI
-def test_book_form_keeps_the_turned_off_currency_of_the_book():
+def test_format_form_keeps_the_turned_off_currency_of_the_format():
     book = BookFactory(currency_id="EUR")
     Currency.objects.filter(code="EUR").update(is_active=False)
 
-    form = BookForm(instance=book)
+    form = BookFormatForm(instance=book.formats.get())
 
     assert "EUR (€)" in [label for _value, label in form.fields["currency"].choices]
 
 
 # Generated with AI
-def test_book_form_refuses_a_turned_off_currency_for_another_book():
+def test_format_form_refuses_a_turned_off_currency_for_another_format():
     Currency.objects.filter(code="EUR").update(is_active=False)
 
-    form = BookForm(data=form_data(currency="EUR"))
+    form = BookFormatForm(data=form_data(currency="EUR"))
 
     assert "currency" in form.errors
 

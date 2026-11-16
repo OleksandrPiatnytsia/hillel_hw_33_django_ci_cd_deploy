@@ -280,3 +280,11 @@ main {
 [data-bs-theme="dark"] .book-card:hover {
     box-shadow: 0 0.5rem 1.25rem rgba(0, 0, 0, 0.5) !important;
 }
+
+/* Format tiles of the book page (books/book_detail.html): radio buttons
+   drawn as buttons, "Паперова / 450,00 ₴". The same width, so the prices
+   stand in one line even when the labels differ in length. */
+.format-tile {
+    min-width: 8.5rem;
+    line-height: 1.25;
+}

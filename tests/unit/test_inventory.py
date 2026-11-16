@@ -145,9 +145,6 @@ def test_book_form_keeps_the_stock_even_if_a_stock_value_is_posted():
     data = {
         "title": "Renamed",
         "author": book.author.pk,
-        "price": "250.00",
-        "currency": "UAH",
-        "book_type": "paper",  # the select always sends one
         "description": "",
         "stock": "999",  # not a field of the form: ignored
     }

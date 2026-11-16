@@ -1,6 +1,8 @@
 """Prices in templates: {% load money %}.
 
 {% book_price book as price %}      the price in the switcher's currency
+{% book_price book_format %}        the same for one format of a book
+{% price_from book as price %}      the cheapest format on sale, None if none
 {{ price }}                          "14,31 $"
 {% if price.converted %}{{ price.original }} ...{% endif %}
 
@@ -12,6 +14,7 @@ from django import template
 
 from ..display import book_price as _book_price
 from ..display import format_money
+from ..display import price_from as _price_from
 
 register = template.Library()
 
@@ -19,6 +22,11 @@ register = template.Library()
 @register.simple_tag(takes_context=True)
 def book_price(context, book):
     return _book_price(context["request"], book)
+
+
+@register.simple_tag(takes_context=True)
+def price_from(context, book):
+    return _price_from(context["request"], book)
 
 
 @register.filter

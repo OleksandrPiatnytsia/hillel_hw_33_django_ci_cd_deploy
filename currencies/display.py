@@ -1,7 +1,8 @@
 """Prices on the site: the currency of the switcher and the money format.
 
     display_currency(request)    Currency the visitor chose (session), UAH by default
-    book_price(request, book)    the price of a book in that currency + the original
+    book_price(request, item)    the price of a book or a format in that currency + the original
+    price_from(request, book)    the cheapest format on sale of a book (None: nothing on sale)
     format_money(14.31, "USD")   "14,31 $" (uk) / "$14.31" (en)
 
 The choice lives in the session (key "currency"), like the cart: a guest
@@ -69,8 +70,8 @@ def format_money(amount, currency):
 class BookPrice:
     amount: Decimal  # in `currency`
     currency: Currency  # the currency of the switcher
-    original_amount: Decimal  # Book.price
-    original_currency: Currency  # Book.currency
+    original_amount: Decimal  # the price of the book / format
+    original_currency: Currency  # its currency
     # The day of the exchange rate used (None: no conversion)
     rate_date: date | None
 
@@ -87,8 +88,9 @@ class BookPrice:
 
 
 def book_price(request, book):
-    """The price of a book in the currency of the switcher.
+    """The price of a book (or of one format of it) in the currency of the switcher.
 
+    book: anything with .price and .currency_id: a Book or a BookFormat.
     A book in a currency that has no rate (only if its rates were deleted
     by hand) keeps its own currency: better a price in EUR than an error.
     """
@@ -107,3 +109,20 @@ def book_price(request, book):
         original_currency=original_currency,
         rate_date=max(rate_dates),
     )
+
+
+def price_from(request, book):
+    """The price "from" of a book: its cheapest format on sale, or None.
+
+    The same choice as Book.objects.with_display_price() makes in SQL: the
+    lowest price in the currency of the switcher. A format in a currency
+    without a rate (it keeps its own currency, see book_price) is only
+    used when no other format is on sale.
+    None: the book has no format on sale ("Not on sale").
+    """
+    target = display_currency(request).code
+    prices = [book_price(request, book_format) for book_format in book.active_formats]
+    if not prices:
+        return None
+    # False sorts before True: the prices in the switcher's currency first
+    return min(prices, key=lambda price: (price.currency.code != target, price.amount))

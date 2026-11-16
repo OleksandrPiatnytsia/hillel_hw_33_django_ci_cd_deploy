@@ -3,6 +3,7 @@
     BookFactory()                       a book with a new author, 10 in stock
     BookFactory(stock=0, price="99.90") override any field (stock: a Stock row)
     BookFactory(categories=[fiction])   ManyToMany through BookCategory
+    BookFactory(formats=False)          a book without formats (by default: one, from its price)
     BookFormatFactory(book=book, format_type="ebook")   one more format of a book
     UserFactory(groups=["Managers"])    groups by name (made by migrations)
     OrderFactory(user=ann, items=[(book, 2)])   an order with its lines and total
@@ -98,6 +99,25 @@ class BookFactory(DjangoModelFactory):
             self.stock = quantity
 
     @factory.post_generation
+    def formats(self, create, extracted, **kwargs):
+        """One format on sale, from the book's own fields (like the data migration 0014).
+
+        BookFactory(formats=False): a book without any format (not on sale,
+        or a test that adds its own with BookFormatFactory).
+        build(): nothing, no database.
+        """
+        if not create or extracted is False:
+            return
+        paper = self.book_type == Book.BookType.PAPER
+        self.formats.create(
+            format_type=self.book_type,
+            price=self.price,
+            currency_id=self.currency_id,
+            cover_type=self.cover_type if paper else "",
+            pages=None if self.book_type == Book.BookType.AUDIOBOOK else self.pages,
+        )
+
+    @factory.post_generation
     def categories(self, create, extracted, **kwargs):
         """BookFactory(categories=[cat1, cat2]); through model, so .add() works
         (Django creates the BookCategory rows)."""
@@ -112,7 +132,8 @@ class BookFormatFactory(DjangoModelFactory):
     class Meta:
         model = BookFormat
 
-    book = factory.SubFactory(BookFactory)
+    # A book without its own default format: the test says which ones it has
+    book = factory.SubFactory(BookFactory, formats=False)
     format_type = BookFormat.FormatType.PAPER
     price = Decimal("250.00")
 

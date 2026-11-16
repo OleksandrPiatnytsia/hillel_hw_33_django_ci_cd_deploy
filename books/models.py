@@ -3,7 +3,7 @@ from decimal import Decimal
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
-from django.db.models import OuterRef, Subquery, Sum
+from django.db.models import F, OuterRef, Prefetch, Subquery, Sum
 from django.db.models.functions import Coalesce
 from django.templatetags.static import static
 from django.urls import reverse
@@ -86,6 +86,49 @@ class BookQuerySet(models.QuerySet):
             .values("total")
         )
         return self.annotate(sold=Coalesce(Subquery(sold), 0))
+
+    def with_active_formats(self):
+        """Load the formats on sale of every book in one extra query.
+
+        book.active_formats then reads this list, not the database: a
+        catalog page of 24 cards needs 1 query for their formats, not 24.
+        """
+        # Imported here: BookFormat is defined below Book
+        return self.prefetch_related(
+            Prefetch(
+                "formats",
+                queryset=BookFormat.objects.filter(is_active=True),
+                to_attr="prefetched_active_formats",
+            )
+        )
+
+    def with_display_price(self, currency_code, rates=None):
+        """Add "display_price": the cheapest format on sale, in currency_code.
+
+        The formats have prices in different currencies (paper 450 UAH,
+        e-book 5 USD), so the cheapest is found by the price converted by
+        the database (currencies.services.price_in), one subquery per book:
+
+            (SELECT <price in USD> FROM books_bookformat
+             WHERE book_id = book.id AND is_active
+             ORDER BY 1 ASC NULLS LAST LIMIT 1) AS display_price
+
+        The price "from" of the card, the "Price from / to" filter, the sort
+        by price and the price slider all use it. NULL: no format on sale
+        (or none with an exchange rate): such a book goes last in the sort
+        and is never in a price range.
+        """
+        # Imported here: currencies.services imports nothing from books,
+        # but keeps the models module free of the services layer
+        from currencies.services import price_in
+
+        cheapest = (
+            BookFormat.objects.filter(book=OuterRef("pk"), is_active=True)
+            .annotate(converted=price_in(currency_code, rates=rates))
+            .order_by(F("converted").asc(nulls_last=True))
+            .values("converted")[:1]
+        )
+        return self.annotate(display_price=Subquery(cheapest))
 
     def by_stock_status(self, status):
         """Filter by one of STOCK_STATUS_CHOICES; unknown/empty value -> no filter."""
@@ -333,13 +376,48 @@ class Book(models.Model):
         self._stock = value
 
     def refresh_from_db(self, *args, **kwargs):
-        # The stock may have changed too: read it again on the next access
+        # The stock and the formats may have changed too: read them again
+        # on the next access
         self.__dict__.pop("_stock", None)
+        self.__dict__.pop("prefetched_active_formats", None)
         super().refresh_from_db(*args, **kwargs)
 
     @property
     def is_low_stock(self):
         return 0 < self.stock <= LOW_STOCK_THRESHOLD
+
+    # ------------------------------------------------------------------
+    # Formats (BookFormat): paper, e-book, audiobook
+    # ------------------------------------------------------------------
+
+    @property
+    def active_formats(self):
+        """The formats on sale, paper first: [BookFormat, ...].
+
+        From Book.objects.with_active_formats() (and the cached book of the
+        book page): no query. Any other book reads them with one query, then
+        keeps the list.
+        """
+        if "prefetched_active_formats" not in self.__dict__:
+            if self.pk is None:
+                self.prefetched_active_formats = []
+            else:
+                self.prefetched_active_formats = list(self.formats.filter(is_active=True))
+        return self.prefetched_active_formats
+
+    def format_of_type(self, format_type):
+        """The format of this type on sale, or None: book.format_of_type("paper")."""
+        return next((f for f in self.active_formats if f.format_type == format_type), None)
+
+    @property
+    def paper_format(self):
+        """The paper format on sale, or None: its cover is the cover of the book."""
+        return self.format_of_type(BookFormat.FormatType.PAPER)
+
+    @property
+    def pages_count(self):
+        """The pages of the paper format, else of the e-book; None if not known."""
+        return next((f.pages for f in self.active_formats if f.pages), None)
 
 
 class BookFormat(models.Model):
@@ -363,7 +441,7 @@ class BookFormat(models.Model):
 
     class FormatType(models.TextChoices):
         # The value is stored in the database and in the URL of the filter
-        # (?format=ebook); the label is shown on the format tiles.
+        # (?book_type=ebook); the label is shown on the format tiles.
         # pgettext: the context "book format" gives these labels their own
         # translations, short for a tile («Електронна»), while the same
         # English "E-book" of Book.BookType stays «Електронна книга»
