@@ -1,8 +1,12 @@
 from django.contrib import admin
 from django.db.models import Count
-from django.utils.html import format_html
+from django.utils.html import format_html, format_html_join
+from django.utils.safestring import mark_safe
 from django.utils.translation import gettext_lazy as _
 
+from currencies.display import format_money
+from currencies.models import BASE_CURRENCY
+from currencies.services import current_rates
 from inventory.models import Stock
 
 from .models import Author, Book, BookCategory, BookFormat, BookQuerySet, Category, Publisher
@@ -163,22 +167,21 @@ class BookAdmin(admin.ModelAdmin):
         "cover_thumbnail",
         "title",
         "author",
-        "price",
-        "currency",
+        "format_list",
+        "price_from",
         "stock",
         "is_available",
         "category_list",
         "created_at",
     ]
     list_display_links = ["title"]
-    # No "stock" here: it is a value of inventory.Stock, not a column of
-    # the book; quantities are edited in the Stock list or on the book page
-    list_editable = ["price"]
+    # No list_editable: the prices are of the formats (the rows on the
+    # book page, or the list of the formats), the stock of inventory.Stock
     list_filter = [
         StockStatusFilter,
-        "currency",
         "categories",
-        "book_type",
+        # The books that have a format of this type (on sale or not)
+        ("formats__format_type", admin.ChoicesFieldListFilter),
         "language",
         "publisher",
         "created_at",
@@ -198,20 +201,10 @@ class BookAdmin(admin.ModelAdmin):
     inlines = [BookFormatInline, BookCategoryInline]
     fieldsets = [
         (None, {"fields": ["title", "author", "description"]}),
-        # The edition; tuples = fields on one line
-        (
-            _("Details"),
-            {
-                "fields": [
-                    "publisher",
-                    ("book_type", "cover_type"),
-                    ("language", "publication_year", "pages"),
-                ]
-            },
-        ),
+        # The edition; a tuple = fields on one line. The type, the cover
+        # type, the pages and the price are of the formats (the inline below)
+        (_("Details"), {"fields": ["publisher", ("language", "publication_year")]}),
         (_("Cover"), {"fields": ["cover_preview", "cover"]}),
-        # A tuple = fields on one line: the price and its currency side by side
-        (_("Sales"), {"fields": [("price", "currency")]}),
         (
             _("Timestamps"),
             {"fields": ["created_at", "updated_at"], "classes": ["collapse"]},
@@ -219,16 +212,19 @@ class BookAdmin(admin.ModelAdmin):
     ]
 
     def get_queryset(self, request):
-        # Author and currency via JOIN, categories in one extra query — not
-        # a query per row
+        # The author via JOIN, the categories and the formats in one extra
+        # query each — not a query per row
         return (
             super()
             .get_queryset(request)
-            .select_related("author", "currency")
-            .prefetch_related("categories")
+            .select_related("author")
+            .prefetch_related("categories", "formats")
             # "stock" (of the paper format) and "available" for the list
             # columns, their sorting and StockStatusFilter
             .with_availability()
+            # "display_price": the cheapest format on sale in UAH, like the
+            # price "from" of the catalog; sortable
+            .with_display_price(BASE_CURRENCY, rates=current_rates())
         )
 
     # format_html escapes the arguments and marks the result as safe HTML,
@@ -249,6 +245,29 @@ class BookAdmin(admin.ModelAdmin):
     @admin.display(description=_("current cover"))
     def cover_preview(self, obj):
         return self._cover_img(obj, 160)
+
+    @admin.display(description=_("formats"))
+    def format_list(self, obj):
+        """Every format with its own price; a format not on sale is struck through."""
+        return format_html_join(
+            mark_safe("<br>"),
+            '<span style="{}">{}&nbsp;{}</span>',
+            (
+                (
+                    "" if book_format.is_active else "text-decoration: line-through; opacity: .6",
+                    book_format.get_format_type_display(),
+                    format_money(book_format.price, book_format.currency_id),
+                )
+                for book_format in obj.formats.all()
+            ),
+        )
+
+    @admin.display(description=_("price from"), ordering="display_price")
+    def price_from(self, obj):
+        # "—": no format on sale
+        if obj.display_price is None:
+            return "—"
+        return format_money(obj.display_price, BASE_CURRENCY)
 
     @admin.display(description=_("categories"))
     def category_list(self, obj):

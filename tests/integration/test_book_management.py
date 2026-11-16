@@ -59,8 +59,6 @@ def test_manager_creates_edits_and_deletes_a_book(manager_client):
         ("paper", Decimal("250.50")),
         ("ebook", Decimal("99.00")),
     ]
-    # The old price field of the book copies the main (paper) format
-    assert book.price == Decimal("250.50")
 
     # Edit: the price of the paper format, the e-book removed; no stock field
     form_page = manager_client.get(reverse("books:update", args=[book.pk]))
@@ -80,7 +78,6 @@ def test_manager_creates_edits_and_deletes_a_book(manager_client):
     )
     book.refresh_from_db()
     assert list(book.formats.values_list("format_type", "price")) == [("paper", Decimal("300.00"))]
-    assert book.price == Decimal("300.00")
     assert message_levels(edited)[-1] == "success"  # "created" is still in the list
 
     # Delete: the confirmation page shows the title and the button, POST deletes
@@ -133,8 +130,9 @@ def test_a_book_with_two_paper_formats_is_not_saved(manager_client):
     assert not Book.objects.exists()
 
 
-def test_main_format_is_the_paper_one_on_sale(manager_client):
+def test_main_format_is_the_first_one_on_sale(manager_client):
     # Audiobook first in the rows, paper not on sale: the e-book is the main
+    # one ("Add to cart" without a chosen format), not the first row
     manager_client.post(
         reverse("books:create"),
         {
@@ -147,8 +145,8 @@ def test_main_format_is_the_paper_one_on_sale(manager_client):
         },
     )
 
-    book = Book.objects.get()
-    assert (book.book_type, book.price, book.currency_id) == ("ebook", Decimal("5.00"), "USD")
+    main = Book.objects.get().main_format
+    assert (main.format_type, main.price, main.currency_id) == ("ebook", Decimal("5.00"), "USD")
 
 
 def test_editing_a_book_does_not_change_the_stock(editor_client):
@@ -192,8 +190,8 @@ def test_a_book_in_orders_is_not_deleted_and_the_manager_sees_why(manager_client
     # No red "Yes, delete" button (its text is translated, so the button
     # is found by its class; the navbar has other submit buttons)
     assert 'class="btn btn-danger"' not in confirm.content.decode()
-    # Instead: the book in the admin, where its stock can be set to 0
-    assert reverse("admin:books_book_change", args=[book.pk]) in confirm.content.decode()
+    # Instead: the book form, where its formats are taken off sale
+    assert reverse("books:update", args=[book.pk]) in confirm.content.decode()
     assertRedirects(deleted, book.get_absolute_url())
     assert message_levels(deleted) == ["error"]
     assert Book.objects.filter(pk=book.pk).exists()

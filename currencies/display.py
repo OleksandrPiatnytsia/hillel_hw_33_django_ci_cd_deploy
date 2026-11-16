@@ -1,7 +1,7 @@
 """Prices on the site: the currency of the switcher and the money format.
 
     display_currency(request)    Currency the visitor chose (session), UAH by default
-    book_price(request, item)    the price of a book or a format in that currency + the original
+    book_price(request, format)  the price of a format of a book in that currency + the original
     price_from(request, book)    the cheapest format on sale of a book (None: nothing on sale)
     format_money(14.31, "USD")   "14,31 $" (uk) / "$14.31" (en)
 
@@ -70,7 +70,7 @@ def format_money(amount, currency):
 class BookPrice:
     amount: Decimal  # in `currency`
     currency: Currency  # the currency of the switcher
-    original_amount: Decimal  # the price of the book / format
+    original_amount: Decimal  # the price of the format
     original_currency: Currency  # its currency
     # The day of the exchange rate used (None: no conversion)
     rate_date: date | None
@@ -87,25 +87,29 @@ class BookPrice:
         return format_money(self.original_amount, self.original_currency)
 
 
-def book_price(request, book):
-    """The price of a book (or of one format of it) in the currency of the switcher.
+def book_price(request, book_format):
+    """The price of one format of a book in the currency of the switcher.
 
-    book: anything with .price and .currency_id: a Book or a BookFormat.
-    A book in a currency that has no rate (only if its rates were deleted
-    by hand) keeps its own currency: better a price in EUR than an error.
+    book_format: anything with .price and .currency_id (a BookFormat; the
+    book itself has no price, its formats have). A format in a currency
+    that has no rate (only if its rates were deleted by hand) keeps its
+    own currency: better a price in EUR than an error.
     """
     currencies = all_currencies()
-    original_currency = currencies[book.currency_id]
+    code = book_format.currency_id
+    original_currency = currencies[code]
     target = display_currency(request)
     rates = request_rates(request)
-    if book.currency_id == target.code or book.currency_id not in rates:
-        return BookPrice(book.price, original_currency, book.price, original_currency, None)
+    if code == target.code or code not in rates:
+        return BookPrice(
+            book_format.price, original_currency, book_format.price, original_currency, None
+        )
     # The rate date: of the non-UAH side; of both, the newer one
-    rate_dates = [rates[code].date for code in (book.currency_id, target.code) if rates[code].date]
+    rate_dates = [rates[c].date for c in (code, target.code) if rates[c].date]
     return BookPrice(
-        amount=convert(book.price, book.currency_id, target.code, rates),
+        amount=convert(book_format.price, code, target.code, rates),
         currency=target,
-        original_amount=book.price,
+        original_amount=book_format.price,
         original_currency=original_currency,
         rate_date=max(rate_dates),
     )

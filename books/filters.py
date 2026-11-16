@@ -76,7 +76,7 @@ class BookFilter(django_filters.FilterSet):
     # The cover of the paper format on sale
     cover_type = django_filters.MultipleChoiceFilter(
         field_name="formats__cover_type",
-        choices=Book.CoverType.choices,
+        choices=BookFormat.CoverType.choices,
         method="filter_cover",
         label=_("Cover"),
         widget=forms.CheckboxSelectMultiple(attrs={"class": "form-check-input"}),

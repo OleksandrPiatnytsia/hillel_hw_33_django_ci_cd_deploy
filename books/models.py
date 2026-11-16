@@ -254,17 +254,12 @@ class Publisher(models.Model):
 
 
 class Book(models.Model):
-    class BookType(models.TextChoices):
-        # The value is stored in the database (and used in the URL of the
-        # filter: ?book_type=ebook), the label is shown and translated
-        PAPER = "paper", _("Paper book")
-        EBOOK = "ebook", _("E-book")
-        AUDIOBOOK = "audiobook", _("Audiobook")
+    """A book: what all its formats share (title, author, description, edition, cover image).
 
-    class CoverType(models.TextChoices):
-        HARD = "hard", _("Hardcover")
-        SOFT = "soft", _("Paperback")
-        DUST_JACKET = "dust_jacket", _("Dust jacket")
+    What is sold is a format of the book (BookFormat below: paper, e-book,
+    audiobook): the prices, the currencies, the cover types and the pages
+    are there, see book.formats and book.active_formats.
+    """
 
     class Language(models.TextChoices):
         # ISO 639-1 codes, like the languages of the site (settings.LANGUAGES)
@@ -282,33 +277,12 @@ class Book(models.Model):
         on_delete=models.PROTECT,  # can't delete an author who still has books
         related_name="books",  # author.books.all()
     )
-    price = models.DecimalField(
-        _("price"),
-        max_digits=10,
-        decimal_places=2,
-        validators=[MinValueValidator(Decimal("0.00"))],
-    )
-    # The currency of the price: a book may cost 650 UAH or 20 USD. The site
-    # shows the price converted to the currency of the switcher
-    # (currencies.services.convert / price_in).
-    # default=UAH: the existing books get UAH when the column is added (one
-    # migration, no separate data migration), and a new book is in UAH
-    # unless another currency is chosen. The currency "UAH" itself comes
-    # from the data migration currencies.0002, which the migration of this
-    # field depends on.
-    currency = models.ForeignKey(
-        "currencies.Currency",
-        verbose_name=_("currency"),
-        # PROTECT: a currency with books can't be deleted (turn it off instead)
-        on_delete=models.PROTECT,
-        default=BASE_CURRENCY,
-        related_name="books",  # currency.books.all()
-    )
     description = models.TextField(_("description"), blank=True)
 
     # ---- Details of the edition (the "Details" block of the book page and
     # the filters of the catalog). All may be empty: the books added before
-    # these fields have none of them, except the type ("paper").
+    # these fields have none of them. The type, the cover and the pages
+    # belong to the formats (BookFormat).
     publisher = models.ForeignKey(
         Publisher,
         verbose_name=_("publisher"),
@@ -318,13 +292,6 @@ class Book(models.Model):
         blank=True,
         related_name="books",  # publisher.books.all()
     )
-    # All types are sold the same way for now (stock in the warehouse,
-    # delivery): e-books without stock are a later task (README "Плани")
-    book_type = models.CharField(
-        _("book type"), max_length=10, choices=BookType.choices, default=BookType.PAPER
-    )
-    # Only for paper books (see clean()); empty = not known
-    cover_type = models.CharField(_("cover"), max_length=11, choices=CoverType.choices, blank=True)
     language = models.CharField(_("language"), max_length=2, choices=Language.choices, blank=True)
     publication_year = models.PositiveSmallIntegerField(
         _("publication year"),
@@ -332,14 +299,6 @@ class Book(models.Model):
         blank=True,
         validators=[MinValueValidator(FIRST_PUBLICATION_YEAR), validate_not_future_year],
     )
-    # Shown on the book page, not a filter of the catalog
-    pages = models.PositiveSmallIntegerField(
-        _("pages"),
-        null=True,
-        blank=True,
-        validators=[MinValueValidator(1), MaxValueValidator(10000)],
-    )
-
     # No stock here: the copies of the paper format are counted in
     # inventory.Stock (see the "stock" property below and
     # BookQuerySet.with_stock())
@@ -371,14 +330,6 @@ class Book(models.Model):
 
     def get_absolute_url(self):
         return reverse("books:detail", kwargs={"pk": self.pk})
-
-    def clean(self):
-        # A cover is a part of a printed book: an e-book or an audiobook
-        # with "Hardcover" is a mistake of the form. Called by the forms
-        # (site and admin), not by save().
-        super().clean()
-        if self.cover_type and self.book_type != self.BookType.PAPER:
-            raise ValidationError({"cover_type": _("Only a paper book has a cover type.")})
 
     @property
     def cover_url(self):
@@ -543,11 +494,17 @@ class BookFormat(models.Model):
         # The value is stored in the database and in the URL of the filter
         # (?book_type=ebook); the label is shown on the format tiles.
         # pgettext: the context "book format" gives these labels their own
-        # translations, short for a tile («Електронна»), while the same
-        # English "E-book" of Book.BookType stays «Електронна книга»
+        # translations, short for a tile («Електронна»), apart from the
+        # same English words elsewhere on the site
         PAPER = "paper", pgettext_lazy("book format", "Paper")
         EBOOK = "ebook", pgettext_lazy("book format", "E-book")
         AUDIOBOOK = "audiobook", pgettext_lazy("book format", "Audiobook")
+
+    class CoverType(models.TextChoices):
+        # Only a paper book has one (see clean())
+        HARD = "hard", _("Hardcover")
+        SOFT = "soft", _("Paperback")
+        DUST_JACKET = "dust_jacket", _("Dust jacket")
 
     book = models.ForeignKey(
         Book,
@@ -564,8 +521,10 @@ class BookFormat(models.Model):
         decimal_places=2,
         validators=[MinValueValidator(Decimal("0.00"))],
     )
-    # The currency of the price, like Book.currency: a paper book in UAH,
-    # its e-book in USD is allowed
+    # The currency of the price: a book may cost 650 UAH as paper and
+    # 5 USD as an e-book. The site shows the price converted to the
+    # currency of the switcher (currencies.services.convert / price_in).
+    # PROTECT: a currency with formats can't be deleted (turn it off instead)
     currency = models.ForeignKey(
         "currencies.Currency",
         verbose_name=_("currency"),
@@ -574,9 +533,7 @@ class BookFormat(models.Model):
         related_name="book_formats",  # currency.book_formats.all()
     )
     # Only for the paper format (see clean()); empty = not known
-    cover_type = models.CharField(
-        _("cover"), max_length=11, choices=Book.CoverType.choices, blank=True
-    )
+    cover_type = models.CharField(_("cover"), max_length=11, choices=CoverType.choices, blank=True)
     # Paper and e-book; an audiobook has hours, not pages (not stored)
     pages = models.PositiveSmallIntegerField(
         _("pages"),
@@ -622,7 +579,9 @@ class BookFormat(models.Model):
         return f"{self.book.title} — {self.get_format_type_display()}"
 
     def clean(self):
-        # The same rule as Book.clean(): a cover is a part of a printed book
+        # A cover is a part of a printed book: an e-book or an audiobook
+        # with "Hardcover" is a mistake of the form. Called by the forms
+        # (site and admin) and by the API serializer, not by save().
         super().clean()
         errors = {}
         if self.cover_type and self.format_type != self.FormatType.PAPER:

@@ -2,8 +2,10 @@
 
     BookFactory()                       a book with a new author, one paper format, 10 in stock
     BookFactory(stock=0, price="99.90") override any field (stock: a Stock row of the paper format)
+    BookFactory(format_type="ebook", price="5", currency_id="USD", cover_type="", pages=300)
+                                        the values of its one format (not fields of the book)
     BookFactory(categories=[fiction])   ManyToMany through BookCategory
-    BookFactory(formats=False)          a book without formats (by default: one, from its price)
+    BookFactory(formats=False)          a book without formats
     BookFormatFactory(book=book, format_type="ebook")   one more format of a book
     BookFormatFactory(stock=2)          a paper format with 2 copies (default 10)
     UserFactory(groups=["Managers"])    groups by name (made by migrations)
@@ -74,6 +76,11 @@ class AuthorFactory(DjangoModelFactory):
     bio = "A writer."
 
 
+# The values of the one format a BookFactory book gets (its formats()
+# hook), not fields of the book: _create() takes them out of the book's
+BOOK_FORMAT_FIELDS = ("format_type", "price", "currency_id", "cover_type", "pages")
+
+
 class BookFactory(DjangoModelFactory):
     class Meta:
         model = Book
@@ -82,12 +89,26 @@ class BookFactory(DjangoModelFactory):
     title = factory.Sequence(lambda n: f"Book {n}")
     # SubFactory: a new Author for every book unless one is given
     author = factory.SubFactory(AuthorFactory)
-    price = Decimal("250.00")
     description = "A good book."
+    format_type = BookFormat.FormatType.PAPER
+    price = Decimal("250.00")
+
+    @classmethod
+    def _create(cls, model_class, *args, **kwargs):
+        format_values = {name: kwargs.pop(name) for name in BOOK_FORMAT_FIELDS if name in kwargs}
+        book = super()._create(model_class, *args, **kwargs)
+        book._format_values = format_values  # for formats() below
+        return book
+
+    @classmethod
+    def _build(cls, model_class, *args, **kwargs):
+        for name in BOOK_FORMAT_FIELDS:
+            kwargs.pop(name, None)
+        return super()._build(model_class, *args, **kwargs)
 
     @factory.post_generation
     def formats(self, create, extracted, **kwargs):
-        """One format on sale, from the book's own fields (like the data migration 0014).
+        """One format on sale: paper, 250 UAH (or the values given to the factory).
 
         BookFactory(formats=False): a book without any format (not on sale,
         or a test that adds its own with BookFormatFactory).
@@ -95,14 +116,7 @@ class BookFactory(DjangoModelFactory):
         """
         if not create or extracted is False:
             return
-        paper = self.book_type == Book.BookType.PAPER
-        self.formats.create(
-            format_type=self.book_type,
-            price=self.price,
-            currency_id=self.currency_id,
-            cover_type=self.cover_type if paper else "",
-            pages=None if self.book_type == Book.BookType.AUDIOBOOK else self.pages,
-        )
+        self.formats.create(**self._format_values)
 
     @factory.post_generation
     def stock(self, create, extracted, **kwargs):
@@ -193,7 +207,7 @@ class OrderItemFactory(DjangoModelFactory):
     # Copies of the book data, as create_order() makes them
     format_type = factory.LazyAttribute(lambda item: item.format.format_type)
     title = factory.LazyAttribute(lambda item: item.book.title)
-    price = factory.LazyAttribute(lambda item: item.book.price)
+    price = factory.LazyAttribute(lambda item: item.format.price)
     # Not converted: the book in the currency of the order (UAH by default)
     original_price = factory.LazyAttribute(lambda item: item.price)
     original_currency_id = factory.LazyAttribute(lambda item: item.order.currency_id)

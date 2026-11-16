@@ -59,7 +59,7 @@ def test_a_book_without_details_has_nulls_and_empty_codes(api_client):
 def test_books_filtered_by_the_details(api_client, query, expected):
     BookFactory(title="A", language="uk", cover_type="hard", publication_year=2010)
     BookFactory(title="B", language="en", publication_year=2018)
-    BookFactory(title="C", language="en", book_type="ebook", publication_year=2022)
+    BookFactory(title="C", language="en", format_type="ebook", publication_year=2022)
 
     results = api_client.get(f"/api/books/?{query}").json()["results"]
 

@@ -23,8 +23,6 @@ format instead of a list in the book where a missing row would mean
 "delete it".
 """
 
-from decimal import Decimal
-
 from django.utils.translation import gettext_lazy as _
 from rest_framework import serializers
 from rest_framework.exceptions import PermissionDenied
@@ -98,30 +96,6 @@ class CategoryShortSerializer(serializers.ModelSerializer):
     class Meta:
         model = Category
         fields = ["id", "name", "slug"]
-
-
-def copy_main_format_to_book(book):
-    """The old fields of the book (price, currency, type, cover, pages) copy its main format.
-
-    The same as BookFormatsMixin on the site: the book admin, the
-    "book_stats" report and the delete page still read these fields until
-    they are removed (the next stage). Called after every format change
-    through the API. The main format: the first one on sale, else the
-    first one (paper, e-book, audiobook: BookFormat.Meta.ordering).
-
-    update(), not save(): only these columns, no "updated_at" and no
-    signals of the book (the format signals already dropped the caches).
-    """
-    # A book keeps at least one format (BookFormatViewSet.perform_destroy)
-    formats = list(book.formats.all())
-    main = next((f for f in formats if f.is_active), formats[0])
-    Book.objects.filter(pk=book.pk).update(
-        price=main.price,
-        currency_id=main.currency_id,
-        book_type=main.format_type,
-        cover_type=main.cover_type,
-        pages=main.pages,
-    )
 
 
 def validate_offered_currency(value, current):
@@ -286,7 +260,6 @@ class BookFormatSerializer(serializers.ModelSerializer):
         book_format = super().create(validated_data)
         if stock:  # None or 0: the row made by inventory.signals already has 0
             set_stock(book_format, stock)
-        copy_main_format_to_book(book_format.book)
         return book_format
 
     def update(self, instance, validated_data):
@@ -299,7 +272,6 @@ class BookFormatSerializer(serializers.ModelSerializer):
         # still be overwritten by the old number.
         if stock is not None and book_format.is_paper and stock != book_format.stock:
             set_stock(book_format, stock)
-        copy_main_format_to_book(book_format.book)
         return book_format
 
 
@@ -430,11 +402,3 @@ class BookSerializer(serializers.ModelSerializer):
             known = [price for price in prices if price is not None]
             book.display_price = min(known) if known else None
         return super().to_representation(book)
-
-    def create(self, validated_data):
-        # The old required column Book.price (removed in the next stage):
-        # 0 until the first format is added, then it copies the main format
-        # (copy_main_format_to_book). Nobody sees it: the API, the catalog
-        # and the cart show the prices of the formats.
-        validated_data.setdefault("price", Decimal("0.00"))
-        return super().create(validated_data)

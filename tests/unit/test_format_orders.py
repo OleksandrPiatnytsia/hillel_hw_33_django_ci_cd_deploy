@@ -3,7 +3,7 @@
 A line of the cart and of an order is a FORMAT of a book (paper, e-book,
 audiobook) with its own price. Only the paper book has copies in the
 warehouse: it is limited, reserved and returned; a file is always
-available. The old fields of the book are not read here any more.
+available.
 """
 
 from decimal import Decimal
@@ -363,7 +363,7 @@ def test_book_form_refuses_to_remove_an_ordered_format(manager_client):
 # Generated with AI
 def test_low_stock_report_lists_only_books_sold_on_paper():
     low = BookFactory(stock=1)
-    BookFactory(book_type="ebook", formats=True)  # no copies at all: not "low"
+    BookFactory(format_type="ebook", formats=True)  # no copies at all: not "low"
 
     report = build_daily_report(OrderFactory().created_at.date())
 

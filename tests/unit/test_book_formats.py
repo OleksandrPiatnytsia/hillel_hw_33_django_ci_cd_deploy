@@ -85,7 +85,7 @@ def test_a_book_has_only_one_format_of_a_type():
 @pytest.mark.parametrize("format_type", [EBOOK, AUDIOBOOK])
 def test_only_the_paper_format_has_a_cover_type(format_type):
     book_format = BookFormatFactory.build(
-        book=BookFactory(), format_type=format_type, cover_type=Book.CoverType.HARD
+        book=BookFactory(), format_type=format_type, cover_type=BookFormat.CoverType.HARD
     )
 
     with pytest.raises(ValidationError) as error:
@@ -133,43 +133,9 @@ def test_str_is_the_title_and_the_format():
 
 
 # ---------------------------------------------------------------------------
-# Data migration books.0014: one format for every existing book
+# Data migration books.0014: one format for every existing book (the
+# copies of the old book fields: tests/integration/test_format_migrations.py)
 # ---------------------------------------------------------------------------
-
-
-# Generated with AI
-def test_migration_makes_a_format_from_the_fields_of_the_book():
-    paper = BookFactory(
-        price="450.00", currency_id="EUR", cover_type="hard", pages=320, formats=False
-    )
-    audiobook = BookFactory(
-        price="249.00", book_type=Book.BookType.AUDIOBOOK, pages=10, formats=False
-    )
-
-    create_book_formats.create_formats(apps, None)
-
-    paper_format = paper.formats.get()
-    assert (paper_format.format_type, paper_format.price, paper_format.currency_id) == (
-        PAPER,
-        Decimal("450.00"),
-        "EUR",
-    )
-    assert (paper_format.cover_type, paper_format.pages) == ("hard", 320)
-    # An audiobook keeps its price, but no pages (BookFormat.clean())
-    audiobook_format = audiobook.formats.get()
-    assert audiobook_format.format_type == AUDIOBOOK
-    assert audiobook_format.pages is None
-    audiobook_format.full_clean()
-
-
-# Generated with AI
-def test_migration_drops_a_cover_of_a_non_paper_book():
-    # Saved past the form (Book.clean() is not called by save())
-    ebook = BookFactory(book_type=Book.BookType.EBOOK, cover_type="soft", formats=False)
-
-    create_book_formats.create_formats(apps, None)
-
-    assert ebook.formats.get().cover_type == ""
 
 
 # Generated with AI
@@ -333,27 +299,47 @@ def test_a_changed_format_drops_the_cache_of_its_book(change):
 
 
 # Generated with AI
-def test_seed_books_gives_every_demo_book_a_format():
+def test_seed_books_gives_every_demo_book_its_formats():
     call_command("seed_books", stdout=StringIO())
 
     assert not Book.objects.filter(formats__isnull=True).exists()
-    # The format has the price and currency of the book
-    book = Book.objects.exclude(currency_id="UAH").first()
-    book_format = book.formats.get()
-    assert (book_format.price, book_format.currency_id) == (book.price, book.currency_id)
+    hobbit = Book.objects.get(title="Хоббіт")
+    assert [(f.format_type, f.price, f.cover_type, f.pages) for f in hobbit.formats.all()] == [
+        (PAPER, Decimal("99.75"), "hard", 304),
+        (EBOOK, Decimal("79.00"), "", 304),
+        (AUDIOBOOK, Decimal("149.00"), "", None),
+    ]
+    assert hobbit.stock == 3437  # the copies of the paper book
+    # Every format passes the checks of the form
+    for book_format in BookFormat.objects.all():
+        book_format.full_clean()
+    # All three types for the filters of the catalog
+    assert set(BookFormat.objects.values_list("format_type", flat=True)) == {
+        PAPER,
+        EBOOK,
+        AUDIOBOOK,
+    }
+    # A book only as an e-book: no copies, always available
+    witcher = Book.objects.with_availability().get(title="Відьмак. Останнє бажання")
+    assert (witcher.stock, witcher.available) == (0, True)
 
 
 # Generated with AI
 def test_seed_books_keeps_the_formats_a_book_already_has():
     call_command("seed_books", stdout=StringIO())
-    book = Book.objects.first()
-    book.formats.update(price=Decimal("1.00"))
+    # A manager changes a price and deletes a format
+    book = Book.objects.get(title="Хоббіт")
+    book.formats.filter(format_type=PAPER).update(price=Decimal("1.00"))
+    book.formats.filter(format_type=AUDIOBOOK).delete()
     out = StringIO()
 
     call_command("seed_books", stdout=out)
 
-    assert book.formats.get().price == Decimal("1.00")
-    assert "+ format of" not in out.getvalue()
+    assert list(book.formats.values_list("format_type", "price")) == [
+        (PAPER, Decimal("1.00")),
+        (EBOOK, Decimal("79.00")),
+    ]
+    assert "+ formats of" not in out.getvalue()
 
 
 # ===========================================================================
@@ -463,7 +449,7 @@ def test_active_formats_without_prefetch_and_of_an_unsaved_book(django_assert_nu
 def test_pages_count_is_of_the_paper_format_else_of_the_ebook():
     book = BookFactory(pages=320)
     BookFormatFactory(book=book, format_type=EBOOK, price="1.00", pages=300)
-    ebook_only = BookFactory(book_type=Book.BookType.EBOOK, pages=280)
+    ebook_only = BookFactory(format_type=BookFormat.FormatType.EBOOK, pages=280)
     unknown = BookFactory()
 
     assert (book.pages_count, ebook_only.pages_count, unknown.pages_count) == (320, 280, None)

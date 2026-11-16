@@ -60,7 +60,6 @@ from ..serializers.catalog import (
     BookFormatSerializer,
     BookSerializer,
     CategorySerializer,
-    copy_main_format_to_book,
     PublisherSerializer,
 )
 
@@ -250,8 +249,7 @@ class BookFormatViewSet(DisplayCurrencyMixin, LoggedModelViewSet):
         A book without formats has no price at all. To stop selling it,
         the format is turned off (is_active: false), not deleted.
         """
-        book = instance.book
-        if not book.formats.exclude(pk=instance.pk).exists():
+        if not instance.book.formats.exclude(pk=instance.pk).exists():
             raise Conflict(
                 _(
                     "A book needs at least one format; turn this one off instead "
@@ -259,7 +257,6 @@ class BookFormatViewSet(DisplayCurrencyMixin, LoggedModelViewSet):
                 )
             )
         super().perform_destroy(instance)
-        copy_main_format_to_book(book)
 
 
 class StaffWriteMixin:

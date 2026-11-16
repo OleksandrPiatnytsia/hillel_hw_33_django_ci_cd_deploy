@@ -623,7 +623,7 @@ SPECTACULAR_SETTINGS = {
         '(POST /api/token/, then the header "Authorization: Bearer '
         '<access>") or the session of the site login.'
     ),
-    "VERSION": "1.0.0",
+    "VERSION": "1.1.0",
     # The schema itself is not shown as an endpoint in Swagger
     "SERVE_INCLUDE_SCHEMA": False,
     # Separate request and response models (BookRequest / Book): the

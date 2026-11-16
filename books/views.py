@@ -248,10 +248,6 @@ class BookFormatsMixin:
     format (an e-book with a cover) shows the page again with the error,
     and nothing is written. Then the book and its formats are saved in one
     transaction.
-
-    The old fields of the book (price, currency, book type, cover, pages)
-    copy the main format: the cart, the orders and the API still read them
-    until they move to the formats.
     """
 
     def get_formats(self):
@@ -280,11 +276,6 @@ class BookFormatsMixin:
         return self.form_invalid(form)
 
     def form_valid(self, form):
-        main = self.formats.main_format()
-        book = form.instance
-        book.price, book.currency = main["price"], main["currency"]
-        book.book_type = main["format_type"]
-        book.cover_type, book.pages = main["cover_type"], main["pages"]
         with transaction.atomic():
             response = super().form_valid(form)  # saves the book -> self.object
             self.formats.instance = self.object

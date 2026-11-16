@@ -39,7 +39,7 @@ def test_only_one_warehouse_can_be_the_default():
 
 # Generated with AI
 def test_a_new_paper_format_gets_a_stock_row_with_zero_a_file_gets_none():
-    book = Book.objects.create(title="New", author=AuthorFactory(), price="100.00")
+    book = Book.objects.create(title="New", author=AuthorFactory())
     paper = book.formats.create(format_type="paper", price="100.00")
     ebook = book.formats.create(format_type="ebook", price="50.00")
 
@@ -190,7 +190,7 @@ def test_set_stock_takes_a_book_or_its_paper_format_and_refuses_a_file():
     with pytest.raises(ValueError):
         set_stock(ebook, 3)
     with pytest.raises(ValueError):
-        set_stock(BookFactory(book_type="ebook"), 3)
+        set_stock(BookFactory(format_type="ebook"), 3)
 
 
 # Generated with AI

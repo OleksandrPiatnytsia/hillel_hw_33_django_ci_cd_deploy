@@ -210,21 +210,6 @@ class BaseBookFormatFormSet(BaseInlineFormSet):
                     % {"format": book_format.get_format_type_display()}
                 )
 
-    def main_format(self):
-        """The cleaned data of the main format: on sale first, then paper, e-book, audiobook.
-
-        The old fields of the book (price, currency, book type, cover,
-        pages) copy it until they are removed: the cart and the API still
-        read them. Call after is_valid().
-        """
-        rows = [
-            form.cleaned_data
-            for form in self.forms
-            if form.cleaned_data and not form.cleaned_data.get("DELETE")
-        ]
-        order = list(BookFormat.FormatType.values)
-        return min(rows, key=lambda row: (not row["is_active"], order.index(row["format_type"])))
-
 
 # Three rows at most (paper, e-book, audiobook). A new book gets three
 # empty rows (min_num 1 + extra 2), a book with one format its row + two

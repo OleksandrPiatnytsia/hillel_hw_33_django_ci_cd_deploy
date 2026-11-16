@@ -107,9 +107,6 @@ def test_editor_adds_an_ebook_and_the_book_is_on_sale(as_user, editor):
     assert (data["stock"], data["in_stock"], data["is_active"]) == (None, True, True)
     answer = as_user(editor).get(f"/api/books/{book.pk}/").json()
     assert (answer["in_stock"], answer["display_price"]) == (True, "149.00")
-    # The old fields of the book copy the main format (until they are removed)
-    book.refresh_from_db()
-    assert (book.book_type, book.price) == ("ebook", Decimal("149.00"))
 
 
 # Generated with AI
@@ -166,7 +163,6 @@ def test_the_type_and_the_book_of_a_format_are_not_changed(as_user, editor):
     assert put.status_code == 200, put.json()
     paper.refresh_from_db()
     assert (paper.format_type, paper.price) == ("paper", Decimal("199.00"))
-    assert paper.book.price == Decimal("199.00")  # copied to the old field
 
 
 # Generated with AI
@@ -242,7 +238,7 @@ def test_a_file_has_no_stock(as_user, manager):
 
 
 # Generated with AI
-def test_deleting_a_format_and_the_book_copies_the_next_one(as_user, editor):
+def test_deleting_a_format_leaves_the_others_and_the_price_from(as_user, editor):
     book = BookFactory(price=Decimal("350.00"))
     ebook = BookFormatFactory(book=book, format_type="ebook", price=Decimal("149.00"))
 
@@ -250,8 +246,8 @@ def test_deleting_a_format_and_the_book_copies_the_next_one(as_user, editor):
 
     assert response.status_code == 204
     assert list(book.formats.all()) == [ebook]
-    book.refresh_from_db()
-    assert (book.book_type, book.price) == ("ebook", Decimal("149.00"))
+    answer = as_user(editor).get(f"/api/books/{book.pk}/").json()
+    assert answer["display_price"] == "149.00"
 
 
 # Generated with AI
