@@ -21,10 +21,22 @@
   {# Every block folds; a checkbox or a radio sends the form at once #}
   {# (static/js/filter_panel.js), the price waits for its button. The text #}
   {# search is the one in the navbar. Without JavaScript: the "Apply" button in <noscript>. #}
+  {# Large screens (lg+): a column on the left, stuck while the list scrolls. #}
+  {# Smaller ones: hidden, the "Filters" button above the list slides it in #}
+  {# from the left (Bootstrap offcanvas-lg: the same markup is both). #}
   <aside class="col-lg-3">
+   <div class="offcanvas-lg offcanvas-start filters-offcanvas" tabindex="-1" id="catalog-filters"
+        aria-labelledby="catalog-filters-title">
+    <div class="offcanvas-header border-bottom d-lg-none">
+      <h2 class="offcanvas-title h5 mb-0" id="catalog-filters-title">{% translate "Filters" %}</h2>
+      <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#catalog-filters"
+              aria-label="{% translate 'Close' %}"></button>
+    </div>
+    <div class="offcanvas-body">
     <form class="card shadow-sm filters-sidebar" method="get" action="{% url 'books:list' %}"
           data-filter-form>
-      <div class="card-header fw-semibold">{% translate "Filters" %}</div>
+      {# On small screens the heading of the offcanvas is the title #}
+      <div class="card-header fw-semibold d-none d-lg-block">{% translate "Filters" %}</div>
       <div class="card-body py-0">
         {# The chosen "Per page", sort and "Out of stock last" stay (the defaults need no parameter) #}
         {% if per_page != per_page_choices.0 %}
@@ -70,6 +82,28 @@
         </div>
       </noscript>
     </form>
+    </div>
+    {# Small screens: the list changes behind the panel; this closes it. #}
+    {# data-sync: catalog_live.js puts the new number in after every change #}
+    <div class="p-3 border-top d-lg-none">
+      <button type="button" class="btn btn-primary w-100" data-bs-dismiss="offcanvas"
+              data-bs-target="#catalog-filters" data-sync="show-results">
+        {% blocktranslate trimmed count count=paginator.count %}
+          Show {{ count }} book
+        {% plural %}
+          Show {{ count }} books
+        {% endblocktranslate %}
+      </button>
+    </div>
+   </div>
+   {# Without JavaScript the offcanvas can't open: the panel is shown in place #}
+   <noscript>
+     <style>
+       @media (max-width: 991.98px) {
+         #catalog-filters { position: static; visibility: visible; transform: none; width: auto; }
+       }
+     </style>
+   </noscript>
   </aside>
 
   {# ---------- Results ---------- #}
@@ -110,6 +144,12 @@
       {# data-auto-submit: static/js/auto_submit.js sends the form on change; #}
       {# without JavaScript the "Show" button in <noscript> does it. #}
       <div class="d-flex flex-wrap align-items-center gap-2">
+      {# Small screens: opens the filter panel; the number of active filters #}
+      <button type="button" class="btn btn-sm btn-outline-primary d-lg-none"
+              data-bs-toggle="offcanvas" data-bs-target="#catalog-filters" aria-controls="catalog-filters">
+        {% translate "Filters" %}
+        {% if filter_chips %}<span class="badge text-bg-primary ms-1">{{ filter_chips|length }}</span>{% endif %}
+      </button>
       {# "Sort by": links that keep the filters and "Per page" and start from #}
       {# page 1 ({% querystring %} with page=None drops the page number) #}
       <div class="dropdown">

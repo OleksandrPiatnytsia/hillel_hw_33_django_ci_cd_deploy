@@ -46,6 +46,7 @@
 
       results.replaceChildren(...newResults.childNodes);
       syncPanel(newPanel);
+      syncTexts(page);
       syncNavbarSearch(page);
       if (push) history.pushState({ catalog: true }, "", url);
       // Another page of the list: back to its top (if it is above the screen)
@@ -89,6 +90,16 @@
     );
     // "Show all" lists: the newly ticked options must be visible
     panel.dispatchEvent(new Event("catalog:updated"));
+  }
+
+  // Texts outside the results that depend on the list: [data-sync="name"]
+  // gets the text of the same element of the new page ("Show 7 books" at
+  // the bottom of the panel on small screens)
+  function syncTexts(page) {
+    for (const element of document.querySelectorAll("[data-sync]")) {
+      const fresh = page.querySelector(`[data-sync="${element.dataset.sync}"]`);
+      if (fresh) element.textContent = fresh.textContent;
+    }
   }
 
   // A chip of the search removed "?q=": the navbar field must be empty too

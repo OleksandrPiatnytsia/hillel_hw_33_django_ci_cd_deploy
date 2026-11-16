@@ -173,6 +173,20 @@ def test_book_list_panel_keeps_the_search_of_the_navbar(client):
     assert '<input type="hidden" name="q" value="kobzar">' in html
 
 
+def test_book_list_small_screens_open_the_panel_with_a_button(client):
+    """Below lg the panel is an offcanvas: a button with the number of active
+    filters opens it, "Show N books" at its bottom closes it."""
+    shevchenko, franko = AuthorFactory(), AuthorFactory()
+    BookFactory(author=shevchenko)
+    BookFactory(author=franko)
+
+    html = client.get(reverse("books:list"), {"author": [shevchenko.pk, franko.pk]}).text
+
+    assert 'class="offcanvas-lg offcanvas-start filters-offcanvas"' in html
+    assert re.search(r'data-bs-toggle="offcanvas"[^>]*>\s*Фільтри\s*<span[^>]*>2</span>', html)
+    assert re.search(r'data-sync="show-results">\s*Показати 2 книги\s*<', html)
+
+
 def test_book_list_sorts_by_price(client):
     BookFactory(title="Cheap", price=50)
     BookFactory(title="Expensive", price=500)

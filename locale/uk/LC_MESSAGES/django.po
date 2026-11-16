@@ -1981,3 +1981,12 @@ msgstr "Показати всі"
 #: books/templates/books/includes/filter_section.html
 msgid "Show less"
 msgstr "Згорнути"
+
+#: books/templates/books/book_list.html
+#, python-format
+msgid "Show %(count)s book"
+msgid_plural "Show %(count)s books"
+msgstr[0] "Показати %(count)s книгу"
+msgstr[1] "Показати %(count)s книги"
+msgstr[2] "Показати %(count)s книг"
+msgstr[3] "Показати %(count)s книги"
