@@ -1,17 +1,23 @@
 from decimal import Decimal
 
-from django.core.validators import MinValueValidator
+from django.core.exceptions import ValidationError
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.db.models import OuterRef, Subquery, Sum
 from django.db.models.functions import Coalesce
 from django.templatetags.static import static
 from django.urls import reverse
+from django.utils import timezone
 from django.utils.text import format_lazy
 from django.utils.translation import gettext_lazy as _
 
 from currencies.models import BASE_CURRENCY
 
 LOW_STOCK_THRESHOLD = 5
+
+# The first printed books (Gutenberg's Bible, about 1455): an earlier
+# "publication year" is a typo
+FIRST_PUBLICATION_YEAR = 1450
 
 
 class BookQuerySet(models.QuerySet):
@@ -122,7 +128,65 @@ class Author(models.Model):
         return reverse("books:author_detail", kwargs={"pk": self.pk})
 
 
+def validate_not_future_year(value):
+    """The publication year can't be later than this year.
+
+    A function, not MaxValueValidator(2026): the number would be written
+    into the migration once and refuse every new book from 2027 on. The
+    migration keeps only the path to this function, the year is taken at
+    the moment of the check.
+    """
+    if value > timezone.now().year:
+        raise ValidationError(
+            _("The publication year can't be later than %(year)s."),
+            code="future_year",
+            params={"year": timezone.now().year},
+        )
+
+
+class Publisher(models.Model):
+    """A publishing house: "Видавництво Старого Лева", "Ранок", ...
+
+    A model, not a text field of the book: one spelling for all its books
+    (no "Ранок" next to "ВД Ранок"), a list to choose from in the form and
+    in the catalog filter. The main Ukrainian publishers are added by the
+    data migration books.0012.
+    """
+
+    # unique: the data migration looks publishers up by name
+    name = models.CharField(_("name"), max_length=255, unique=True)
+
+    class Meta:
+        ordering = ["name"]
+        verbose_name = _("publisher")
+        verbose_name_plural = _("publishers")
+
+    def __str__(self):
+        return self.name
+
+
 class Book(models.Model):
+    class BookType(models.TextChoices):
+        # The value is stored in the database (and used in the URL of the
+        # filter: ?book_type=ebook), the label is shown and translated
+        PAPER = "paper", _("Paper book")
+        EBOOK = "ebook", _("E-book")
+        AUDIOBOOK = "audiobook", _("Audiobook")
+
+    class CoverType(models.TextChoices):
+        HARD = "hard", _("Hardcover")
+        SOFT = "soft", _("Paperback")
+        DUST_JACKET = "dust_jacket", _("Dust jacket")
+
+    class Language(models.TextChoices):
+        # ISO 639-1 codes, like the languages of the site (settings.LANGUAGES)
+        UKRAINIAN = "uk", _("Ukrainian")
+        ENGLISH = "en", _("English")
+        POLISH = "pl", _("Polish")
+        GERMAN = "de", _("German")
+        FRENCH = "fr", _("French")
+        SPANISH = "es", _("Spanish")
+
     title = models.CharField(_("title"), max_length=255)
     author = models.ForeignKey(
         Author,
@@ -153,6 +217,41 @@ class Book(models.Model):
         related_name="books",  # currency.books.all()
     )
     description = models.TextField(_("description"), blank=True)
+
+    # ---- Details of the edition (the "Details" block of the book page and
+    # the filters of the catalog). All may be empty: the books added before
+    # these fields have none of them, except the type ("paper").
+    publisher = models.ForeignKey(
+        Publisher,
+        verbose_name=_("publisher"),
+        # PROTECT: a publisher with books can't be deleted
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="books",  # publisher.books.all()
+    )
+    # All types are sold the same way for now (stock in the warehouse,
+    # delivery): e-books without stock are a later task (README "Плани")
+    book_type = models.CharField(
+        _("book type"), max_length=10, choices=BookType.choices, default=BookType.PAPER
+    )
+    # Only for paper books (see clean()); empty = not known
+    cover_type = models.CharField(_("cover"), max_length=11, choices=CoverType.choices, blank=True)
+    language = models.CharField(_("language"), max_length=2, choices=Language.choices, blank=True)
+    publication_year = models.PositiveSmallIntegerField(
+        _("publication year"),
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(FIRST_PUBLICATION_YEAR), validate_not_future_year],
+    )
+    # Shown on the book page, not a filter of the catalog
+    pages = models.PositiveSmallIntegerField(
+        _("pages"),
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(1), MaxValueValidator(10000)],
+    )
+
     # No stock here: copies are counted in inventory.Stock (see the
     # "stock" property below and BookQuerySet.with_stock())
     # Only the path is stored in the DB; the file goes to MEDIA_ROOT/covers/<year>/<month>/
@@ -183,6 +282,14 @@ class Book(models.Model):
 
     def get_absolute_url(self):
         return reverse("books:detail", kwargs={"pk": self.pk})
+
+    def clean(self):
+        # A cover is a part of a printed book: an e-book or an audiobook
+        # with "Hardcover" is a mistake of the form. Called by the forms
+        # (site and admin), not by save().
+        super().clean()
+        if self.cover_type and self.book_type != self.BookType.PAPER:
+            raise ValidationError({"cover_type": _("Only a paper book has a cover type.")})
 
     @property
     def cover_url(self):

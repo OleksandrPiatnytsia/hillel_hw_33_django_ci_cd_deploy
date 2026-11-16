@@ -1,0 +1,38 @@
+{% load i18n %}
+{% comment %}
+"Details" of the book page (books/book_detail.html): the edition.
+
+Inside the cached fragment book_detail_body: the book's own fields and the
+publisher's name, both drop the cache when saved (books/signals.py).
+Only the known values: a book added before these fields has just the type.
+get_..._display: the label of the choice in the current language
+("Тверда", not "hard").
+{% endcomment %}
+<h2 class="h6 mt-4">{% translate "Details" %}</h2>
+<dl class="row book-details mb-3">
+  {% if book.publisher %}
+    <dt class="col-sm-4 col-lg-3">{% translate "Publisher" %}</dt>
+    {# The catalog filtered by the publisher, like the categories above #}
+    <dd class="col-sm-8 col-lg-9">
+      <a class="link-secondary" href="{% url 'books:list' %}?publisher={{ book.publisher.pk }}">{{ book.publisher.name }}</a>
+    </dd>
+  {% endif %}
+  <dt class="col-sm-4 col-lg-3">{% translate "Book type" %}</dt>
+  <dd class="col-sm-8 col-lg-9">{{ book.get_book_type_display }}</dd>
+  {% if book.cover_type %}
+    <dt class="col-sm-4 col-lg-3">{% translate "Cover" %}</dt>
+    <dd class="col-sm-8 col-lg-9">{{ book.get_cover_type_display }}</dd>
+  {% endif %}
+  {% if book.language %}
+    <dt class="col-sm-4 col-lg-3">{% translate "Language" %}</dt>
+    <dd class="col-sm-8 col-lg-9">{{ book.get_language_display }}</dd>
+  {% endif %}
+  {% if book.publication_year %}
+    <dt class="col-sm-4 col-lg-3">{% translate "Publication year" %}</dt>
+    <dd class="col-sm-8 col-lg-9">{{ book.publication_year }}</dd>
+  {% endif %}
+  {% if book.pages %}
+    <dt class="col-sm-4 col-lg-3">{% translate "Pages" %}</dt>
+    <dd class="col-sm-8 col-lg-9">{{ book.pages }}</dd>
+  {% endif %}
+</dl>

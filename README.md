@@ -16,7 +16,7 @@ Redis, Celery, nginx). У цьому ДЗ:
 - **налаштування за середовищами**: пакет `config/settings/` — `base`,
   `development`, `production`, `test`; у production `DEBUG=False`, HTTPS,
   захищені cookies, HSTS, `DATABASE_URL` і `REDIS_URL` (див. «Налаштування»);
-- **деплой на Railway**: web (gunicorn + uvicorn) і worker (Celery з Beat),
+- **деплой на Railway**: web (gunicorn + uvicorn), worker (Celery з Beat), Flower,
   PostgreSQL, Redis, Volume для обкладинок; статика через **WhiteNoise**,
   перевірка здоров'я `/health/` (див. «Деплой на Railway»);
 - **валюти**: курси НБУ з історією (Celery Beat), ціна книги в будь-якій
@@ -25,9 +25,13 @@ Redis, Celery, nginx). У цьому ДЗ:
 - **панель фільтрів каталогу**: блоки, що згортаються, кілька значень у фільтрі,
   плашки активних фільтрів, оновлення списку без перезавантаження, на телефоні —
   панель збоку (див. «Фільтри каталогу»);
+- **характеристики видання**: видавництво (окрема модель, основні українські
+  видавництва з міграції), тип книги, обкладинка, мова, рік видання, кількість
+  сторінок — у формі, на сторінці книги, у фільтрах каталогу й в API
+  (див. «Моделі», «Фільтри каталогу»);
 - єдиний стиль коду: black + flake8 (`pyproject.toml`, `.flake8`), перевіряються
   ще до коміту хуком pre-commit (`.pre-commit-config.yaml`);
-- 591 тест, покриття 98.84%.
+- 664 тести, покриття 98.87%.
 
 ## Стек
 
@@ -103,7 +107,7 @@ Redis, Celery, nginx). У цьому ДЗ:
 | URL | Ім'я маршруту | View | Доступ | Що робить |
 |---|---|---|---|---|
 | `/` | `books:list` | `BookListView` | усі | каталог: панель фільтрів, плашки, сортування, 12 / 24 / 48 книг на сторінці |
-| `/<pk>/` | `books:detail` | `BookDetailView` | усі | сторінка книги |
+| `/<pk>/` | `books:detail` | `BookDetailView` | усі | сторінка книги з блоком «Характеристики» |
 | `/create/` | `books:create` | `BookCreateView` | `books.add_book` | додавання книги |
 | `/<pk>/update/` | `books:update` | `BookUpdateView` | `books.change_book` | редагування книги |
 | `/<pk>/delete/` | `books:delete` | `BookDeleteView` | `books.delete_book` | підтвердження й видалення; книга в замовленнях не видаляється (`PROTECT`): попередження замість кнопки, «залишок 0» для зняття з продажу |
@@ -162,8 +166,8 @@ ViewSets і права працюють з моделями `books` і `orders` 
 | `POST /api/books/` | `books.add_book` (Editors, Managers) | нова книга |
 | `PUT`, `PATCH /api/books/<id>/` | `books.change_book` | змінити книгу; `stock` — лише з `inventory.change_stock` |
 | `DELETE /api/books/<id>/` | `books.delete_book` (Managers) | видалити; книга в замовленнях → 409 |
-| `GET /api/authors/[<id>/]`, `/api/categories/[<id>/]` | усі | автори й категорії з `books_count` |
-| `POST`, `PUT`, `PATCH`, `DELETE` авторів і категорій | `IsAdminUser` (`is_staff`) **і** право моделі | як в адмінці; є книги → 409 на `DELETE` |
+| `GET /api/authors/[<id>/]`, `/api/publishers/[<id>/]`, `/api/categories/[<id>/]` | усі | автори, видавництва й категорії з `books_count` |
+| `POST`, `PUT`, `PATCH`, `DELETE` авторів, видавництв і категорій | `IsAdminUser` (`is_staff`) **і** право моделі | як в адмінці; є книги → 409 на `DELETE` |
 | `GET /api/currencies/`, `/api/currencies/<code>/` | усі | валюти, які пропонує магазин, з курсом НБУ на сьогодні |
 | `GET /api/orders/` | залогінені | свої замовлення; персонал (`is_staff`) — усі |
 | `POST /api/orders/` | залогінені | нове замовлення одразу з позиціями; необов'язковий заголовок `Idempotency-Key` |
@@ -221,7 +225,7 @@ class BookViewSet(LoggedModelViewSet):
     permission_classes = [DjangoModelPermissionsOrAnonReadOnly]
     # GET — усім; POST -> add_book, PUT/PATCH -> change_book, DELETE -> delete_book
 
-class StaffWriteMixin:                     # AuthorViewSet, CategoryViewSet
+class StaffWriteMixin:                     # AuthorViewSet, PublisherViewSet, CategoryViewSet
     def get_permissions(self):            # окремі права для читання й запису
         if self.request.method in SAFE_METHODS:
             return [AllowAny()]
@@ -256,10 +260,13 @@ GET /api/books/7/
  "author": {"id": 3, "name": "Taras Shevchenko"},
  "categories": [{"id": 1, "name": "Poetry", "slug": "poetry"}],
  "price": "250.50", "stock": 4, "in_stock": true,
+ "publisher": {"id": 12, "name": "Фоліо"}, "book_type": "paper", "cover_type": "hard",
+ "language": "uk", "publication_year": 2017, "pages": 224,
  "cover": "http://localhost:8000/media/covers/2026/11/kobzar.jpg", ...}
 
 POST /api/books/
-{"title": "Kobzar", "author_id": 3, "category_ids": [1], "price": "250.50"}
+{"title": "Kobzar", "author_id": 3, "category_ids": [1], "price": "250.50",
+ "publisher_id": 12, "language": "uk"}
 ```
 
 ```python
@@ -270,6 +277,13 @@ class BookSerializer(serializers.ModelSerializer):
 ```
 
 Ціни — рядки (`"250.50"`), а не числа: так у JSON не губляться копійки на округленні float.
+
+Характеристики: `book_type`, `cover_type` і `language` — коди (`ebook`, `dust_jacket`,
+`uk`), їхній перелік є в документації `/api/docs/`; невідоме значення — `""`, невідомий
+рік, сторінки чи видавництво — `null`. `ModelSerializer` не викликає `Book.clean()`,
+тому «обкладинка лише в паперової книги» перевіряє `BookSerializer.validate()`; у `PATCH`
+поле, якого немає в запиті, береться з книги (`{"book_type": "ebook"}` для книги з
+твердою обкладинкою → 400).
 
 ### Замовлення без кошика
 
@@ -360,8 +374,11 @@ except IntegrityError:                               # два запити од�
 
 - Усі списки — по **20**: `{"count": 135, "next": ".../?page=2", "previous": null, "results": [...]}`.
 - Книги (`api/filters.py`, `BookFilter` з django-filter — ті самі, що на сторінці каталогу,
-  успадковані з `books/filters.py`): `?category=<slug>`, `?author=<id>` (обидва можна
-  повторювати: `?author=1&author=5` — «або»), `?price_min=`, `?price_max=`, `?stock=in_stock|low|out`.
+  успадковані з `books/filters.py`): `?category=<slug>`, `?author=<id>`, `?publisher=<id>`,
+  `?language=uk|en|pl|de|fr|es`, `?book_type=paper|ebook|audiobook`,
+  `?cover_type=hard|soft|dust_jacket` (усі можна повторювати: `?author=1&author=5` — «або»),
+  `?year_min=`, `?year_max=`, `?price_min=`, `?price_max=`, `?stock=in_stock|low|out`.
+  Видавництво без книг API приймає (порожній список), а не 400, як сайт.
 - **Валюта книг**: у кожної книги `price` + `currency` (її власна ціна) і
   `display_price` + `display_currency` — ціна у валюті `?currency=` (типово UAH) за
   курсом НБУ на сьогодні, як на сайті з перемикачем. `?price_min=`, `?price_max=` і
@@ -446,20 +463,21 @@ users/
 │   ├── 0002_lowercase_email.py    # дані → lowercase + CheckConstraint
 │   ├── 0003_create_groups.py      # групи Customers / Editors / Managers
 │   ├── 0004_user_address_user_phone.py
-│   └── 0005_user_language.py      # мова користувача (листи, вхід з іншого пристрою)
+│   ├── 0005_user_language.py      # мова користувача (листи, вхід з іншого пристрою)
+│   └── 0006_publisher_permissions.py  # права на видавництва для груп
 └── templates/users/
     ├── auth_form.html       # спільний для входу й реєстрації
     ├── profile.html
     └── profile_edit.html
 books/
-├── models.py                # Category, Author, Book (+ cover), BookCategory, BookQuerySet
+├── models.py                # Category, Author, Publisher, Book (+ cover, характеристики), BookCategory, BookQuerySet
 ├── filters.py               # BookFilter (спільний з API), CatalogFilter: фільтри, плашки
-├── forms.py                 # BookForm, CoverInput
+├── forms.py                 # BookForm (блок «Характеристики»: DETAIL_FIELDS), CoverInput
 ├── views.py                 # Class-Based Views для книг і авторів, book_search (async)
 ├── urls.py                  # app_name = "books"
 ├── admin.py                 # адмінка (+ мініатюри обкладинок, StockInline)
 ├── cache.py                 # get_cached_book(), invalidate_books(): кеш книги й фрагментів
-├── signals.py               # зміна книги, автора, категорії -> очищення кешу
+├── signals.py               # зміна книги, автора, видавництва, категорії -> очищення кешу
 ├── templates/books/
 │   ├── book_list.html
 │   ├── book_detail.html
@@ -468,6 +486,9 @@ books/
 │   ├── author_list.html
 │   ├── author_detail.html
 │   ├── includes/stock_badge.html  # бейдж наявності
+│   ├── includes/book_details.html # «Характеристики» на сторінці книги
+│   ├── includes/book_form_field.html  # одне поле форми книги
+│   ├── includes/filter_section.html, price_filter.html, year_filter.html  # блоки панелі фільтрів
 │   └── widgets/cover_input.html   # поле обкладинки з прев'ю
 └── management/commands/
     ├── seed_books.py
@@ -529,11 +550,11 @@ api/                         # REST API (без моделей), див. «REST 
 ├── urls.py                  # router + токени + документація, namespace "api"
 ├── views/
 │   ├── auth.py              # токени з throttling, публічний корінь /api/
-│   ├── catalog.py           # BookViewSet, AuthorViewSet, CategoryViewSet (+ лог, 409, StaffWriteMixin, кеш)
+│   ├── catalog.py           # BookViewSet, AuthorViewSet, PublisherViewSet, CategoryViewSet (+ лог, 409, StaffWriteMixin, кеш)
 │   ├── currencies.py        # CurrencyViewSet: /api/currencies/
 │   └── orders.py            # OrderViewSet: list, retrieve, create, cancel
 ├── serializers/
-│   ├── catalog.py           # вкладені автор і категорії, author_id / category_ids, stock, currency, display_price
+│   ├── catalog.py           # вкладені автор, видавництво й категорії, *_id для запису, характеристики, stock, currency, display_price
 │   ├── currencies.py        # валюта з курсом
 │   └── orders.py            # OrderSerializer, OrderCreateSerializer з позиціями
 ├── permissions.py           # IsOwnerOrReadOnly
@@ -647,6 +668,10 @@ Permissions зазвичай створює сигнал `post_migrate`, тоб�
 міграцій. На новій базі їх ще немає в момент `0003`, тому міграція спершу
 викликає `create_permissions()` сама. Якщо в назві права помилка, міграція
 падає з `RuntimeError`. Відкат (`migrate users 0002`) видаляє групи.
+
+Права на видавництва (`books.Publisher`) — як на авторів, міграція
+`users/0006_publisher_permissions.py`: Customers — `view_publisher`, Editors — ще
+`add/change_publisher`, Managers — ще `delete_publisher`.
 
 Права на замовлення додає окрема міграція `orders/0002_managers_order_permissions.py`
 (тим самим способом). Вона робить `group.permissions.add()`, а не `set()`, тому
@@ -841,8 +866,13 @@ INFO config.middleware GET /create/ 403 3.6ms user=ann
 | `q` | пошук за назвою або іменем автора (без урахування регістру, зокрема для кирилиці) |
 | `category` | категорія за `slug`; кілька: `?category=poetry&category=prose` |
 | `author` | автор за `pk`; кілька: `?author=3&author=7` |
+| `publisher` | видавництво за `pk`; кілька |
+| `language` | мова: `uk`, `en`, `pl`, `de`, `fr`, `es`; кілька |
+| `book_type` | тип: `paper`, `ebook`, `audiobook`; кілька |
+| `cover_type` | обкладинка: `hard`, `soft`, `dust_jacket`; кілька |
+| `year_min`, `year_max` | рік видання від–до; книга без року в жоден діапазон не потрапляє |
 | `stock` | наявність: `in_stock` / `low` (≤ 5) / `out` |
-| `price_min`, `price_max` | діапазон ціни; якщо «від» більше за «до», форма покаже помилку, а ціни не враховуються |
+| `price_min`, `price_max` | діапазон ціни; якщо «від» більше за «до», форма покаже помилку, а ціни не враховуються (так само рік) |
 | `sort` | `title`, `-title`, `author__name`, `price`, `-price`, `-created_at`, `-sold` (спершу популярні) |
 | `out_last` | `0` — вимкнути «Відсутні в кінці» (без параметра увімкнено) |
 
@@ -853,7 +883,22 @@ INFO config.middleware GET /create/ 403 3.6ms user=ann
 
 Категорії фільтруються підзапитом `EXISTS` (`BookFilter.filter_category`), а не JOIN
 через `categories__in`: книжка з двох вибраних категорій інакше з'явилася б двічі, а
-`.distinct()` погано поєднується з анотаціями й сортуванням списку.
+`.distinct()` погано поєднується з анотаціями й сортуванням списку. Видавництво, мова,
+тип і обкладинка — поля самої книги, тож їм досить `IN (...)` (`BookFilter.filter_any_of`),
+без власного `.distinct()` фільтра `MultipleChoiceFilter`.
+
+**Лише наявні значення.** Блок пропонує тільки ті значення, що є хоча б в однієї книги
+(`CatalogFilter.__init__`): з 32 видавництв міграції — лише ті, що мають книги, з 6 мов —
+лише ті, якими є книги. Блок без жодного значення (`field|length`) не показується, блок
+«Рік видання» — лише коли рік є хоча б в однієї книги. Старе посилання на видавництво,
+яке вже без книг, показує помилку в панелі, як видалена категорія; API таке видавництво
+приймає.
+
+**Рік видання** — два поля й «Застосувати», як у ціни, але без повзунка
+(`books/includes/year_filter.html`). Підказки в полях і межі для стрілок — найстаріше й
+найновіше видання всього каталогу (`BookListView.year_range()`). Плашки:
+«Рік: 2005–2020», «Рік: від 2015», «Рік: до 2015». Перевірку «від > до» для ціни й року
+спільно робить `wrong_ranges()`: сайт діапазон пропускає з підказкою, API відповідає 400.
 
 **Панель фільтрів** (`books/book_list.html`, `books/includes/filter_section.html`,
 `static/js/filter_panel.js`): кожен фільтр — блок, що згортається (Bootstrap collapse;
@@ -969,8 +1014,29 @@ SELECT, як `with_stock()`, а не `Sum` через JOIN: разом із JOIN
 |---|---|---|
 | `Category` | `name`, `slug` | обидва унікальні |
 | `Author` | `name`, `bio` | `name` унікальне; `bio` необов'язкове |
-| `Book` | `title`, `author`, `price`, `currency`, `description`, `stock`, `cover`, `categories`, `created_at`, `updated_at` | `price ≥ 0`; `author` — ForeignKey на `Author` з `on_delete=PROTECT` (не можна видалити автора, у якого є книги); зв'язок ManyToMany з категоріями через `BookCategory`; `get_absolute_url()`, `cover_url`, `is_low_stock` |
+| `Publisher` | `name` | унікальне; основні українські видавництва створює data migration `books/0012_create_publishers.py` (32 назви), нові додають в адмінці |
+| `Book` | `title`, `author`, `price`, `currency`, `description`, `publisher`, `book_type`, `cover_type`, `language`, `publication_year`, `pages`, `cover`, `categories`, `created_at`, `updated_at` | `price ≥ 0`; `author` — ForeignKey на `Author` з `on_delete=PROTECT` (не можна видалити автора, у якого є книги); зв'язок ManyToMany з категоріями через `BookCategory`; характеристики — див. нижче; `get_absolute_url()`, `cover_url`, `is_low_stock` |
 | `BookCategory` | `book`, `category` | проміжна модель; `on_delete=PROTECT` не дає видалити категорію, у якій є книги; пара `book + category` унікальна |
+
+**Характеристики видання** (`books/0011_publisher_book_details.py`). Усі необов'язкові,
+крім типу, тож книги, додані раніше, лишилися правильними:
+
+| Поле | Значення | Перевірка |
+|---|---|---|
+| `publisher` | ForeignKey на `Publisher`, `null` — невідоме | `PROTECT`: видавництво з книгами не видаляється |
+| `book_type` | `paper` (типово) / `ebook` / `audiobook` | — |
+| `cover_type` | `hard` / `soft` / `dust_jacket` (суперобкладинка), `""` — невідома | лише для паперової книги (`Book.clean()`) |
+| `language` | `uk` / `en` / `pl` / `de` / `fr` / `es` (коди ISO 639-1), `""` — невідома | — |
+| `publication_year` | рік | від 1450 до поточного року |
+| `pages` | кількість сторінок, лише на сторінці книги (не фільтр) | від 1 до 10000 |
+
+Значення вибору — `TextChoices` у класі `Book` (`Book.BookType.EBOOK`): у базі й в
+адресі фільтра — код (`?language=uk`), на сайті — перекладений підпис
+(`get_language_display()` → «Українська»). Верхню межу року перевіряє функція
+`validate_not_future_year`, а не `MaxValueValidator(2026)`: число записалося б у
+міграцію назавжди й з 2027 року не пропускало б нові книги. Тип поки лише
+характеристика: електронні книги й аудіокниги продаються як паперові (склад,
+доставка), див. «Плани».
 
 `BookQuerySet.by_stock_status()` фільтрує книги за наявністю. Його
 використовують і каталог, і адмінка; поріг «мало» задає `LOW_STOCK_THRESHOLD = 5`.
@@ -1010,10 +1076,13 @@ Django згенерував би `AlterField` і спробував би пер�
   - колонки: мініатюра обкладинки, автор, категорії, ознака наявності;
   - автор вибирається з пошуком під час введення (`autocomplete_fields`);
   - ціну й кількість можна редагувати прямо у списку;
-  - фільтри: наявність (є / мало ≤ 5 / немає), категорії, дата;
-  - пошук за назвою, іменем автора, описом і категорією;
-  - `date_hierarchy`, `fieldsets` із секцією «Cover» (прев'ю обкладинки), inline для категорій.
+  - фільтри: наявність (є / мало ≤ 5 / немає), валюта, категорії, тип книги, мова, видавництво, дата;
+  - пошук за назвою, іменем автора, описом, категорією й видавництвом;
+  - `date_hierarchy`, `fieldsets` із секціями «Details» (характеристики, кілька полів у
+    рядку) і «Cover» (прев'ю обкладинки), inline для категорій;
+  - видавництво, як і автор, вибирається з пошуком (`autocomplete_fields`).
 - **Автори:** кількість книг (із сортуванням), пошук за іменем, біографія.
+- **Видавництва:** кількість книг (із сортуванням), пошук за назвою.
 - **Категорії:** кількість книг (із сортуванням), автозаповнення `slug`,
   inline зі списком книг.
 - **Замовлення** (`orders/admin.py`):
@@ -1590,12 +1659,12 @@ open htmlcov/index.html               # непокриті рядки підсв
 
 | | Кількість | Що перевіряють |
 |---|---|---|
-| `tests/unit/` | 391 | одна функція, модель, форма або один запит; склад, валюти й курси, задачі Celery, Sentry, налаштування production, gunicorn |
+| `tests/unit/` | 446 | одна функція, модель, форма або один запит; склад, валюти й курси, задачі Celery, Sentry, налаштування production, gunicorn |
 | `tests/integration/` | 86 | сценарії з кількох кроків: кошик → замовлення → Stripe → webhook → лист; оплата у валюті; кеш |
-| `tests/api/` | 107 | REST API через `APIClient`: токени, права кожної ролі, фільтри, валюти, замовлення, CORS, throttling, кеш |
+| `tests/api/` | 125 | REST API через `APIClient`: токени, права кожної ролі, фільтри, валюти, замовлення, CORS, throttling, кеш |
 | `tests/test_setup.py` | 7 | сама інфраструктура: налаштування, фабрики, фейки |
 
-Покриття **98.84%** (591 тест); `--cov-fail-under=70` у `pytest.ini`: якщо покриття впаде
+Покриття **98.87%** (664 тести); `--cov-fail-under=70` у `pytest.ini`: якщо покриття впаде
 нижче 70%, `pytest` завершиться з помилкою. Ті самі тести запускає CI на кожен push
 і pull request, а звіт `htmlcov` лежить в артефактах запуску (див. «CI/CD»).
 
@@ -1616,6 +1685,7 @@ tests/
 │   ├── test_inventory.py          # Warehouse / Stock, with_stock(), права складу
 │   ├── test_currencies.py         # курси: моделі, НБУ (фейкова відповідь), перерахування, кеш, команда, задача, сторінка «Курси НБУ»
 │   ├── test_book_currency.py      # валюта книги: форма, адмінка, price_in(), seed_books
+│   ├── test_book_details.py       # характеристики: модель, міграції, адмінка, форма, сторінка, фільтри, плашки
 │   ├── test_display_currency.py   # перемикач, формат сум, каталог і кошик у валюті
 │   ├── test_order_currency.py     # замовлення у валюті: перерахування, курси, оформлення, звіти, адмінка
 │   ├── test_tasks.py              # задачі Celery: повтори листів, розклад, звіт, скасування
@@ -1627,6 +1697,7 @@ tests/
 │   ├── test_setup.py              # JWT, ліміт /api/token/, документація, CORS
 │   ├── test_cache.py              # кеш авторів і категорій, нове покоління після змін
 │   ├── test_catalog.py            # книги, автори, категорії: права, фільтри, 409, мова помилок
+│   ├── test_book_details.py       # характеристики в API, їхні фільтри, /api/publishers/
 │   ├── test_currencies.py         # /api/currencies/, ?currency=, display_price, валюта замовлення
 │   └── test_orders.py             # свої / чужі замовлення, створення, скасування, 405, Idempotency-Key (і гонка двох потоків)
 └── integration/
@@ -1990,6 +2061,7 @@ pre-commit run --all-files    # перевірити весь проєкт
 GitHub (main) ── CI зелений ──► Railway: збірка з Dockerfile
                                    ├─ web      gunicorn + uvicorn, домен *.up.railway.app, Volume /app/media
                                    ├─ worker   celery worker -B (Beat усередині)
+                                   ├─ flower   панель Celery, свій домен, вхід за логіном
                                    ├─ Postgres
                                    └─ Redis    кеш, сесії, черга Celery
 ```
@@ -2003,11 +2075,12 @@ Railway оголосив застарілими (нові сервіси вже 
 |---|---|---|---|
 | `web` | GitHub-репозиторій | з Dockerfile (`gunicorn config.asgi:application`) | Generate Domain; Healthcheck Path `/health/`; Volume → `/app/media`; Wait for CI |
 | `worker` | той самий репозиторій | `celery -A config worker -B --loglevel=info --concurrency=2 --schedule=/tmp/celerybeat-schedule` | без домену, healthcheck і Volume; Wait for CI |
+| `flower` | той самий репозиторій | `celery -A config flower --port=5555 --purge_offline_workers=60` | Generate Domain на порт 5555; Healthcheck Path `/healthcheck`; без Volume; Wait for CI |
 | `Postgres` | шаблон Railway | — | дає `DATABASE_URL` |
 | `Redis` | шаблон Railway | — | дає `REDIS_URL` |
 
-- **Один образ — два сервіси.** `web` і `worker` збираються з того самого коду,
-  відрізняється лише команда, як `web` і `celery` у `docker-compose.yml`.
+- **Один образ — три сервіси.** `web`, `worker` і `flower` збираються з того самого
+  коду, відрізняється лише команда, як `web`, `celery` і `flower` у `docker-compose.yml`.
 - **Beat усередині worker** (`-B`): окремий сервіс для розкладу не потрібен.
   Beat має бути рівно один, тому у worker 1 репліка; інакше кожна задача за
   розкладом виконувалась би двічі. Перевірка в логах worker: `mingle: all alone`.
@@ -2029,12 +2102,25 @@ Railway оголосив застарілими (нові сервіси вже 
 | `DJANGO_SERVE_MEDIA` | `True` | — |
 | `RAILWAY_RUN_UID` | `0` | — |
 | `WEB_CONCURRENCY` | `2` | — |
-| `FLOWER_URL` | порожньо (Flower на Railway немає — немає й посилання) | — |
+| `FLOWER_URL` | `https://${{flower.RAILWAY_PUBLIC_DOMAIN}}` (посилання в профілі; порожньо — посилання немає) | — |
 | `STRIPE_SECRET_KEY` | `sk_test_...` | те саме |
 | `STRIPE_WEBHOOK_SECRET` | `whsec_...` від webhook у Stripe Dashboard (не від Stripe CLI) | — |
 | `BREVO_API_KEY`, `EMAIL_FROM` | так | так (листи відправляє саме worker) |
 | `SENTRY_DSN`, `SENTRY_ENVIRONMENT=production` | так | так |
 | `SENTRY_ISSUES_URL` | посилання в профілі | — |
+
+Змінні `flower`:
+
+| Змінна | Значення |
+|---|---|
+| `DJANGO_SECRET_KEY` | той самий, що у web (Flower завантажує налаштування Django) |
+| `DATABASE_URL`, `REDIS_URL` | як у worker; Flower читає події задач з Redis |
+| `FLOWER_BASIC_AUTH` | `логін:пароль`, новий довгий пароль, без коми; **обов'язково**: з Flower можна зупиняти задачі й воркерів, а домен публічний |
+| `PORT` | `5555`: на цей порт Railway шле запити домену й перевірку здоров'я |
+
+Flower сам читає змінні `FLOWER_*` як свої параметри (`FLOWER_BASIC_AUTH` =
+`--basic-auth`), тому пароль не потрапляє в команду запуску. Команда Railway
+замінює entrypoint, тож Flower, як і worker, міграцій не запускає.
 
 **Перший запуск:**
 
@@ -2071,6 +2157,8 @@ python manage.py update_exchange_rates             # курси одразу, н
 
 - `https://<домен>/health/` → `{"status": "ok", "database": "ok", "cache": "ok"}`;
 - логи worker: `celery@... ready.`, `beat: Starting...`, `mingle: all alone`;
+- `https://<домен flower>/` питає логін; після входу у Workers видно `celery@...`
+  зі статусом Online, а в Tasks — задачі з моменту старту Flower;
 - перемикач валюти в навбарі пропонує UAH, EUR, USD; `/api/currencies/` показує курси;
 - обкладинка після Redeploy на місці (файли у Volume, а не в контейнері);
 - тестова оплата карткою `4242 4242 4242 4242` (замовлення в гривнях і в доларах) →
@@ -2121,14 +2209,15 @@ Stock:     book → Book (CASCADE), warehouse → Warehouse (PROTECT), quantity 
 |---|---|---|---|
 | Об'єкт книги з автором і категоріями (без залишку) | `books:book:<pk>` | 1 година (`BOOK_CACHE_TIMEOUT`) | `books/cache.py`, `BookDetailView` |
 | Фрагменти шаблонів: картка в каталозі, шапка й опис книги | `book_card` / `book_detail_header` / `book_detail_body` + `pk` + мова | 1 година | `{% cache %}` у `book_list.html`, `book_detail.html` |
-| `GET /api/authors/`, `/api/categories/` | `api:<покоління>:...` | 10 хвилин (`API_CACHE_TIMEOUT`) | `api/cache.py` |
+| `GET /api/authors/`, `/api/publishers/`, `/api/categories/` | `api:<покоління>:...` | 10 хвилин (`API_CACHE_TIMEOUT`) | `api/cache.py` |
 
 - **Не в кеші:** залишок і бейдж наявності, CSRF-токен, кнопки «в кошик» і
   кнопки менеджера. Закешований CSRF-токен одного відвідувача дав би іншим 403,
   а кнопки менеджера побачив би покупець.
 - **`/api/books/` не кешується:** у відповіді є `stock`, він змінюється з кожною покупкою.
 - **Очищення — сигнали** (`books/signals.py`): `post_save` / `post_delete` книги,
-  автора (усі його книги), категорії (усі її книги), `BookCategory` і `m2m_changed`.
+  автора (усі його книги), видавництва (усі його книги), категорії (усі її книги),
+  `BookCategory` і `m2m_changed`.
   Ключі видаляються одразу і ще раз після `COMMIT`: інакше паралельний запит
   міг би встигнути покласти в кеш старі дані з бази.
 - **API — «покоління»:** ключі `cache_page` залежать від URL і параметрів
@@ -2179,8 +2268,9 @@ celery-beat ── за розкладом ────────────�
 
 ### Flower
 
-http://localhost:5555/ — панель Celery: воркери, кожна задача з аргументами,
-станом, часом виконання, помилкою й повторними спробами, графіки.
+http://localhost:5555/ (на Railway — домен сервісу `flower`) — панель Celery:
+воркери, кожна задача з аргументами, станом, часом виконання, помилкою й
+повторними спробами, графіки.
 
 - Воркер надсилає події кожного кроку задачі (`CELERY_WORKER_SEND_TASK_EVENTS`,
   `CELERY_TASK_SEND_SENT_EVENT`), Flower читає їх з Redis.
@@ -2277,8 +2367,10 @@ docker compose exec web python manage.py shell --no-imports -c "import sentry_sd
 
 ### `seed_books`
 
-Створює 5 категорій, 10 авторів і 12 книг. Команду можна запускати повторно,
-дублікати не створюються.
+Створює 5 категорій, 10 авторів і 12 книг з характеристиками (видавництво, тип,
+обкладинка, мова, рік, сторінки: приблизні значення для фільтрів, а не точні реальні
+видання). Команду можна запускати повторно, дублікати не створюються; книгам, що вже є,
+команда заповнює лише порожні характеристики, тож введене менеджером лишається.
 
 ```bash
 python manage.py seed_books
@@ -2442,3 +2534,6 @@ ORDER BY:  андрій, Андрій, Борис, Гліб, Ґанна, Євг�
   недійсні токени після зміни пароля; потрібна міграція;
 - завантаження обкладинки через API: `multipart/form-data` у `POST` / `PATCH /api/books/`
   з тими самими перевірками, що в `BookForm` (JPG / PNG / WebP, до 2 МБ, справжнє зображення).
+- електронні книги й аудіокниги без складу: зараз тип книги (`book_type`) — лише
+  характеристика й фільтр, усі типи продаються як паперові (залишок на складі,
+  доставка); потрібні продаж без перевірки залишку й видача файлу або посилання.

@@ -400,7 +400,14 @@ def test_category_and_author_with_books_cannot_be_deleted(as_user, manager):
 def test_api_root_lists_the_sections(api_client):
     response = api_client.get("/api/")
 
-    assert set(response.json()) == {"books", "authors", "categories", "currencies", "orders"}
+    assert set(response.json()) == {
+        "books",
+        "authors",
+        "publishers",
+        "categories",
+        "currencies",
+        "orders",
+    }
 
 
 def test_api_errors_come_in_the_language_of_the_request(as_user, manager):

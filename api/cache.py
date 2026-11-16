@@ -1,6 +1,6 @@
-"""Whole-response cache (cache_page) for /api/authors/ and /api/categories/.
+"""Whole-response cache (cache_page) for /api/authors/, /api/publishers/, /api/categories/.
 
-Only these two: they change rarely and are the same for everybody. Not
+Only these: they change rarely and are the same for everybody. Not
 /api/books/: a book in the JSON has "stock" and "in_stock", which change
 with every order.
 

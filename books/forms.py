@@ -2,15 +2,28 @@ from django import forms
 from django.db.models import Q
 from django.core.files.uploadedfile import UploadedFile
 from django.core.validators import FileExtensionValidator
+from django.utils import timezone
 from django.utils.text import format_lazy
 from django.utils.translation import gettext_lazy as _
 
 from currencies.models import Currency
 
-from .models import Book
+from .models import FIRST_PUBLICATION_YEAR, Book
 
 COVER_MAX_SIZE_MB = 2
 COVER_ALLOWED_EXTENSIONS = ["jpg", "jpeg", "png", "webp"]
+
+# The details of the edition: a block of their own in the book form.
+# Module level: class Meta of the form below can't see the attributes of
+# the form class itself
+DETAIL_FIELDS = [
+    "publisher",
+    "book_type",
+    "cover_type",
+    "language",
+    "publication_year",
+    "pages",
+]
 
 
 class CoverInput(forms.ClearableFileInput):
@@ -29,7 +42,14 @@ class BookForm(forms.ModelForm):
     No stock here: the copies live in inventory.Stock, per warehouse, and
     are changed in the admin (the book page there, or Stock). A new book
     gets its row with 0 from inventory.signals.
+
+    The details of the edition (DETAIL_FIELDS) are shown as a separate
+    block of the form, several fields in a row (books/book_form.html).
+    "A cover type only for a paper book" is checked by Book.clean(): a
+    ModelForm calls it, the error goes under the cover type field.
     """
+
+    DETAIL_FIELDS = DETAIL_FIELDS
 
     class Meta:
         model = Book
@@ -40,10 +60,13 @@ class BookForm(forms.ModelForm):
             "currency",
             "categories",
             "description",
+            *DETAIL_FIELDS,
             "cover",
         ]
         help_texts = {
             "author": _("New authors are added in the admin."),
+            "publisher": _("New publishers are added in the admin."),
+            "cover_type": _("Only for a paper book."),
             # format_lazy: translated first, the number is put in after
             "cover": format_lazy(
                 _("JPG, PNG or WebP, up to {size} MB. Without a cover a placeholder is shown."),
@@ -68,6 +91,18 @@ class BookForm(forms.ModelForm):
             # so ModelForm.save() can write the M2M as usual
             "categories": forms.CheckboxSelectMultiple(attrs={"class": "form-check-input"}),
             "description": forms.Textarea(attrs={"class": "form-control", "rows": 5}),
+            "publisher": forms.Select(attrs={"class": "form-select"}),
+            "book_type": forms.Select(attrs={"class": "form-select"}),
+            "cover_type": forms.Select(attrs={"class": "form-select"}),
+            "language": forms.Select(attrs={"class": "form-select"}),
+            # min / max: hints for the browser's arrows; the model checks
+            # the year itself (Book.publication_year validators). The max
+            # (this year) is set in __init__: here it would be fixed at the
+            # start of the server
+            "publication_year": forms.NumberInput(
+                attrs={"class": "form-control", "min": FIRST_PUBLICATION_YEAR, "step": "1"}
+            ),
+            "pages": forms.NumberInput(attrs={"class": "form-control", "min": "1", "step": "1"}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -75,6 +110,13 @@ class BookForm(forms.ModelForm):
         # Django's default empty choice "- Select an option -" (new in
         # Django 6.1) has no Ukrainian translation in Django yet
         self.fields["author"].empty_label = _("— Choose an author —")
+        # Not required: "not known" instead of Django's "---------"
+        self.fields["publisher"].empty_label = _("— Not known —")
+        for name in ["cover_type", "language"]:
+            choices = self.fields[name].choices
+            # The first choice of an optional choices field is the empty one
+            self.fields[name].choices = [("", _("— Not known —")), *choices[1:]]
+        self.fields["publication_year"].widget.attrs["max"] = timezone.now().year
         # Only the active currencies, and the current one of the book even
         # if it was turned off since: editing the title must not force
         # a new currency. No empty choice: the price always has a currency
@@ -101,3 +143,13 @@ class BookForm(forms.ModelForm):
                     params={"size": size_mb, "limit": COVER_MAX_SIZE_MB},
                 )
         return cover
+
+    def main_fields(self):
+        """The fields above the details block, in the Meta order (the cover
+        comes after the block, the template shows it by itself)."""
+        skip = {*self.DETAIL_FIELDS, "cover"}
+        return [field for field in self if field.name not in skip]
+
+    def detail_fields(self):
+        """The details of the edition: one block, several fields in a row."""
+        return [self[name] for name in self.DETAIL_FIELDS]

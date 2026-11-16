@@ -683,7 +683,7 @@ def test_superuser_sees_the_tools_and_every_link_works(superuser_client, setting
 
 # Generated with AI
 def test_services_that_are_not_set_up_have_no_link(superuser_client, settings):
-    settings.FLOWER_URL = ""  # Railway: no Flower
+    settings.FLOWER_URL = ""  # Flower not set up
     settings.SENTRY_ISSUES_URL = ""
     settings.STRIPE_SECRET_KEY = ""
 

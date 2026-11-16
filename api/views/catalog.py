@@ -1,4 +1,4 @@
-"""ViewSets of the catalog: books, authors, categories.
+"""ViewSets of the catalog: books, authors, publishers, categories.
 
 A ModelViewSet = 5 actions in one class; the router (api/urls.py) gives
 them two URLs:
@@ -17,7 +17,8 @@ Who may do what:
                 "Editors" add and change, "Managers" also delete. The stock
                 only with inventory.change_stock (BookSerializer.validate_stock).
     authors,    read: everybody; write: IsAdminUser (is_staff) AND the
-    categories  model permission (like the admin): "Managers" may delete a
+    publishers, model permission (like the admin): "Managers" may delete a
+    categories
                 category, a staff member without the permission may not
                 (StaffWriteMixin).
 """
@@ -37,15 +38,20 @@ from rest_framework.permissions import (
     IsAdminUser,
 )
 
-from books.models import Author, Book, Category
+from books.models import Author, Book, Category, Publisher
 from currencies.models import BASE_CURRENCY
 from currencies.services import available_currencies, price_in
 
 from ..cache import cache_api_response
-from ..docs import author_schema, book_schema, category_schema
+from ..docs import author_schema, book_schema, category_schema, publisher_schema
 from ..exceptions import Conflict
 from ..filters import BookFilter
-from ..serializers.catalog import AuthorSerializer, BookSerializer, CategorySerializer
+from ..serializers.catalog import (
+    AuthorSerializer,
+    BookSerializer,
+    CategorySerializer,
+    PublisherSerializer,
+)
 
 logger = logging.getLogger(__name__)  # "api.views.catalog"
 
@@ -103,7 +109,8 @@ class BookViewSet(LoggedModelViewSet):
 
     Filters (api.filters.BookFilter): ?category=<slug>, ?author=<id> (both
     may repeat: ?author=1&author=5),
-    ?price_min=, ?price_max=, ?stock=in_stock|low|out.
+    ?price_min=, ?price_max=, ?stock=in_stock|low|out, ?publisher=<id>,
+    ?language=, ?book_type=, ?cover_type= (may repeat), ?year_min=, ?year_max=.
     ?search=kobz  — in the title and the author's name.
     ?ordering=price | -price | title | -created_at | author__name.
     ?currency=USD — display_price in this currency (UAH by default); the
@@ -112,8 +119,9 @@ class BookViewSet(LoggedModelViewSet):
 
     queryset = (
         Book.objects
-        # ForeignKey: the author and the currency in the same SQL query (JOIN)
-        .select_related("author", "currency")
+        # ForeignKey: the author, the publisher and the currency in the same
+        # SQL query (JOIN)
+        .select_related("author", "publisher", "currency")
         # ManyToMany: the categories of the whole page in one extra query
         .prefetch_related("categories")
         # "stock" of the default warehouse in the same SQL query; also
@@ -213,6 +221,19 @@ class AuthorViewSet(StaffWriteMixin, LoggedModelViewSet):
     ordering_fields = ["name", "books_count"]
     log_name = "Author"
     protected_message = _("The author has books and can't be deleted.")
+
+
+@publisher_schema
+@cache_reads
+class PublisherViewSet(StaffWriteMixin, LoggedModelViewSet):
+    """Publishers. ?search=<name>, ?ordering=name | -books_count."""
+
+    queryset = Publisher.objects.annotate(books_count=Count("books")).order_by("name", "pk")
+    serializer_class = PublisherSerializer
+    search_fields = ["name"]
+    ordering_fields = ["name", "books_count"]
+    log_name = "Publisher"
+    protected_message = _("The publisher has books and can't be deleted.")
 
 
 @category_schema

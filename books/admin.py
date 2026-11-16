@@ -5,7 +5,7 @@ from django.utils.translation import gettext_lazy as _
 
 from inventory.models import Stock
 
-from .models import Author, Book, BookCategory, BookQuerySet, Category
+from .models import Author, Book, BookCategory, BookQuerySet, Category, Publisher
 
 # ---------------------------------------------------------------------------
 # Inlines
@@ -116,6 +116,22 @@ class AuthorAdmin(admin.ModelAdmin):
         return obj.books_count
 
 
+@admin.register(Publisher)
+class PublisherAdmin(admin.ModelAdmin):
+    list_display = ["name", "books_count"]
+    # search_fields is also required for autocomplete_fields = ["publisher"] in BookAdmin
+    search_fields = ["name"]
+    # Explicit ordering: Meta.ordering is ignored for annotated (GROUP BY) queries
+    ordering = ["name"]
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).annotate(books_count=Count("books"))
+
+    @admin.display(description=_("books"), ordering="books_count")
+    def books_count(self, obj):
+        return obj.books_count
+
+
 @admin.register(Book)
 class BookAdmin(admin.ModelAdmin):
     list_display = [
@@ -133,16 +149,41 @@ class BookAdmin(admin.ModelAdmin):
     # No "stock" here: it is a value of inventory.Stock, not a column of
     # the book; quantities are edited in the Stock list or on the book page
     list_editable = ["price"]
-    list_filter = [StockStatusFilter, "currency", "categories", "created_at"]
-    search_fields = ["title", "author__name", "description", "categories__name"]
+    list_filter = [
+        StockStatusFilter,
+        "currency",
+        "categories",
+        "book_type",
+        "language",
+        "publisher",
+        "created_at",
+    ]
+    search_fields = [
+        "title",
+        "author__name",
+        "description",
+        "categories__name",
+        "publisher__name",
+    ]
     date_hierarchy = "created_at"
     # Search-as-you-type instead of a <select> with every author
-    # (needs search_fields in AuthorAdmin)
-    autocomplete_fields = ["author"]
+    # (needs search_fields in AuthorAdmin and PublisherAdmin)
+    autocomplete_fields = ["author", "publisher"]
     readonly_fields = ["cover_preview", "created_at", "updated_at"]
     inlines = [StockInline, BookCategoryInline]
     fieldsets = [
         (None, {"fields": ["title", "author", "description"]}),
+        # The edition; tuples = fields on one line
+        (
+            _("Details"),
+            {
+                "fields": [
+                    "publisher",
+                    ("book_type", "cover_type"),
+                    ("language", "publication_year", "pages"),
+                ]
+            },
+        ),
         (_("Cover"), {"fields": ["cover_preview", "cover"]}),
         # A tuple = fields on one line: the price and its currency side by side
         (_("Sales"), {"fields": [("price", "currency")]}),
