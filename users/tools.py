@@ -56,7 +56,7 @@ def admin_tools():
     monitoring = [
         Tool(_("Health check"), reverse("health"), _("PostgreSQL and Redis answer (JSON)")),
     ]
-    # Railway runs no Flower (FLOWER_URL=""): no link to a dashboard that isn't there
+    # No FLOWER_URL (Flower not set up): no link to a dashboard that isn't there
     if settings.FLOWER_URL:
         monitoring.append(
             Tool("Flower", settings.FLOWER_URL, _("Celery tasks and workers, live"), external=True)

@@ -16,7 +16,7 @@ Redis, Celery, nginx). У цьому ДЗ:
 - **налаштування за середовищами**: пакет `config/settings/` — `base`,
   `development`, `production`, `test`; у production `DEBUG=False`, HTTPS,
   захищені cookies, HSTS, `DATABASE_URL` і `REDIS_URL` (див. «Налаштування»);
-- **деплой на Railway**: web (gunicorn + uvicorn) і worker (Celery з Beat),
+- **деплой на Railway**: web (gunicorn + uvicorn), worker (Celery з Beat), Flower,
   PostgreSQL, Redis, Volume для обкладинок; статика через **WhiteNoise**,
   перевірка здоров'я `/health/` (див. «Деплой на Railway»);
 - **валюти**: курси НБУ з історією (Celery Beat), ціна книги в будь-якій
@@ -1990,6 +1990,7 @@ pre-commit run --all-files    # перевірити весь проєкт
 GitHub (main) ── CI зелений ──► Railway: збірка з Dockerfile
                                    ├─ web      gunicorn + uvicorn, домен *.up.railway.app, Volume /app/media
                                    ├─ worker   celery worker -B (Beat усередині)
+                                   ├─ flower   панель Celery, свій домен, вхід за логіном
                                    ├─ Postgres
                                    └─ Redis    кеш, сесії, черга Celery
 ```
@@ -2003,11 +2004,12 @@ Railway оголосив застарілими (нові сервіси вже 
 |---|---|---|---|
 | `web` | GitHub-репозиторій | з Dockerfile (`gunicorn config.asgi:application`) | Generate Domain; Healthcheck Path `/health/`; Volume → `/app/media`; Wait for CI |
 | `worker` | той самий репозиторій | `celery -A config worker -B --loglevel=info --concurrency=2 --schedule=/tmp/celerybeat-schedule` | без домену, healthcheck і Volume; Wait for CI |
+| `flower` | той самий репозиторій | `celery -A config flower --port=5555 --purge_offline_workers=60` | Generate Domain на порт 5555; Healthcheck Path `/healthcheck`; без Volume; Wait for CI |
 | `Postgres` | шаблон Railway | — | дає `DATABASE_URL` |
 | `Redis` | шаблон Railway | — | дає `REDIS_URL` |
 
-- **Один образ — два сервіси.** `web` і `worker` збираються з того самого коду,
-  відрізняється лише команда, як `web` і `celery` у `docker-compose.yml`.
+- **Один образ — три сервіси.** `web`, `worker` і `flower` збираються з того самого
+  коду, відрізняється лише команда, як `web`, `celery` і `flower` у `docker-compose.yml`.
 - **Beat усередині worker** (`-B`): окремий сервіс для розкладу не потрібен.
   Beat має бути рівно один, тому у worker 1 репліка; інакше кожна задача за
   розкладом виконувалась би двічі. Перевірка в логах worker: `mingle: all alone`.
@@ -2029,12 +2031,25 @@ Railway оголосив застарілими (нові сервіси вже 
 | `DJANGO_SERVE_MEDIA` | `True` | — |
 | `RAILWAY_RUN_UID` | `0` | — |
 | `WEB_CONCURRENCY` | `2` | — |
-| `FLOWER_URL` | порожньо (Flower на Railway немає — немає й посилання) | — |
+| `FLOWER_URL` | `https://${{flower.RAILWAY_PUBLIC_DOMAIN}}` (посилання в профілі; порожньо — посилання немає) | — |
 | `STRIPE_SECRET_KEY` | `sk_test_...` | те саме |
 | `STRIPE_WEBHOOK_SECRET` | `whsec_...` від webhook у Stripe Dashboard (не від Stripe CLI) | — |
 | `BREVO_API_KEY`, `EMAIL_FROM` | так | так (листи відправляє саме worker) |
 | `SENTRY_DSN`, `SENTRY_ENVIRONMENT=production` | так | так |
 | `SENTRY_ISSUES_URL` | посилання в профілі | — |
+
+Змінні `flower`:
+
+| Змінна | Значення |
+|---|---|
+| `DJANGO_SECRET_KEY` | той самий, що у web (Flower завантажує налаштування Django) |
+| `DATABASE_URL`, `REDIS_URL` | як у worker; Flower читає події задач з Redis |
+| `FLOWER_BASIC_AUTH` | `логін:пароль`, новий довгий пароль, без коми; **обов'язково**: з Flower можна зупиняти задачі й воркерів, а домен публічний |
+| `PORT` | `5555`: на цей порт Railway шле запити домену й перевірку здоров'я |
+
+Flower сам читає змінні `FLOWER_*` як свої параметри (`FLOWER_BASIC_AUTH` =
+`--basic-auth`), тому пароль не потрапляє в команду запуску. Команда Railway
+замінює entrypoint, тож Flower, як і worker, міграцій не запускає.
 
 **Перший запуск:**
 
@@ -2071,6 +2086,8 @@ python manage.py update_exchange_rates             # курси одразу, н
 
 - `https://<домен>/health/` → `{"status": "ok", "database": "ok", "cache": "ok"}`;
 - логи worker: `celery@... ready.`, `beat: Starting...`, `mingle: all alone`;
+- `https://<домен flower>/` питає логін; після входу у Workers видно `celery@...`
+  зі статусом Online, а в Tasks — задачі з моменту старту Flower;
 - перемикач валюти в навбарі пропонує UAH, EUR, USD; `/api/currencies/` показує курси;
 - обкладинка після Redeploy на місці (файли у Volume, а не в контейнері);
 - тестова оплата карткою `4242 4242 4242 4242` (замовлення в гривнях і в доларах) →
@@ -2179,8 +2196,9 @@ celery-beat ── за розкладом ────────────�
 
 ### Flower
 
-http://localhost:5555/ — панель Celery: воркери, кожна задача з аргументами,
-станом, часом виконання, помилкою й повторними спробами, графіки.
+http://localhost:5555/ (на Railway — домен сервісу `flower`) — панель Celery:
+воркери, кожна задача з аргументами, станом, часом виконання, помилкою й
+повторними спробами, графіки.
 
 - Воркер надсилає події кожного кроку задачі (`CELERY_WORKER_SEND_TASK_EVENTS`,
   `CELERY_TASK_SEND_SENT_EVENT`), Flower читає їх з Redis.
