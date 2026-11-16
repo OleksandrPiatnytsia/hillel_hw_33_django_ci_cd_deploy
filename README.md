@@ -27,7 +27,7 @@ Redis, Celery, nginx). У цьому ДЗ:
   панель збоку (див. «Фільтри каталогу»);
 - єдиний стиль коду: black + flake8 (`pyproject.toml`, `.flake8`), перевіряються
   ще до коміту хуком pre-commit (`.pre-commit-config.yaml`);
-- 578 тестів, покриття 98.83%.
+- 591 тест, покриття 98.84%.
 
 ## Стек
 
@@ -132,6 +132,7 @@ Redis, Celery, nginx). У цьому ДЗ:
 | `/health/` | `health` | `health` (**async**, `config/views.py`) | усі, GET | стан PostgreSQL і Redis: 200 або 503, JSON |
 | `/i18n/setlang/` | `set_language` | `set_language` (`config/views.py`) | POST | змінити мову: cookie + `User.language` |
 | `/currency/` | `set_currency` | `set_currency` (`currencies/views.py`) | POST | змінити валюту цін: код у сесії, назад на `next` |
+| `/currencies/rates/` | `currencies:rates` | `NBURatesView` | право додавати й змінювати курси | курси НБУ: подивитися, виправити, зберегти кнопкою |
 | `/__debug__/` | | | `DEBUG` + `INTERNAL_IPS` | службові адреси Debug Toolbar |
 
 Маршрути описані в `urls.py` кожного застосунку (`app_name` = `books`, `users`,
@@ -476,7 +477,10 @@ currencies/                  # валюти й курси, див. «Валют�
 ├── nbu.py                   # fetch_rates(): запит до API НБУ
 ├── services.py              # current_rates() (кеш), convert(), price_in() (SQL), update_rates()
 ├── display.py               # валюта перемикача (сесія), format_money(), book_price()
-├── views.py                 # set_currency: перемикач у навбарі
+├── views.py                 # set_currency: перемикач у навбарі; NBURatesView: курси НБУ з підтвердженням
+├── forms.py                 # ConfirmRatesForm: поле на кожну валюту + підписана відповідь НБУ
+├── urls.py                  # /currencies/rates/ (namespace "currencies")
+├── templates/currencies/rates.html
 ├── context_processors.py    # display_currency і currency_choices у шаблонах
 ├── templatetags/money.py    # {% book_price book %}, |money:currency
 ├── tasks.py                 # update_exchange_rates (Celery Beat)
@@ -1091,6 +1095,32 @@ python manage.py update_exchange_rates                    # сьогодні + �
 python manage.py update_exchange_rates --date 2026-11-13  # один день (заповнити пропуск)
 ```
 
+### Курси НБУ з підтвердженням (сторінка для адміністраторів)
+
+`/currencies/rates/` (`NBURatesView`), посилання «Отримати курси НБУ» у профілі. Доступ —
+у кого є права `currencies.add_exchangerate` і `currencies.change_exchangerate`
+(суперкористувач або група з обома правами): анонім іде на вхід, інші отримують 403.
+
+1. **GET** запитує НБУ (найновіші курси або день із поля «День», `?date=2026-11-16`) і
+   показує таблицю: число НБУ, курс, уже збережений на цей день (з джерелом), і поле з
+   числом НБУ. Нічого не зберігається.
+2. Поле можна виправити: значок поруч одразу показує, як його буде збережено
+   («НБУ» чи «Вручну», `static/js/rates_confirm.js`). Порожнє поле — валюту не зберігати.
+3. **POST** «Підтвердити й зберегти» (`services.save_confirmed_rates`, одна транзакція):
+   - число дорівнює числу НБУ (як числа: `45.427400 == 45.4274`) → `source = nbu`,
+     навіть поверх ручного курсу: людина бачила обидва й вибрала число НБУ;
+   - змінене число або курс, якого в НБУ немає → `source = manual`, і автоматичне
+     оновлення його не перезапише.
+
+   Потім редірект на ту саму сторінку з цим днем (Post/Redirect/Get) і повідомлення
+   «Курси на 17.11.2026 збережено: EUR (Вручну), USD (НБУ).»
+
+Відповідь НБУ їде у формі прихованим полем, підписаним `SECRET_KEY` (`django.core.signing`,
+`currencies/forms.py`): POST знає, які саме числа бачила людина, без другого запиту до
+НБУ (той за хвилину може відповісти інакше), а змінене число в прихованому полі ламає
+підпис. Сторінка, відкрита понад годину, завантажується заново. Якщо НБУ не відповідає
+або ще не має курсів на вибраний день, сторінка про це каже, а таблиці немає.
+
 ### Перемикач і ціни на сайті
 
 - **Перемикач у навбарі** (`POST /currency/`) зберігає код у сесії, як і кошик:
@@ -1560,12 +1590,12 @@ open htmlcov/index.html               # непокриті рядки підсв
 
 | | Кількість | Що перевіряють |
 |---|---|---|
-| `tests/unit/` | 378 | одна функція, модель, форма або один запит; склад, валюти й курси, задачі Celery, Sentry, налаштування production, gunicorn |
+| `tests/unit/` | 391 | одна функція, модель, форма або один запит; склад, валюти й курси, задачі Celery, Sentry, налаштування production, gunicorn |
 | `tests/integration/` | 86 | сценарії з кількох кроків: кошик → замовлення → Stripe → webhook → лист; оплата у валюті; кеш |
 | `tests/api/` | 107 | REST API через `APIClient`: токени, права кожної ролі, фільтри, валюти, замовлення, CORS, throttling, кеш |
 | `tests/test_setup.py` | 7 | сама інфраструктура: налаштування, фабрики, фейки |
 
-Покриття **98.83%** (578 тестів); `--cov-fail-under=70` у `pytest.ini`: якщо покриття впаде
+Покриття **98.84%** (591 тест); `--cov-fail-under=70` у `pytest.ini`: якщо покриття впаде
 нижче 70%, `pytest` завершиться з помилкою. Ті самі тести запускає CI на кожен push
 і pull request, а звіт `htmlcov` лежить в артефактах запуску (див. «CI/CD»).
 
@@ -1584,7 +1614,7 @@ tests/
 │   ├── test_async_views.py        # async view через AsyncClient
 │   ├── test_payment_services.py   # відмови й помилки оплат
 │   ├── test_inventory.py          # Warehouse / Stock, with_stock(), права складу
-│   ├── test_currencies.py         # курси: моделі, НБУ (фейкова відповідь), перерахування, кеш, команда, задача
+│   ├── test_currencies.py         # курси: моделі, НБУ (фейкова відповідь), перерахування, кеш, команда, задача, сторінка «Курси НБУ»
 │   ├── test_book_currency.py      # валюта книги: форма, адмінка, price_in(), seed_books
 │   ├── test_display_currency.py   # перемикач, формат сум, каталог і кошик у валюті
 │   ├── test_order_currency.py     # замовлення у валюті: перерахування, курси, оформлення, звіти, адмінка

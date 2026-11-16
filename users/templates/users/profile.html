@@ -74,6 +74,18 @@
           <li>{% if perms.books.delete_book %}✅{% else %}❌{% endif %} {% translate "delete books" %}</li>
         </ul>
 
+        {# The same right as adding and changing rates in the admin (NBURatesView) #}
+        {% if perms.currencies.add_exchangerate and perms.currencies.change_exchangerate %}
+          <h2 class="h6">💱 {% translate "Exchange rates" %}</h2>
+          <p class="mb-3">
+            <a href="{% url 'currencies:rates' %}">{% translate "Load the NBU rates" %}</a>
+            <span class="d-block small text-body-secondary">
+              {% translate "See the numbers of the NBU, correct them if needed and save with a button" %}
+            </span>
+          </p>
+          <hr>
+        {% endif %}
+
         {% if tool_groups %}
           {# Superuser only (ProfileView): links to the service pages, users/tools.py #}
           <h2 class="h6">🧰 {% translate "Tools" %}</h2>

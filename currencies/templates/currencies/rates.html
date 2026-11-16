@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% load i18n static %}
+
+{% block title %}{% translate "NBU exchange rates" %}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-9">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+      <h1 class="h4 mb-0">{% translate "NBU exchange rates" %}</h1>
+      <a class="btn btn-sm btn-outline-secondary" href="{% url 'admin:currencies_exchangerate_changelist' %}">
+        {% translate "History in the admin" %}
+      </a>
+    </div>
+
+    {# Another day: GET ?date=YYYY-MM-DD; empty -> the newest rates of the NBU #}
+    <form class="d-flex flex-wrap align-items-end gap-2 mb-3" method="get">
+      <div>
+        <label class="form-label small mb-1" for="rates-date">{% translate "Day" %}</label>
+        <input class="form-control form-control-sm" type="date" id="rates-date" name="date"
+               value="{{ day|default:rate_date|date:'Y-m-d' }}">
+      </div>
+      <button class="btn btn-sm btn-outline-primary" type="submit">{% translate "Load from the NBU" %}</button>
+      <a class="btn btn-sm btn-link" href="{% url 'currencies:rates' %}">{% translate "The newest" %}</a>
+    </form>
+
+    {% if day_error %}<div class="alert alert-danger">{{ day_error }}</div>{% endif %}
+    {% if nbu_error %}<div class="alert alert-warning">{{ nbu_error }}</div>{% endif %}
+
+    {% if form %}
+      <form class="card shadow-sm" method="post" data-rates-form>
+        {% csrf_token %}
+        {{ form.snapshot }}
+        <div class="card-header">
+          {% blocktranslate trimmed with date=rate_date|date:"d.m.Y" %}
+            Rates for <strong>{{ date }}</strong>, UAH for 1 unit
+          {% endblocktranslate %}
+        </div>
+        <div class="table-responsive">
+          <table class="table align-middle mb-0">
+            <thead>
+              <tr>
+                <th>{% translate "Currency" %}</th>
+                <th class="text-end">{% translate "NBU" %}</th>
+                <th class="text-end">{% translate "Saved for this day" %}</th>
+                <th style="min-width: 11rem">{% translate "Will be saved" %}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for currency, field, nbu_value, saved in rows %}
+                <tr>
+                  <td><strong>{{ currency.code }}</strong> <span class="text-body-secondary small">{{ currency.name }}</span></td>
+                  <td class="text-end font-monospace">{{ nbu_value|default_if_none:"—" }}</td>
+                  <td class="text-end">
+                    {% if saved %}
+                      <span class="font-monospace">{{ saved.rate }}</span>
+                      <span class="badge {% if saved.source == 'manual' %}text-bg-warning{% else %}text-bg-secondary{% endif %}">{{ saved.get_source_display }}</span>
+                    {% else %}—{% endif %}
+                  </td>
+                  <td>
+                    <div class="d-flex align-items-center gap-2">
+                      <label class="visually-hidden" for="{{ field.id_for_label }}">{{ currency.code }}</label>
+                      {{ field }}
+                      {# What the field will be saved as; static/js/rates_confirm.js updates it while typing #}
+                      <span class="badge text-bg-secondary" data-source-badge
+                            data-label-nbu="{% translate 'NBU' %}" data-label-manual="{% translate 'Manual' %}">{% translate "NBU" %}</span>
+                    </div>
+                    {% for error in field.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+                  </td>
+                </tr>
+              {% empty %}
+                <tr><td colspan="4" class="text-body-secondary">{% translate "No active currencies besides UAH." %}</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <div class="card-footer">
+          <p class="small text-body-secondary mb-2">
+            {% blocktranslate trimmed %}
+              A number left as the NBU gave it is saved as “NBU”; a changed one as “Manual”, and the
+              automatic update won't overwrite it. An empty field: the currency is not saved.
+            {% endblocktranslate %}
+          </p>
+          <button class="btn btn-primary" type="submit">{% translate "Confirm and save" %}</button>
+        </div>
+      </form>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+  <script src="{% static 'js/rates_confirm.js' %}" defer></script>
+{% endblock %}
