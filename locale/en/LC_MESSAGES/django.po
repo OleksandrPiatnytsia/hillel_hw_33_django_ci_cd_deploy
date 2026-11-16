@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Bookstore\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-16 20:24+0000\n"
+"POT-Creation-Date: 2026-11-16 20:51+0000\n"
 "PO-Revision-Date: 2026-11-10 16:00+0200\n"
 "Last-Translator: Bookstore\n"
 "Language-Team: English\n"
@@ -27,16 +27,20 @@ msgid ""
 "for a new order."
 msgstr ""
 
-#: api/serializers/catalog.py:227
+#: api/serializers/catalog.py:257
 #, python-format
 msgid "The currency %(code)s is turned off."
 msgstr ""
 
-#: api/serializers/catalog.py:247 books/models.py:336 books/models.py:527
+#: api/serializers/catalog.py:278 books/models.py:381 books/models.py:629
 msgid "Only a paper book has a cover type."
 msgstr ""
 
-#: api/serializers/catalog.py:265
+#: api/serializers/catalog.py:283
+msgid "Only a paper book has copies in stock."
+msgstr ""
+
+#: api/serializers/catalog.py:301
 msgid "Only users with the “manage stock” permission can change it."
 msgstr ""
 
@@ -45,8 +49,13 @@ msgstr ""
 msgid "“%(code)s” is not offered. Choose one of: %(offered)s."
 msgstr ""
 
-#: api/serializers/orders.py:215
+#: api/serializers/orders.py:214
 msgid "Every book may be in the list only once; use quantity."
+msgstr ""
+
+#: api/serializers/orders.py:222 cart/views.py:45 cart/views.py:88
+#, python-format
+msgid "“%(title)s” is not on sale."
 msgstr ""
 
 #: api/views/catalog.py:139
@@ -70,69 +79,70 @@ msgstr ""
 msgid "At most %(max)s characters."
 msgstr ""
 
-#: books/admin.py:29 books/models.py:151 books/models.py:542
+#: books/admin.py:29 books/models.py:195 books/models.py:697
 msgid "category"
 msgstr ""
 
-#: books/admin.py:30 books/admin.py:247 books/models.py:152 books/models.py:305
+#: books/admin.py:30 books/admin.py:253 books/models.py:196 books/models.py:350
 msgid "categories"
 msgstr ""
 
-#: books/admin.py:38 books/models.py:317 books/models.py:454
-#: books/models.py:541 inventory/models.py:81 orders/models.py:238
+#: books/admin.py:38 books/models.py:362 books/models.py:554
+#: books/models.py:696 orders/models.py:239
 msgid "book"
 msgstr ""
 
-#: books/admin.py:39 books/admin.py:118 books/admin.py:134 books/admin.py:150
-#: books/models.py:318
+#: books/admin.py:39 books/admin.py:123 books/admin.py:139 books/admin.py:155
+#: books/models.py:363
 msgid "books"
 msgstr ""
 
-#: books/admin.py:52 books/admin.py:53 books/admin.py:251
-#: inventory/models.py:101 inventory/models.py:102
+#: books/admin.py:54 books/admin.py:55 books/admin.py:257 books/admin.py:289
+#: inventory/models.py:107 inventory/models.py:108
 msgid "stock"
 msgstr ""
 
-#: books/admin.py:76 books/models.py:460
+#: books/admin.py:80 books/models.py:560 inventory/models.py:86
+#: orders/models.py:250
 msgid "format"
 msgstr ""
 
-#: books/admin.py:77
+#: books/admin.py:81
 msgid "formats"
 msgstr ""
 
-#: books/admin.py:91
+#: books/admin.py:96
 msgid "stock status"
 msgstr ""
 
-#: books/admin.py:198 books/templates/books/book_form.html:51
+#: books/admin.py:203 books/templates/books/book_form.html:51
 #: books/templates/books/includes/book_details.html:14
 msgid "Details"
 msgstr ""
 
-#: books/admin.py:207 books/filters.py:81
+#: books/admin.py:212 books/filters.py:81
 #: books/templates/books/includes/book_details.html:31
 msgid "Cover"
 msgstr ""
 
-#: books/admin.py:209
+#: books/admin.py:214
 msgid "Sales"
 msgstr ""
 
-#: books/admin.py:211 orders/admin.py:120
+#: books/admin.py:216 orders/admin.py:120
 msgid "Timestamps"
 msgstr ""
 
-#: books/admin.py:239 books/models.py:283 books/models.py:302
-#: books/models.py:478
+#: books/admin.py:245 books/models.py:327 books/models.py:347
+#: books/models.py:578
 msgid "cover"
 msgstr ""
 
-#: books/admin.py:243
+#: books/admin.py:249
 msgid "current cover"
 msgstr ""
 
-#: books/admin.py:255
+#: books/admin.py:261
 msgid "available"
 msgstr ""
 
@@ -158,7 +168,7 @@ msgstr ""
 msgid "Language"
 msgstr ""
 
-#: books/filters.py:73 books/templates/books/book_detail.html:73
+#: books/filters.py:73 books/templates/books/book_detail.html:77
 msgid "Format"
 msgstr ""
 
@@ -301,6 +311,12 @@ msgstr ""
 msgid "— Choose a format —"
 msgstr ""
 
+#: books/forms.py:207
+#, python-format
+msgid ""
+"“%(format)s” is in orders and can't be removed. Turn off “On sale” instead."
+msgstr ""
+
 #: books/models.py:29
 msgid "In stock"
 msgstr ""
@@ -310,178 +326,179 @@ msgstr ""
 msgid "Low (≤ {threshold})"
 msgstr ""
 
-#: books/models.py:34 books/templates/books/includes/stock_badge.html:4
+#: books/models.py:34 books/templates/books/book_detail.html:89
+#: books/templates/books/includes/stock_badge.html:4
 msgid "Out of stock"
 msgstr ""
 
-#: books/models.py:146 books/models.py:160 books/models.py:201
-#: currencies/models.py:34 inventory/models.py:45
+#: books/models.py:190 books/models.py:204 books/models.py:245
+#: currencies/models.py:34 inventory/models.py:50
 msgid "name"
 msgstr ""
 
-#: books/models.py:147 inventory/models.py:46
+#: books/models.py:191 inventory/models.py:51
 msgid "slug"
 msgstr ""
 
-#: books/models.py:161
+#: books/models.py:205
 msgid "biography"
 msgstr ""
 
-#: books/models.py:165 books/models.py:237
+#: books/models.py:209 books/models.py:281
 msgid "author"
 msgstr ""
 
-#: books/models.py:166
+#: books/models.py:210
 msgid "authors"
 msgstr ""
 
-#: books/models.py:185
+#: books/models.py:229
 #, python-format
 msgid "The publication year can't be later than %(year)s."
 msgstr ""
 
-#: books/models.py:205 books/models.py:270
+#: books/models.py:249 books/models.py:314
 msgid "publisher"
 msgstr ""
 
-#: books/models.py:206
+#: books/models.py:250
 msgid "publishers"
 msgstr ""
 
-#: books/models.py:216
+#: books/models.py:260
 msgid "Paper book"
 msgstr ""
 
-#: books/models.py:217
+#: books/models.py:261
 msgid "E-book"
 msgstr ""
 
-#: books/models.py:218
+#: books/models.py:262
 msgid "Audiobook"
 msgstr ""
 
-#: books/models.py:221
+#: books/models.py:265
 msgid "Hardcover"
 msgstr ""
 
-#: books/models.py:222
+#: books/models.py:266
 msgid "Paperback"
 msgstr ""
 
-#: books/models.py:223
+#: books/models.py:267
 msgid "Dust jacket"
 msgstr ""
 
-#: books/models.py:227 config/settings/base.py:387
+#: books/models.py:271 config/settings/base.py:387
 msgid "Ukrainian"
 msgstr ""
 
-#: books/models.py:228 config/settings/base.py:388
+#: books/models.py:272 config/settings/base.py:388
 msgid "English"
 msgstr ""
 
-#: books/models.py:229
+#: books/models.py:273
 msgid "Polish"
 msgstr ""
 
-#: books/models.py:230
+#: books/models.py:274
 msgid "German"
 msgstr ""
 
-#: books/models.py:231
+#: books/models.py:275
 msgid "French"
 msgstr ""
 
-#: books/models.py:232
+#: books/models.py:276
 msgid "Spanish"
 msgstr ""
 
-#: books/models.py:234 orders/models.py:247
+#: books/models.py:278 orders/models.py:265
 msgid "title"
 msgstr ""
 
-#: books/models.py:242 books/models.py:462 orders/admin.py:50
-#: orders/models.py:252
+#: books/models.py:286 books/models.py:562 orders/admin.py:50
+#: orders/models.py:270
 msgid "price"
 msgstr ""
 
-#: books/models.py:257 books/models.py:471 currencies/models.py:42
-#: currencies/models.py:69 orders/models.py:79 payments/models.py:62
+#: books/models.py:301 books/models.py:571 currencies/models.py:42
+#: currencies/models.py:69 orders/models.py:80 payments/models.py:62
 msgid "currency"
 msgstr ""
 
-#: books/models.py:263
+#: books/models.py:307
 msgid "description"
 msgstr ""
 
-#: books/models.py:280
+#: books/models.py:324
 msgid "book type"
 msgstr ""
 
-#: books/models.py:284 users/models.py:42
+#: books/models.py:328 users/models.py:42
 msgid "language"
 msgstr ""
 
-#: books/models.py:286
+#: books/models.py:330
 msgid "publication year"
 msgstr ""
 
-#: books/models.py:293 books/models.py:482
+#: books/models.py:337 books/models.py:582
 msgid "pages"
 msgstr ""
 
-#: books/models.py:310 orders/models.py:114 payments/models.py:77
+#: books/models.py:355 orders/models.py:115 payments/models.py:77
 msgid "created at"
 msgstr ""
 
-#: books/models.py:311 orders/models.py:115 payments/models.py:78
+#: books/models.py:356 orders/models.py:116 payments/models.py:78
 msgid "updated at"
 msgstr ""
 
-#: books/models.py:448
+#: books/models.py:548
 msgctxt "book format"
 msgid "Paper"
 msgstr ""
 
-#: books/models.py:449
+#: books/models.py:549
 msgctxt "book format"
 msgid "E-book"
 msgstr ""
 
-#: books/models.py:450
+#: books/models.py:550
 msgctxt "book format"
 msgid "Audiobook"
 msgstr ""
 
-#: books/models.py:488
+#: books/models.py:588
 msgid "on sale"
 msgstr ""
 
-#: books/models.py:490
+#: books/models.py:590
 msgid "Turn off to stop selling this format; old orders keep it."
 msgstr ""
 
-#: books/models.py:506
+#: books/models.py:608
 msgid "book format"
 msgstr ""
 
-#: books/models.py:507
+#: books/models.py:609
 msgid "book formats"
 msgstr ""
 
-#: books/models.py:514
+#: books/models.py:616
 msgid "The book already has this format."
 msgstr ""
 
-#: books/models.py:529
+#: books/models.py:631
 msgid "An audiobook has no pages."
 msgstr ""
 
-#: books/models.py:545
+#: books/models.py:700
 msgid "book category"
 msgstr ""
 
-#: books/models.py:546
+#: books/models.py:701
 msgid "book categories"
 msgstr ""
 
@@ -603,44 +620,52 @@ msgid "Not on sale"
 msgstr ""
 
 #: books/templates/books/book_detail.html:91
+#: books/templates/books/includes/stock_badge.html:7
+#, python-format
+msgid "Only %(stock)s copy left"
+msgid_plural "Only %(stock)s copies left"
+msgstr[0] ""
+msgstr[1] ""
+
+#: books/templates/books/book_detail.html:110
 #: cart/templates/cart/cart_detail.html:18
 #: orders/templates/orders/order_detail.html:32
 msgid "Quantity"
 msgstr ""
 
-#: books/templates/books/book_detail.html:92
-#: books/templates/books/book_list.html:273
+#: books/templates/books/book_detail.html:111
 #: books/templates/books/book_list.html:275
+#: books/templates/books/book_list.html:277
 msgid "Add to cart"
 msgstr ""
 
-#: books/templates/books/book_detail.html:101
+#: books/templates/books/book_detail.html:121
 #, python-format
-msgid "In your <a href=\"%(cart_url)s\">cart</a>: %(in_cart)s"
+msgid "In your <a href=\"%(cart_url)s\">cart</a>:"
 msgstr ""
 
-#: books/templates/books/book_detail.html:116
+#: books/templates/books/book_detail.html:137
 msgid "No description yet."
 msgstr ""
 
-#: books/templates/books/book_detail.html:123
+#: books/templates/books/book_detail.html:144
 #, python-format
 msgid "Added %(added)s · updated %(updated)s"
 msgstr ""
 
-#: books/templates/books/book_detail.html:131 templates/403.html:27
+#: books/templates/books/book_detail.html:152 templates/403.html:27
 #: templates/404.html:20 templates/500.html:42
 msgid "Back to catalog"
 msgstr ""
 
-#: books/templates/books/book_detail.html:135
+#: books/templates/books/book_detail.html:156
 #: books/templates/books/book_form.html:18
 #: users/templates/users/profile.html:51
 #: users/templates/users/profile_edit.html:12
 msgid "Edit"
 msgstr ""
 
-#: books/templates/books/book_detail.html:138
+#: books/templates/books/book_detail.html:159
 msgid "Delete"
 msgstr ""
 
@@ -741,15 +766,15 @@ msgstr ""
 msgid "Show"
 msgstr ""
 
-#: books/templates/books/book_list.html:259
+#: books/templates/books/book_list.html:261
 msgid "Choose format"
 msgstr ""
 
-#: books/templates/books/book_list.html:286
+#: books/templates/books/book_list.html:288
 msgid "No books match these filters."
 msgstr ""
 
-#: books/templates/books/book_list.html:287
+#: books/templates/books/book_list.html:289
 msgid "Show all books"
 msgstr ""
 
@@ -792,13 +817,6 @@ msgstr ""
 msgid "Show less"
 msgstr ""
 
-#: books/templates/books/includes/stock_badge.html:7
-#, python-format
-msgid "Only %(stock)s copy left"
-msgid_plural "Only %(stock)s copies left"
-msgstr[0] ""
-msgstr[1] ""
-
 #: books/templates/books/includes/stock_badge.html:13
 #, python-format
 msgid "In stock: %(stock)s"
@@ -817,29 +835,29 @@ msgstr ""
 msgid "Upload a new one to replace it:"
 msgstr ""
 
-#: books/views.py:296
+#: books/views.py:304
 #, python-format
 msgid "Book “%(title)s” was created."
 msgstr ""
 
-#: books/views.py:316
+#: books/views.py:324
 #, python-format
 msgid "Book “%(title)s” was updated."
 msgstr ""
 
-#: books/views.py:378
+#: books/views.py:386
 #, python-format
 msgid ""
 "“%(title)s” is in orders and can't be deleted. Set its stock to 0 to stop "
 "selling it."
 msgstr ""
 
-#: books/views.py:394
+#: books/views.py:402
 #, python-format
 msgid "Book “%(title)s” was deleted."
 msgstr ""
 
-#: books/views.py:487
+#: books/views.py:496
 #, python-format
 msgid "from %(price)s"
 msgstr ""
@@ -864,35 +882,49 @@ msgstr ""
 msgid "Cost"
 msgstr ""
 
-#: cart/templates/cart/cart_detail.html:37
+#: cart/templates/cart/cart_detail.html:42
+#, python-format
+msgid "Format of %(title)s"
+msgstr ""
+
+#: cart/templates/cart/cart_detail.html:51
+msgid "Change"
+msgstr ""
+
+#: cart/templates/cart/cart_detail.html:59
 #: orders/templates/orders/checkout.html:114
+msgid "This format is not on sale any more."
+msgstr ""
+
+#: cart/templates/cart/cart_detail.html:63
+#: orders/templates/orders/checkout.html:117
 #, python-format
 msgid "Only %(stock)s copy left in stock"
 msgid_plural "Only %(stock)s copies left in stock"
 msgstr[0] ""
 msgstr[1] ""
 
-#: cart/templates/cart/cart_detail.html:41
-#: orders/templates/orders/checkout.html:118
+#: cart/templates/cart/cart_detail.html:67
+#: orders/templates/orders/checkout.html:121
 msgid "Out of stock now"
 msgstr ""
 
-#: cart/templates/cart/cart_detail.html:54
+#: cart/templates/cart/cart_detail.html:83
 #, python-format
 msgid "Quantity of %(title)s"
 msgstr ""
 
-#: cart/templates/cart/cart_detail.html:55
+#: cart/templates/cart/cart_detail.html:84
 msgid "Update"
 msgstr ""
 
-#: cart/templates/cart/cart_detail.html:63
+#: cart/templates/cart/cart_detail.html:92
 #, python-format
 msgid "Remove %(title)s"
 msgstr ""
 
-#: cart/templates/cart/cart_detail.html:72
-#: orders/templates/orders/checkout.html:126
+#: cart/templates/cart/cart_detail.html:101
+#: orders/templates/orders/checkout.html:129
 #: orders/templates/orders/emails/order_cancelled.html:40
 #: orders/templates/orders/emails/order_created.html:44
 #: orders/templates/orders/order_detail.html:56
@@ -900,56 +932,56 @@ msgstr ""
 msgid "Total"
 msgstr ""
 
-#: cart/templates/cart/cart_detail.html:82
+#: cart/templates/cart/cart_detail.html:111
 msgid "Continue shopping"
 msgstr ""
 
-#: cart/templates/cart/cart_detail.html:85
+#: cart/templates/cart/cart_detail.html:114
 msgid "Clear cart"
 msgstr ""
 
-#: cart/templates/cart/cart_detail.html:89
+#: cart/templates/cart/cart_detail.html:118
 #: orders/templates/orders/checkout.html:4
 #: orders/templates/orders/checkout.html:10
 #: orders/templates/orders/checkout.html:14
 msgid "Checkout"
 msgstr ""
 
-#: cart/templates/cart/cart_detail.html:94 orders/services.py:82
+#: cart/templates/cart/cart_detail.html:123 orders/services.py:87
 msgid "The cart is empty."
 msgstr ""
 
-#: cart/templates/cart/cart_detail.html:95
+#: cart/templates/cart/cart_detail.html:124
 #: orders/templates/orders/emails/order_cancelled.html:49
 #: orders/templates/orders/order_list.html:45
 msgid "Go to the catalog"
 msgstr ""
 
-#: cart/views.py:45
-msgid "Quantity must be a whole number, 1 or more."
-msgstr ""
-
-#: cart/views.py:55 orders/services.py:131
+#: cart/views.py:47 orders/services.py:147
 #, python-format
 msgid "“%(title)s” is out of stock."
 msgstr ""
 
-#: cart/views.py:60
+#: cart/views.py:52
 #, python-format
 msgid "“%(title)s”: %(quantity)s in the cart, that's all we have in stock."
 msgstr ""
 
-#: cart/views.py:66
+#: cart/views.py:58
 #, python-format
 msgid "“%(title)s”: %(quantity)s in the cart."
 msgstr ""
 
-#: cart/views.py:83
+#: cart/views.py:81
+msgid "Quantity must be a whole number, 1 or more."
+msgstr ""
+
+#: cart/views.py:139
 #, python-format
 msgid "“%(title)s” removed from the cart."
 msgstr ""
 
-#: cart/views.py:95
+#: cart/views.py:152
 msgid "The cart is empty now."
 msgstr ""
 
@@ -1052,7 +1084,7 @@ msgstr ""
 msgid "updated"
 msgstr ""
 
-#: currencies/models.py:99 orders/models.py:88 orders/models.py:277
+#: currencies/models.py:99 orders/models.py:89 orders/models.py:295
 msgid "exchange rate"
 msgstr ""
 
@@ -1144,31 +1176,35 @@ msgstr ""
 msgid "Inventory"
 msgstr ""
 
-#: inventory/models.py:48
+#: inventory/models.py:53
 msgid "default"
 msgstr ""
 
-#: inventory/models.py:50
+#: inventory/models.py:55
 msgid "The site sells books from this warehouse. Only one can be the default."
 msgstr ""
 
-#: inventory/models.py:57 inventory/models.py:89
+#: inventory/models.py:62 inventory/models.py:95
 msgid "warehouse"
 msgstr ""
 
-#: inventory/models.py:58
+#: inventory/models.py:63
 msgid "warehouses"
 msgstr ""
 
-#: inventory/models.py:68
+#: inventory/models.py:73
 msgid "Another warehouse is already the default."
 msgstr ""
 
-#: inventory/models.py:97 orders/models.py:283
+#: inventory/models.py:103 orders/models.py:301
 msgid "quantity"
 msgstr ""
 
-#: orders/admin.py:54 orders/models.py:261
+#: inventory/models.py:127
+msgid "Only a paper format has copies in a warehouse."
+msgstr ""
+
+#: orders/admin.py:54 orders/models.py:279
 msgid "original price"
 msgstr ""
 
@@ -1190,7 +1226,7 @@ msgstr ""
 msgid "paid"
 msgstr ""
 
-#: orders/admin.py:172 orders/models.py:100
+#: orders/admin.py:172 orders/models.py:101
 msgid "total"
 msgstr ""
 
@@ -1268,111 +1304,120 @@ msgstr ""
 msgid "Cancelled: %(cancelled)s, skipped: %(skipped)s."
 msgstr ""
 
-#: orders/models.py:29
+#: orders/models.py:30
 msgid "New"
 msgstr ""
 
-#: orders/models.py:30
+#: orders/models.py:31
 msgid "Processing"
 msgstr ""
 
-#: orders/models.py:31
+#: orders/models.py:32
 msgid "Shipped"
 msgstr ""
 
-#: orders/models.py:32
+#: orders/models.py:33
 msgid "Completed"
 msgstr ""
 
-#: orders/models.py:33
+#: orders/models.py:34
 msgid "Cancelled"
 msgstr ""
 
-#: orders/models.py:36
+#: orders/models.py:37
 msgid "Unpaid"
 msgstr ""
 
-#: orders/models.py:37
+#: orders/models.py:38
 msgid "Partially paid"
 msgstr ""
 
-#: orders/models.py:38 orders/templates/orders/order_detail.html:85
+#: orders/models.py:39 orders/templates/orders/order_detail.html:85
 #: payments/templates/payments/emails/payment_received.html:29
 msgid "Paid"
 msgstr ""
 
-#: orders/models.py:42
+#: orders/models.py:43
 msgid "user"
 msgstr ""
 
-#: orders/models.py:49 payments/models.py:68
+#: orders/models.py:50 payments/models.py:68
 msgid "status"
 msgstr ""
 
-#: orders/models.py:59
+#: orders/models.py:60
 msgid "payment status"
 msgstr ""
 
-#: orders/models.py:67
+#: orders/models.py:68
 msgid "full name"
 msgstr ""
 
-#: orders/models.py:68 users/models.py:34
+#: orders/models.py:69 users/models.py:34
 msgid "phone"
 msgstr ""
 
-#: orders/models.py:69 users/models.py:35
+#: orders/models.py:70 users/models.py:35
 msgid "delivery address"
 msgstr ""
 
-#: orders/models.py:93
+#: orders/models.py:94
 msgid "UAH for 1 unit of the order currency on the day of the order"
 msgstr ""
 
-#: orders/models.py:112
+#: orders/models.py:113
 msgid "idempotency key"
 msgstr ""
 
-#: orders/models.py:119 orders/models.py:231 payments/models.py:36
+#: orders/models.py:120 orders/models.py:232 payments/models.py:36
 msgid "order"
 msgstr ""
 
-#: orders/models.py:120
+#: orders/models.py:121
 msgid "orders"
 msgstr ""
 
-#: orders/models.py:144
+#: orders/models.py:145
 #, python-format
 msgid "Order #%(number)s"
 msgstr ""
 
-#: orders/models.py:268
+#: orders/models.py:260
+msgid "format type"
+msgstr ""
+
+#: orders/models.py:286
 msgid "original currency"
 msgstr ""
 
-#: orders/models.py:289
+#: orders/models.py:307
 msgid "order item"
 msgstr ""
 
-#: orders/models.py:290
+#: orders/models.py:308
 msgid "order items"
 msgstr ""
 
-#: orders/services.py:87
+#: orders/services.py:92
 #, python-format
 msgid "Orders in %(currency)s are not accepted."
 msgstr ""
 
-#: orders/services.py:122
+#: orders/services.py:129
 msgid "A book from your cart is no longer sold."
 msgstr ""
 
-#: orders/services.py:126
+#: orders/services.py:134
+#, python-format
+msgid "“%(title)s” (%(format)s) is not on sale any more."
+msgstr ""
+
+#: orders/services.py:140
 #, python-format
 msgid "“%(title)s” can't be sold now: no exchange rate for %(currency)s."
 msgstr ""
 
-#: orders/services.py:138
+#: orders/services.py:154
 #, python-format
 msgid "“%(title)s”: only %(stock)s copy left, you ordered %(quantity)s."
 msgid_plural ""
@@ -1380,21 +1425,21 @@ msgid_plural ""
 msgstr[0] ""
 msgstr[1] ""
 
-#: orders/services.py:233 payments/services.py:207
+#: orders/services.py:253 payments/services.py:207
 msgid "Order not found."
 msgstr ""
 
-#: orders/services.py:235
+#: orders/services.py:255
 #, python-format
 msgid "%(order)s can't be cancelled any more."
 msgstr ""
 
-#: orders/services.py:237
+#: orders/services.py:257
 #, python-format
 msgid "%(order)s is already cancelled."
 msgstr ""
 
-#: orders/services.py:241
+#: orders/services.py:261
 #, python-format
 msgid "%(order)s is not a new unpaid order any more."
 msgstr ""
@@ -1428,7 +1473,7 @@ msgstr ""
 msgid "Your order"
 msgstr ""
 
-#: orders/templates/orders/checkout.html:131
+#: orders/templates/orders/checkout.html:134
 msgid ""
 "The books are reserved when you place the order. Then you pay with the “Pay” "
 "button on the order page."

@@ -213,8 +213,10 @@ class OrderViewSet(
         repeat after the payment shows "paid".
         """
         data = serializer.validated_data
+        # By book, as the request names them: the format chosen for a book
+        # (its main format) may be another one now, the stock has changed
         same = {item.book_id: item.quantity for item in order.items.all()} == (
-            serializer.quantities()
+            serializer.book_quantities()
         ) and (order.full_name, order.phone, order.address, order.currency_id) == (
             data["full_name"],
             data["phone"],

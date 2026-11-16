@@ -278,8 +278,10 @@ def test_manager_creates_a_book_with_its_first_copies(as_user, manager):
 
     assert response.status_code == 201
     assert response.json()["stock"] == 7
-    # Written to the default warehouse (inventory.Stock), not to the book
-    assert Book.objects.get().stocks.get().quantity == 7
+    # Written to the default warehouse (inventory.Stock) of the paper
+    # format the book got from its fields, not to the book
+    paper = Book.objects.get().formats.get()
+    assert (paper.format_type, paper.stocks.get().quantity) == ("paper", 7)
 
 
 def test_invalid_book_data_is_400_with_the_errors_of_the_fields(as_user, editor):

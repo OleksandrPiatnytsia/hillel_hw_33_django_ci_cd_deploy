@@ -18,6 +18,7 @@ from django.db import connection
 from django.urls import reverse
 from pytest_django.asserts import assertRedirects
 
+from cart.cart import CART_SESSION_KEY
 from inventory.services import set_stock
 from orders.models import Order
 from orders.services import OrderError, create_order
@@ -25,7 +26,7 @@ from payments.models import Payment
 from users.models import User
 
 from ..factories import DEFAULT_PASSWORD, BookFactory, UserFactory
-from ..helpers import message_levels
+from ..helpers import format_id, message_levels
 
 pytestmark = pytest.mark.django_db
 
@@ -58,9 +59,9 @@ def test_guest_cart_survives_login_and_becomes_an_order(
         {"username": "ann", "password": DEFAULT_PASSWORD},
     )
     assertRedirects(response, checkout_url)
-    assert client.session["cart"] == {
-        str(first.pk): {"quantity": 2},
-        str(second.pk): {"quantity": 1},
+    assert client.session[CART_SESSION_KEY] == {
+        str(format_id(first)): {"quantity": 2},
+        str(format_id(second)): {"quantity": 1},
     }
 
     # 3. The delivery form -> the order
@@ -103,7 +104,7 @@ def test_not_enough_stock_keeps_cart_and_saves_nothing(customer_client, mailoutb
     assert not Order.objects.exists()
     book.refresh_from_db()
     assert book.stock == 1
-    assert customer_client.session["cart"] == {str(book.pk): {"quantity": 3}}
+    assert customer_client.session[CART_SESSION_KEY] == {str(format_id(book)): {"quantity": 3}}
     assert mailoutbox == []
 
 
@@ -205,7 +206,7 @@ def test_only_one_of_two_simultaneous_orders_gets_the_last_copy():
         try:
             start.wait()
             create_order(
-                user, {book.pk: 1}, full_name="Buyer", phone="+380671234567", address="Kyiv"
+                user, {format_id(book): 1}, full_name="Buyer", phone="+380671234567", address="Kyiv"
             )
             results.append("ordered")
         except OrderError:

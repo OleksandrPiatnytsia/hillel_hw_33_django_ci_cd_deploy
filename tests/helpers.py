@@ -93,3 +93,14 @@ def formats_data(*rows, initial=0):
         for name, value in row.items():
             data[f"formats-{index}-{name}"] = value
     return data
+
+
+def format_id(book):
+    """The id of the main format of a book: the key of create_order() and of the cart.
+
+    create_order() takes {format_id: quantity}; a book of BookFactory has
+    one format (paper by default), so this is "the book" in such a dict:
+        create_order(user, {format_id(book): 2}, ...)
+    """
+    book.__dict__.pop("prefetched_active_formats", None)
+    return book.main_format.pk

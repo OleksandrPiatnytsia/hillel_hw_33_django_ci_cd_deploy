@@ -207,15 +207,29 @@ class OrderCreateSerializer(serializers.Serializer):
             raise serializers.ValidationError(error.messages)
 
     def validate_items(self, items):
-        # One line per book (OrderItem has a unique constraint on it):
-        # 3 copies = quantity 3, not the same book three times
+        # One line per book: 3 copies = quantity 3, not the same book three times
         book_ids = [item["book_id"].pk for item in items]
         if len(book_ids) != len(set(book_ids)):
             raise serializers.ValidationError(
                 _("Every book may be in the list only once; use quantity.")
             )
+        # A book is ordered in its main format (Book.main_format: the first
+        # one on sale that can be bought, paper first) until the API gets
+        # "format_id" (the next stage). A book with no format on sale -> 400.
+        not_on_sale = [item["book_id"].title for item in items if not item["book_id"].main_format]
+        if not_on_sale:
+            raise serializers.ValidationError(
+                [_("“%(title)s” is not on sale.") % {"title": title} for title in not_on_sale]
+            )
         return items
 
-    def quantities(self):
-        """{book_id: quantity}: the format of create_order() (and of the cart)."""
+    def book_quantities(self):
+        """{book_id: quantity}: the request as it was sent (the idempotency check)."""
         return {item["book_id"].pk: item["quantity"] for item in self.validated_data["items"]}
+
+    def quantities(self):
+        """{format_id: quantity}: the format of create_order() (and of the cart)."""
+        return {
+            item["book_id"].main_format.pk: item["quantity"]
+            for item in self.validated_data["items"]
+        }

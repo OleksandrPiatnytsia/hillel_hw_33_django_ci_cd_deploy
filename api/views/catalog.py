@@ -124,9 +124,9 @@ class BookViewSet(LoggedModelViewSet):
         .select_related("author", "publisher", "currency")
         # ManyToMany: the categories of the whole page in one extra query
         .prefetch_related("categories")
-        # "stock" of the default warehouse in the same SQL query; also
-        # needed by the ?stock= filter
-        .with_stock().order_by("title", "pk")
+        # "stock" (of the paper format) and "available" (in_stock) in the
+        # same SQL query; also needed by the ?stock= filter
+        .with_availability().order_by("title", "pk")
     )
     serializer_class = BookSerializer
     permission_classes = [DjangoModelPermissionsOrAnonReadOnly]

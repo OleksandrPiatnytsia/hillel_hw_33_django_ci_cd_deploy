@@ -81,7 +81,8 @@ def test_flash_message_in_the_language_of_the_request(client):
 
     response = client.post(reverse("cart:add", args=[book.pk]), {"quantity": 1}, follow=True)
 
-    assert "«Кобзар»: у кошику 1." in response.content.decode()
+    # The title with the chosen format
+    assert "«Кобзар (Паперова)»: у кошику 1." in response.content.decode()
 
 
 def test_order_str_and_status_labels_follow_active_language():

@@ -14,8 +14,8 @@ from orders.services import create_order
 from payments.admin import ManualPaymentFormSet
 from payments.models import Payment
 
-from ..factories import BookFactory, PaymentFactory
-from ..helpers import admin_change_form_data, inline_prefix, message_levels
+from ..factories import BookFactory, BookFormatFactory, PaymentFactory
+from ..helpers import admin_change_form_data, format_id, inline_prefix, message_levels
 
 pytestmark = pytest.mark.django_db
 
@@ -29,7 +29,7 @@ def book():
 def order(customer, book):
     """An order made by the real checkout code: 3 books reserved, 300 UAH."""
     return create_order(
-        customer, {book.pk: 3}, full_name="Ann", phone="+380671234567", address="Kyiv"
+        customer, {format_id(book): 3}, full_name="Ann", phone="+380671234567", address="Kyiv"
     )
 
 
@@ -122,10 +122,10 @@ def test_manager_cancels_order_by_status_field(order, book, manager_client):
 
 def test_cancel_action_warns_about_paid_orders(customer, book, manager_client):
     unpaid = create_order(
-        customer, {book.pk: 1}, full_name="Ann", phone="+380671234567", address="Kyiv"
+        customer, {format_id(book): 1}, full_name="Ann", phone="+380671234567", address="Kyiv"
     )
     paid = create_order(
-        customer, {book.pk: 2}, full_name="Ann", phone="+380671234567", address="Kyiv"
+        customer, {format_id(book): 2}, full_name="Ann", phone="+380671234567", address="Kyiv"
     )
     PaymentFactory(order=paid, status=Payment.Status.SUCCEEDED, amount=paid.total)
     paid.refresh_payment_status()
@@ -154,7 +154,11 @@ def old_orders(customer, book):
 
     def make(quantity):
         return create_order(
-            customer, {book.pk: quantity}, full_name="Ann", phone="+380671234567", address="Kyiv"
+            customer,
+            {format_id(book): quantity},
+            full_name="Ann",
+            phone="+380671234567",
+            address="Kyiv",
         )
 
     old_unpaid, old_paid, fresh = make(1), make(2), make(3)
@@ -272,11 +276,18 @@ def test_admin_book_list_sorts_and_filters_by_stock(manager_client, query, expec
 
 
 # Generated with AI
-def test_admin_book_page_shows_the_stock_inline_and_stock_list(manager_client, book):
-    page = manager_client.get(reverse("admin:books_book_change", args=[book.pk]))
+def test_admin_paper_format_page_shows_the_stock_inline_and_stock_list(manager_client, book):
+    paper = book.formats.get()
+    ebook = BookFormatFactory(book=book, format_type="ebook")
+    book_page = manager_client.get(reverse("admin:books_book_change", args=[book.pk]))
+    paper_page = manager_client.get(reverse("admin:books_bookformat_change", args=[paper.pk]))
+    ebook_page = manager_client.get(reverse("admin:books_bookformat_change", args=[ebook.pk]))
     stock_list = manager_client.get(reverse("admin:inventory_stock_changelist"))
 
-    assert page.status_code == 200
-    assert "stocks-TOTAL_FORMS" in page.content.decode()
+    # The format rows of the book link to the page of each format
+    assert reverse("admin:books_bookformat_change", args=[paper.pk]) in book_page.text
+    # The copies: on the page of the paper book only, a file has none
+    assert "stocks-TOTAL_FORMS" in paper_page.text
+    assert "stocks-TOTAL_FORMS" not in ebook_page.text
     assert stock_list.status_code == 200
     assert [stock.quantity for stock in stock_list.context["cl"].result_list] == [10]

@@ -5,7 +5,7 @@ from django.db import transaction
 
 from books.models import Author, Book, BookFormat, Category, Publisher
 from currencies.models import BASE_CURRENCY
-from inventory.services import set_stock
+from inventory.services import paper_format_of, set_stock
 
 # slug -> name
 CATEGORIES = {
@@ -134,11 +134,6 @@ class Command(BaseCommand):
             )
             if created:
                 self._fill_details(book, DETAILS.get(title))
-            if created:
-                # Only for a new book: re-running doesn't reset the stock
-                # that orders have changed since. The row with 0 is already
-                # there (inventory.signals); this sets the real number.
-                set_stock(book, stock)
             # add() skips links that already exist, so re-running is safe
             book.categories.add(*(categories[slug] for slug in slugs))
             if created:
@@ -147,6 +142,12 @@ class Command(BaseCommand):
                 self.stdout.write(f"+ details of {book}")
             if self._add_format(book):
                 self.stdout.write(f"+ format of {book}")
+            if created and paper_format_of(book) is not None:
+                # Only for a new paper book: re-running doesn't reset the
+                # stock that orders have changed since. The row with 0 is
+                # already there (inventory.signals, made with the format);
+                # this sets the real number. An e-book has no copies.
+                set_stock(book, stock)
 
         self.stdout.write(
             self.style.SUCCESS(

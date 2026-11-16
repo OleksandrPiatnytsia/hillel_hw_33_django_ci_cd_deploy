@@ -190,6 +190,26 @@ class BaseBookFormatFormSet(BaseInlineFormSet):
         if "DELETE" in form.fields:
             form.fields["DELETE"].widget.attrs["class"] = "form-check-input"
 
+    def clean(self):
+        """A format that is in orders can't be deleted: switch off "On sale" instead.
+
+        OrderItem.format is PROTECT: deleting it would fail in the database
+        (ProtectedError, a 500 page) after the book was already saved.
+        Checked here, before anything is saved, with the same advice as the
+        admin gives.
+        """
+        super().clean()
+        for form in self.deleted_forms:
+            book_format = form.instance
+            if book_format.pk and book_format.order_items.exists():
+                raise forms.ValidationError(
+                    _(
+                        "“%(format)s” is in orders and can't be removed. "
+                        "Turn off “On sale” instead."
+                    )
+                    % {"format": book_format.get_format_type_display()}
+                )
+
     def main_format(self):
         """The cleaned data of the main format: on sale first, then paper, e-book, audiobook.
 

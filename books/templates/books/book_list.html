@@ -246,7 +246,9 @@
                 {# The price "from" of the cheapest format on sale; the formats #}
                 {# come from with_active_formats() of the view, no query per card #}
                 {% include "books/includes/price_from.html" with book=book %}
-                {% if book.paper_format %}{% include "books/includes/stock_badge.html" with book=book %}{% endif %}
+                {# The copies only for a book sold just on paper: with an e-book #}
+                {# too, "Out of stock" next to the price would be wrong #}
+                {% if book.paper_format and formats|length == 1 %}{% include "books/includes/stock_badge.html" with book=book %}{% endif %}
               </div>
 
               {# The stretched-link above covers the whole card with a link #}
@@ -269,7 +271,7 @@
                   {# keeps the button's space, so price rows stay aligned across #}
                   {# the cards in a row; the badge already explains why. disabled: #}
                   {# the form can't be sent anyway (Cart.add() would refuse it too). #}
-                  {% if book.stock and formats %}
+                  {% if book.available %}
                     <button class="btn btn-sm btn-outline-primary" type="submit">{% translate "Add to cart" %}</button>
                   {% else %}
                     <button class="btn btn-sm btn-outline-primary invisible" type="submit" disabled>{% translate "Add to cart" %}</button>

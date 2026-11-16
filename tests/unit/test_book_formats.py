@@ -6,6 +6,7 @@ the admin inline, the cache of the book pages, seed_books.
 """
 
 import importlib
+import re
 from datetime import date
 from decimal import Decimal
 from io import StringIO
@@ -613,7 +614,7 @@ def test_book_page_has_a_tile_per_format_on_sale_with_its_price(client):
     # Paper is chosen; the labels and the prices of the tiles
     # The paper tile is the only chosen one: "checked" stands right after its id
     assert content.count("checked") == 1
-    assert f'id="format-{paper.pk}" autocomplete="off" checked' in content
+    assert re.search(rf'id="format-{paper.pk}" autocomplete="off"\s+checked', content)
     for text in ["Паперова", "450,00 ₴", "Електронна", "199,00 ₴", "від 199,00 ₴"]:
         assert text in content, text
     assert "Аудіокнига" not in content.split("format-tiles")[1].split("</fieldset>")[0]

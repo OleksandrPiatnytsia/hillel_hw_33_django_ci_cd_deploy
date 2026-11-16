@@ -38,7 +38,7 @@
             {% for item in order.items.all %}
               <tr>
                 {# item.title / item.price: copies from the moment of ordering #}
-                <td><a class="text-decoration-none" href="{{ item.book.get_absolute_url }}">{{ item.title }}</a></td>
+                <td><a class="text-decoration-none" href="{{ item.book.get_absolute_url }}">{{ item.display_title }}</a></td>
                 <td class="text-end text-nowrap">
                   {{ item.price|money:order.currency_id }}
                   {# Converted from the book's own currency: the price it had then #}

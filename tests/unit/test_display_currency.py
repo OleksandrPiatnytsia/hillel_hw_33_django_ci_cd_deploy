@@ -13,7 +13,7 @@ from django.test import RequestFactory
 from django.urls import reverse
 from django.utils import translation
 
-from cart.cart import Cart
+from cart.cart import CART_SESSION_KEY, Cart
 from currencies.display import (
     SESSION_KEY,
     book_price,
@@ -25,6 +25,7 @@ from currencies.models import Currency, ExchangeRate
 from currencies.templatetags.money import money
 
 from ..factories import BookFactory
+from ..helpers import format_id
 
 pytestmark = pytest.mark.django_db
 
@@ -312,7 +313,10 @@ def test_cart_is_in_the_chosen_currency(client, mixed_books):
 # Generated with AI
 def test_cart_object_follows_the_session_currency(mixed_books):
     request = request_with("EUR")
-    request.session = {SESSION_KEY: "EUR", "cart": {str(mixed_books[1].pk): {"quantity": 2}}}
+    request.session = {
+        SESSION_KEY: "EUR",
+        CART_SESSION_KEY: {str(format_id(mixed_books[1])): {"quantity": 2}},
+    }
 
     cart = Cart(request)
 

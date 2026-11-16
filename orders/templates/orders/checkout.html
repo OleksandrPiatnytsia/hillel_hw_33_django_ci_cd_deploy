@@ -108,10 +108,13 @@
           <li class="list-group-item d-flex justify-content-between gap-3">
             <div>
               {{ item.book.title }}
+              <span class="text-body-secondary">({{ item.format.get_format_type_display }})</span>
               <div class="small text-body-secondary">{{ item.quantity }} × {{ item.price|money:cart.currency }}</div>
-              {% if item.exceeds_stock %}
+              {% if item.not_on_sale %}
+                <div class="small text-danger">{% translate "This format is not on sale any more." %}</div>
+              {% elif item.exceeds_stock %}
                 <div class="small text-danger">
-                  {% if item.book.stock %}{% blocktranslate trimmed count stock=item.book.stock %}
+                  {% if item.format.stock %}{% blocktranslate trimmed count stock=item.format.stock %}
                         Only {{ stock }} copy left in stock
                       {% plural %}
                         Only {{ stock }} copies left in stock

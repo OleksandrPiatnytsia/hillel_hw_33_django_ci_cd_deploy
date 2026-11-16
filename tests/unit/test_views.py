@@ -9,12 +9,13 @@ import pytest
 from django.urls import reverse
 from pytest_django.asserts import assertRedirects, assertTemplateUsed
 
+from cart.cart import CART_SESSION_KEY
 from config import views as config_views
 from orders.models import Order
 
 from ..factories import AuthorFactory, BookFactory, CategoryFactory, OrderFactory, PaymentFactory
 from ..fakes import stripe_event_payload, stripe_webhook_headers
-from ..helpers import message_levels
+from ..helpers import format_id, message_levels
 
 pytestmark = pytest.mark.django_db
 
@@ -298,7 +299,8 @@ def test_book_list_sorts_by_the_converted_price_then_pk(client):
     out_of_stock_last, by_price, tie_breaker = response.context[
         "paginator"
     ].object_list.query.order_by
-    assert "stock" in str(out_of_stock_last)  # CASE WHEN stock = 0 THEN 1 ELSE 0
+    # CASE WHEN NOT available THEN 1 ELSE 0: an e-book on sale is never last
+    assert "available" in str(out_of_stock_last)
     assert (by_price.expression.name, by_price.descending, by_price.nulls_last) == (
         "display_price",
         True,
@@ -395,7 +397,8 @@ def test_book_detail_shows_quantity_in_cart(client):
     response = client.get(book.get_absolute_url())
 
     assert response.status_code == 200
-    assert response.context["in_cart"] == 2
+    # [(format, quantity)]: "In your cart: Paper — 2"
+    assert response.context["in_cart"] == [(book.formats.get(), 2)]
 
 
 def test_missing_book_is_404(client):
@@ -450,7 +453,7 @@ def test_cart_add_more_than_stock_warns(client):
     response = client.post(reverse("cart:add", args=[book.pk]), {"quantity": 5})
 
     assert message_levels(response) == ["warning"]
-    assert client.session["cart"] == {str(book.pk): {"quantity": 2}}
+    assert client.session[CART_SESSION_KEY] == {str(format_id(book)): {"quantity": 2}}
 
 
 @pytest.mark.parametrize("quantity", ["0", "-1", "two"])
@@ -460,7 +463,7 @@ def test_cart_add_with_wrong_quantity_is_an_error(client, quantity):
     response = client.post(reverse("cart:add", args=[book.pk]), {"quantity": quantity})
 
     assert message_levels(response) == ["error"]
-    assert not client.session.get("cart")
+    assert not client.session.get(CART_SESSION_KEY)
 
 
 def test_cart_add_out_of_stock_book_is_an_error(client):
@@ -476,13 +479,13 @@ def test_cart_remove_and_clear(client):
     for book in (first, second):
         client.post(reverse("cart:add", args=[book.pk]), {"quantity": 1})
 
-    removed = client.post(reverse("cart:remove", args=[first.pk]))
-    assert list(client.session["cart"]) == [str(second.pk)]
+    removed = client.post(reverse("cart:remove", args=[format_id(first)]))
+    assert list(client.session[CART_SESSION_KEY]) == [str(format_id(second))]
     assert message_levels(removed)[-1] == "success"
 
     cleared = client.post(reverse("cart:clear"))
     assertRedirects(cleared, reverse("cart:detail"))
-    assert not client.session.get("cart")
+    assert not client.session.get(CART_SESSION_KEY)
 
 
 # ---------------------------------------------------------------------------

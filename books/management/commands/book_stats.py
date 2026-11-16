@@ -98,15 +98,19 @@ class Command(BaseCommand):
         # ------------------------------------------------------------------
 
         # aggregate per category -> GROUP BY category
-        # Category -> books -> stocks: two JOINs, one row per book per
-        # warehouse. filter=default_stock takes only the rows of the default
+        # Category -> books -> formats -> stocks: three JOINs, one row per
+        # paper format per warehouse (only a paper book has stock rows).
+        # filter=default_stock takes only the rows of the default
         # warehouse, so a book in several warehouses is not counted several
-        # times; books_count uses distinct=True for the same reason.
-        default_stock = Q(books__stocks__warehouse__is_default=True)
+        # times; books_count uses distinct=True for the same reason. The
+        # average price is of the paper books for the same reason.
+        default_stock = Q(books__formats__stocks__warehouse__is_default=True)
         categories = Category.objects.annotate(
             books_count=Count("books", distinct=True),
             # Count with filter=Q(...) counts only matching rows
-            in_stock_count=Count("books", filter=default_stock & Q(books__stocks__quantity__gt=0)),
+            in_stock_count=Count(
+                "books", filter=default_stock & Q(books__formats__stocks__quantity__gt=0)
+            ),
             # The same CASE WHEN, through the relation Category -> books
             avg_price=Avg(
                 price_in(
@@ -114,7 +118,7 @@ class Command(BaseCommand):
                 ),
                 filter=default_stock,
             ),
-            total_stock=Sum("books__stocks__quantity", filter=default_stock),
+            total_stock=Sum("books__formats__stocks__quantity", filter=default_stock),
         ).order_by("-books_count", "name")
         self.heading("annotate: statistics per category")
         self.print_sql(categories)

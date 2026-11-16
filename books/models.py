@@ -3,7 +3,7 @@ from decimal import Decimal
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
-from django.db.models import F, OuterRef, Prefetch, Subquery, Sum
+from django.db.models import Case, Exists, F, OuterRef, Prefetch, Q, Subquery, Sum, When
 from django.db.models.functions import Coalesce
 from django.templatetags.static import static
 from django.urls import reverse
@@ -35,13 +35,17 @@ class BookQuerySet(models.QuerySet):
     ]
 
     def with_stock(self):
-        """Add the annotation "stock": copies in the default warehouse, 0 without a row.
+        """Add the annotation "stock": copies of the PAPER format in the default warehouse.
 
-        One subquery inside the same SELECT, for every book of the list:
+        0 without a paper format or without a row. An e-book or an
+        audiobook has no copies, so the stock of a book is the stock of its
+        paper book. One subquery inside the same SELECT, for every book:
 
             SELECT book.*, COALESCE((SELECT quantity FROM inventory_stock
+                                     JOIN books_bookformat ...
                                      JOIN inventory_warehouse ...
-                                     WHERE book_id = book.id AND is_default
+                                     WHERE bookformat.book_id = book.id
+                                       AND format_type = 'paper' AND is_default
                                      LIMIT 1), 0) AS stock
             FROM books_book
 
@@ -51,14 +55,46 @@ class BookQuerySet(models.QuerySet):
         """
         if "stock" in self.query.annotations:
             return self
-        # Imported here: inventory.models has a ForeignKey to Book, and
-        # books.models is loaded first
+        # Imported here: inventory.models has a ForeignKey to BookFormat,
+        # and books.models is loaded first
         from inventory.models import Stock
 
         default_quantity = Stock.objects.filter(
-            book=OuterRef("pk"), warehouse__is_default=True
+            format__book=OuterRef("pk"),
+            format__format_type=BookFormat.FormatType.PAPER,
+            warehouse__is_default=True,
         ).values("quantity")[:1]
         return self.annotate(stock=Coalesce(Subquery(default_quantity), 0))
+
+    def with_availability(self):
+        """Add "stock" and "available": can the book be bought right now?
+
+        Available = a digital format on sale (a file never runs out), or
+        the paper format on sale with copies in the default warehouse:
+
+            CASE WHEN EXISTS(e-book / audiobook on sale)
+                   OR (EXISTS(paper on sale) AND stock > 0)
+                 THEN true ELSE false END AS available
+
+        The "Add to cart" button of the card, "Out of stock last", the
+        availability filter and the "in_stock" of the API use it. A book
+        with a paper book sold out and an e-book on sale stays available.
+        """
+        if "available" in self.query.annotations:
+            return self
+        on_sale = BookFormat.objects.filter(book=OuterRef("pk"), is_active=True)
+        paper = BookFormat.FormatType.PAPER
+        return self.with_stock().annotate(
+            available=Case(
+                When(
+                    Q(Exists(on_sale.exclude(format_type=paper)))
+                    | Q(Exists(on_sale.filter(format_type=paper)), stock__gt=0),
+                    then=True,
+                ),
+                default=False,
+                output_field=models.BooleanField(),
+            )
+        )
 
     def with_sold(self):
         """Add the annotation "sold": copies ordered, cancelled orders not counted.
@@ -131,15 +167,23 @@ class BookQuerySet(models.QuerySet):
         return self.annotate(display_price=Subquery(cheapest))
 
     def by_stock_status(self, status):
-        """Filter by one of STOCK_STATUS_CHOICES; unknown/empty value -> no filter."""
+        """Filter by one of STOCK_STATUS_CHOICES; unknown/empty value -> no filter.
+
+        "In stock" / "Out of stock": can the book be bought (with_availability:
+        an e-book on sale is always "in stock"). "Low": only a paper book
+        on sale with 1..LOW_STOCK_THRESHOLD copies left.
+        """
         if status not in (self.STOCK_IN, self.STOCK_LOW, self.STOCK_OUT):
             return self
-        books = self.with_stock()
+        books = self.with_availability()
         if status == self.STOCK_IN:
-            return books.filter(stock__gt=0)
+            return books.filter(available=True)
         if status == self.STOCK_LOW:
-            return books.filter(stock__gt=0, stock__lte=LOW_STOCK_THRESHOLD)
-        return books.filter(stock=0)
+            paper_on_sale = BookFormat.objects.filter(
+                book=OuterRef("pk"), is_active=True, format_type=BookFormat.FormatType.PAPER
+            )
+            return books.filter(Exists(paper_on_sale), stock__gt=0, stock__lte=LOW_STOCK_THRESHOLD)
+        return books.filter(available=False)
 
 
 class Category(models.Model):
@@ -296,8 +340,9 @@ class Book(models.Model):
         validators=[MinValueValidator(1), MaxValueValidator(10000)],
     )
 
-    # No stock here: copies are counted in inventory.Stock (see the
-    # "stock" property below and BookQuerySet.with_stock())
+    # No stock here: the copies of the paper format are counted in
+    # inventory.Stock (see the "stock" property below and
+    # BookQuerySet.with_stock())
     # Only the path is stored in the DB; the file goes to MEDIA_ROOT/covers/<year>/<month>/
     cover = models.ImageField(_("cover"), upload_to="covers/%Y/%m/", blank=True)
     categories = models.ManyToManyField(
@@ -343,12 +388,13 @@ class Book(models.Model):
         return static("img/no-cover.svg")
 
     # ------------------------------------------------------------------
-    # Stock: copies in the default warehouse (inventory.Stock)
+    # Stock: copies of the paper format in the default warehouse
+    # (inventory.Stock)
     # ------------------------------------------------------------------
 
     @property
     def stock(self):
-        """Copies in the default warehouse.
+        """Copies of the paper format in the default warehouse (0 without one).
 
         Books from Book.objects.with_stock() already have the value (the
         annotation is stored through the setter below): no query. Any other
@@ -359,8 +405,15 @@ class Book(models.Model):
             if self.pk is None:
                 self._stock = 0
             else:
+                # Imported here: inventory.models imports BookFormat
+                from inventory.models import Stock
+
                 quantity = (
-                    self.stocks.filter(warehouse__is_default=True)
+                    Stock.objects.filter(
+                        format__book=self,
+                        format__format_type=BookFormat.FormatType.PAPER,
+                        warehouse__is_default=True,
+                    )
                     .values_list("quantity", flat=True)
                     .first()
                 )
@@ -378,13 +431,30 @@ class Book(models.Model):
     def refresh_from_db(self, *args, **kwargs):
         # The stock and the formats may have changed too: read them again
         # on the next access
-        self.__dict__.pop("_stock", None)
-        self.__dict__.pop("prefetched_active_formats", None)
+        for name in ("_stock", "_available", "prefetched_active_formats"):
+            self.__dict__.pop(name, None)
         super().refresh_from_db(*args, **kwargs)
 
     @property
     def is_low_stock(self):
         return 0 < self.stock <= LOW_STOCK_THRESHOLD
+
+    @property
+    def available(self):
+        """Can the book be bought now: a digital format on sale, or paper with copies.
+
+        The same rule as BookQuerySet.with_availability(); a book from it
+        already has the value (no query), any other one calculates it from
+        its formats on sale and its stock.
+        """
+        if "_available" not in self.__dict__:
+            self._available = any(book_format.in_stock for book_format in self.active_formats)
+        return self._available
+
+    @available.setter
+    def available(self, value):
+        # The annotation of with_availability() (Django sets it with setattr)
+        self._available = value
 
     # ------------------------------------------------------------------
     # Formats (BookFormat): paper, e-book, audiobook
@@ -418,6 +488,36 @@ class Book(models.Model):
     def pages_count(self):
         """The pages of the paper format, else of the e-book; None if not known."""
         return next((f.pages for f in self.active_formats if f.pages), None)
+
+    @property
+    def main_format(self):
+        """The format a "buy this book" without a choice means; None if none is on sale.
+
+        The first format on sale that can be bought now (paper first, see
+        BookFormat.Meta.ordering), else the first one on sale. Used by the
+        "Add to cart" without a chosen format and by the old carts (by book)
+        converted to formats.
+        """
+        formats = self.active_formats
+        return next((f for f in formats if f.in_stock), formats[0] if formats else None)
+
+
+class BookFormatQuerySet(models.QuerySet):
+    def with_stock(self):
+        """Add "stock": copies in the default warehouse (0 for a digital format).
+
+        The same subquery as BookQuerySet.with_stock(), by the format:
+        the cart reads the stock of all its formats in one query.
+        """
+        if "stock" in self.query.annotations:
+            return self
+        # Imported here: inventory.models has a ForeignKey to BookFormat
+        from inventory.models import Stock
+
+        default_quantity = Stock.objects.filter(
+            format=OuterRef("pk"), warehouse__is_default=True
+        ).values("quantity")[:1]
+        return self.annotate(stock=Coalesce(Subquery(default_quantity), 0))
 
 
 class BookFormat(models.Model):
@@ -490,6 +590,8 @@ class BookFormat(models.Model):
         help_text=_("Turn off to stop selling this format; old orders keep it."),
     )
 
+    objects = BookFormatQuerySet.as_manager()
+
     class Meta:
         # Paper first, then e-book, then audiobook: the order of the tiles
         # on the book page. Alphabetical order of the values would put the
@@ -529,6 +631,59 @@ class BookFormat(models.Model):
             errors["pages"] = _("An audiobook has no pages.")
         if errors:
             raise ValidationError(errors)
+
+    # ------------------------------------------------------------------
+    # Stock: only a paper book has copies; a file is always available
+    # ------------------------------------------------------------------
+
+    @property
+    def is_paper(self):
+        """A printed book: counted in the warehouse (inventory.Stock), delivered."""
+        return self.format_type == self.FormatType.PAPER
+
+    @property
+    def stock(self):
+        """Copies in the default warehouse; 0 for an e-book or an audiobook.
+
+        From BookFormat.objects.with_stock(): no query; otherwise one
+        query, then the value is kept.
+        """
+        if "_stock" not in self.__dict__:
+            if self.pk is None or not self.is_paper:
+                self._stock = 0
+            else:
+                quantity = (
+                    self.stocks.filter(warehouse__is_default=True)
+                    .values_list("quantity", flat=True)
+                    .first()
+                )
+                self._stock = quantity or 0
+        return self._stock
+
+    @stock.setter
+    def stock(self, value):
+        # The annotation of with_stock() and inventory.services.set_stock();
+        # saves nothing, like Book.stock
+        self._stock = value
+
+    @property
+    def in_stock(self):
+        """Can it be bought now: a file always, a paper book while there are copies."""
+        return not self.is_paper or self.stock > 0
+
+    @property
+    def is_low_stock(self):
+        """A paper book with 1..LOW_STOCK_THRESHOLD copies left: "Only 2 copies left"."""
+        return self.is_paper and 0 < self.stock <= LOW_STOCK_THRESHOLD
+
+    @property
+    def max_quantity(self):
+        """The most copies one cart may hold: the stock of a paper book, None = no limit."""
+        return self.stock if self.is_paper else None
+
+    def refresh_from_db(self, *args, **kwargs):
+        self.__dict__.pop("_stock", None)
+        super().refresh_from_db(*args, **kwargs)
 
 
 class BookCategory(models.Model):

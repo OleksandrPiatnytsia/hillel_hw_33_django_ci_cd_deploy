@@ -82,9 +82,10 @@ class BookListView(ElidedPaginationMixin, ListView):
             .select_related("author")
             # ManyToMany: categories of all books on the page in one extra query
             .prefetch_related("categories")
-            # Copies in the default warehouse, in the same SQL query
-            # (a subquery): the badge and the "Add to cart" button need it
-            .with_stock()
+            # Copies of the paper book in the default warehouse and "can it
+            # be bought", in the same SQL query (subqueries): the badge, the
+            # "Add to cart" button and "Out of stock last" need them
+            .with_availability()
             # The formats on sale of all books on the page in one extra
             # query: the price "from" and the button of the card
             .with_active_formats()
@@ -136,10 +137,11 @@ class BookListView(ElidedPaginationMixin, ListView):
         # "Out of stock last" (the checkbox of the "Sort by" menu, on by
         # default, ?out_last=0 turns it off): the books that can't be bought
         # go after all the others, the chosen sort works inside both groups.
-        # stock comes from with_stock() above, in the same query.
+        # "available" comes from with_availability() above, in the same
+        # query: a sold out paper book with an e-book on sale is not last.
         self.out_last = self.request.GET.get("out_last") != "0"
         if self.out_last:
-            ordering.insert(0, Case(When(stock=0, then=1), default=0))
+            ordering.insert(0, Case(When(available=False, then=1), default=0))
         # Always with "pk" as a tie-breaker, the default sort (Book.Meta.ordering
         # = title) too: books with an equal title or price keep a stable order,
         # so the same book doesn't jump between pages
@@ -203,7 +205,8 @@ class BookDetailView(DetailView):
     The book (with author and categories) comes from the cache
     (books.cache.get_cached_book): a cache hit needs no query for it.
     Only the stock is read every time: one small query when the template
-    asks for book.stock (it is never cached, orders change it).
+    asks for book.stock (it is never cached, orders change it); the paper
+    format of the tiles gets the same number, no second query.
     """
 
     model = Book
@@ -219,9 +222,14 @@ class BookDetailView(DetailView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["cache_timeout"] = settings.BOOK_CACHE_TIMEOUT
-        # "In your cart: 2" under the button. Templates can't call a method
-        # with an argument (cart.quantity_of(book)), so it's computed here.
-        context["in_cart"] = Cart(self.request).quantity_of(self.object)
+        book = self.object
+        # The stock of the paper book is the stock of its paper format:
+        # read once (book.stock), given to the format of the tile
+        if book.paper_format is not None:
+            book.paper_format.stock = book.stock
+        # "In your cart: Paper — 2" under the button. Templates can't call
+        # a method with an argument (cart.lines_of(book)), so it's done here.
+        context["in_cart"] = Cart(self.request).lines_of(book)
         return context
 
 
@@ -450,9 +458,9 @@ async def book_search(request):
 
     books = (
         Book.objects.select_related("author")  # author.name in the same query
-        # The stock in the same query: book.stock without it would be a
-        # sync query inside an async view (SynchronousOnlyOperation)
-        .with_stock()
+        # "Can it be bought" in the same query: book.available without it
+        # would be a sync query inside an async view (SynchronousOnlyOperation)
+        .with_availability()
         # The formats for the price "from": prefetch_related works with
         # `async for` too (one more query, not one per book)
         .with_active_formats()
@@ -471,7 +479,8 @@ async def book_search(request):
             "url": book.get_absolute_url(),
             # "250,00 ₴" / "$5.50": the language and the currency of the request
             "price": price,
-            "in_stock": book.stock > 0,
+            # A sold out paper book with an e-book on sale: still true
+            "in_stock": book.available,
         }
         for book, price in zip(books, prices)
     ]

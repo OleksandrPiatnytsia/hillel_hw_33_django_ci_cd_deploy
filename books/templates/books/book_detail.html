@@ -57,8 +57,9 @@
         {% else %}
           <div class="fs-5 text-body-secondary">{% translate "Not on sale" %}</div>
         {% endif %}
-        {% if book.paper_format %}
-          {# The copies in the warehouse: of the paper format #}
+        {% if book.paper_format and formats|length == 1 %}
+          {# Only a paper book: its copies decide everything. With more #}
+          {# formats the paper tile tells its own stock (below) #}
           {% include "books/includes/stock_badge.html" with book=book %}
         {% endif %}
 
@@ -67,28 +68,46 @@
             {% csrf_token %}
             <input type="hidden" name="next" value="{{ request.get_full_path }}">
             {% if formats|length > 1 %}
-              {# The format tiles: radio buttons drawn as buttons (btn-check), #}
-              {# the first one (paper, if there is one) is chosen #}
+              {# The format tiles: radio buttons drawn as buttons (btn-check). #}
+              {# The main format is chosen (Book.main_format: the first one #}
+              {# that can be bought, paper first); a sold out paper book is #}
+              {# disabled, an e-book or an audiobook never runs out #}
+              {% with chosen=book.main_format %}
               <fieldset class="format-tiles d-flex flex-wrap justify-content-end gap-2 mb-2">
                 <legend class="visually-hidden">{% translate "Format" %}</legend>
                 {% for book_format in formats %}
                   {% book_price book_format as format_price %}
                   <input class="btn-check" type="radio" name="format" value="{{ book_format.pk }}"
-                         id="format-{{ book_format.pk }}" autocomplete="off" {% if forloop.first %}checked{% endif %}>
+                         id="format-{{ book_format.pk }}" autocomplete="off"
+                         {% if book_format.pk == chosen.pk %}checked{% endif %}
+                         {% if not book_format.in_stock %}disabled{% endif %}>
                   <label class="btn btn-outline-primary format-tile text-start" for="format-{{ book_format.pk }}">
                     <span class="d-block small">{{ book_format.get_format_type_display }}</span>
                     <span class="d-block fw-semibold">{{ format_price }}</span>
+                    {% if book_format.is_paper %}
+                      {% if not book_format.in_stock %}
+                        <span class="d-block small">{% translate "Out of stock" %}</span>
+                      {% elif book_format.is_low_stock %}
+                        <span class="d-block small">{% blocktranslate trimmed count stock=book_format.stock %}
+                          Only {{ stock }} copy left
+                        {% plural %}
+                          Only {{ stock }} copies left
+                        {% endblocktranslate %}</span>
+                      {% endif %}
+                    {% endif %}
                   </label>
                 {% endfor %}
               </fieldset>
+              {% endwith %}
             {% else %}
               <input type="hidden" name="format" value="{{ formats.0.pk }}">
             {% endif %}
-            {% if book.stock %}
+            {% if book.available %}
               <div class="d-flex justify-content-end gap-2">
-                {# max is a hint for the browser; Cart.add() limits by stock itself #}
+                {# No max: it depends on the chosen tile (paper: the stock, #}
+                {# a file: none); Cart.add() limits a paper book by its stock #}
                 <input class="form-control" style="width: 5rem" type="number" name="quantity"
-                       value="1" min="1" max="{{ book.stock }}" aria-label="{% translate 'Quantity' %}">
+                       value="1" min="1" aria-label="{% translate 'Quantity' %}">
                 <button class="btn btn-primary text-nowrap" type="submit">{% translate "Add to cart" %}</button>
               </div>
             {% endif %}
@@ -96,11 +115,13 @@
         {% endif %}
         {% endwith %}
         {% if in_cart %}
+          {# [(format, quantity), ...] of BookDetailView: "Paper — 2, E-book — 1" #}
           <div class="small mt-2">
             {% url 'cart:detail' as cart_url %}
             {% blocktranslate trimmed %}
-              In your <a href="{{ cart_url }}">cart</a>: {{ in_cart }}
+              In your <a href="{{ cart_url }}">cart</a>:
             {% endblocktranslate %}
+            {% for book_format, quantity in in_cart %}{{ book_format.get_format_type_display }} — {{ quantity }}{% if not forloop.last %}, {% endif %}{% endfor %}
           </div>
         {% endif %}
       </div>

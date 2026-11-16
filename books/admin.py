@@ -40,10 +40,12 @@ class CategoryBookInline(BaseBookCategoryInline):
 
 
 class StockInline(admin.TabularInline):
-    """Copies of the book per warehouse, on the Book page.
+    """Copies of a paper book per warehouse, on the page of its paper format.
 
     Editable only with inventory.change_stock (group "Managers"): Django
     shows the rows read-only for users with only view_stock (Editors).
+    An e-book or an audiobook has no copies: no rows (see
+    BookFormatAdmin.get_inlines).
     """
 
     model = Stock
@@ -53,10 +55,10 @@ class StockInline(admin.TabularInline):
     verbose_name_plural = _("stock")
 
     def has_add_permission(self, request, obj=None):
-        # A new book (obj is None): no rows here. Its row in the default
-        # warehouse is made by inventory.signals right after the book is
+        # A new format (obj is None): no rows here. Its row in the default
+        # warehouse is made by inventory.signals right after the format is
         # saved; a row from this form for the same warehouse would then
-        # break the unique (book, warehouse) constraint.
+        # break the unique (format, warehouse) constraint.
         if obj is None:
             return False
         return super().has_add_permission(request, obj)
@@ -69,12 +71,15 @@ class BookFormatInline(admin.TabularInline):
     format and pages for an audiobook; the unique (book, format_type)
     constraint refuses a second row of the same format.
     Rights: books.add/change/delete_bookformat (Editors and Managers).
+    The copies of the paper book are on the page of the format: the link
+    "Change" of its row (show_change_link) opens it.
     """
 
     model = BookFormat
     fields = ["format_type", "price", "currency", "cover_type", "pages", "is_active"]
     verbose_name = _("format")
     verbose_name_plural = _("formats")
+    show_change_link = True
 
     def get_extra(self, request, obj=None, **kwargs):
         # A new book (obj is None): one empty row to fill; an existing book:
@@ -190,7 +195,7 @@ class BookAdmin(admin.ModelAdmin):
     # (needs search_fields in AuthorAdmin and PublisherAdmin)
     autocomplete_fields = ["author", "publisher"]
     readonly_fields = ["cover_preview", "created_at", "updated_at"]
-    inlines = [BookFormatInline, StockInline, BookCategoryInline]
+    inlines = [BookFormatInline, BookCategoryInline]
     fieldsets = [
         (None, {"fields": ["title", "author", "description"]}),
         # The edition; tuples = fields on one line
@@ -221,8 +226,9 @@ class BookAdmin(admin.ModelAdmin):
             .get_queryset(request)
             .select_related("author", "currency")
             .prefetch_related("categories")
-            # "stock" for the list column, its sorting and StockStatusFilter
-            .with_stock()
+            # "stock" (of the paper format) and "available" for the list
+            # columns, their sorting and StockStatusFilter
+            .with_availability()
         )
 
     # format_html escapes the arguments and marks the result as safe HTML,
@@ -252,6 +258,35 @@ class BookAdmin(admin.ModelAdmin):
     def stock(self, obj):
         return obj.stock
 
-    @admin.display(description=_("available"), boolean=True, ordering="stock")
+    @admin.display(description=_("available"), boolean=True, ordering="available")
     def is_available(self, obj):
-        return obj.stock > 0
+        # A digital format on sale, or paper with copies (with_availability)
+        return obj.available
+
+
+@admin.register(BookFormat)
+class BookFormatAdmin(admin.ModelAdmin):
+    """One format of a book; the page of a paper book has its copies per warehouse.
+
+    Usually opened from the book page (the link of a format row). The list
+    is the quick way to find the formats switched off or priced in a currency.
+    """
+
+    list_display = ["__str__", "format_type", "price", "currency", "is_active", "stock"]
+    list_filter = ["format_type", "is_active", "currency"]
+    # Also for the search-as-you-type of the format in StockAdmin
+    search_fields = ["book__title", "book__author__name"]
+    autocomplete_fields = ["book"]
+    list_select_related = ["book", "currency"]
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).with_stock()
+
+    def get_inlines(self, request, obj):
+        # Copies only for a saved paper book: a file has no stock
+        return [StockInline] if obj is not None and obj.is_paper else []
+
+    @admin.display(description=_("stock"), ordering="stock")
+    def stock(self, obj):
+        # "—" for a file: it has no copies, 0 would look like "sold out"
+        return obj.stock if obj.is_paper else "—"

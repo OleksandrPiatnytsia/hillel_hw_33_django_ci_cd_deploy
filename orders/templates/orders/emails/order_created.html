@@ -34,7 +34,7 @@ Values are auto-escaped as on the site: a title with "<" can't break it.
           </tr>
           {% for item in order.items.all %}
             <tr style="border-bottom:1px solid #dee2e6;">
-              <td>{{ item.title }}</td>
+              <td>{{ item.display_title }}</td>
               <td align="right" style="white-space:nowrap;">{{ item.price|money:order.currency_id }}</td>
               <td align="right">{{ item.quantity }}</td>
               <td align="right" style="white-space:nowrap;">{{ item.cost|money:order.currency_id }}</td>

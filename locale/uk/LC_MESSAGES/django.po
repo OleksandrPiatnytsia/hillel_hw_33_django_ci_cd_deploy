@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Bookstore\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-16 20:24+0000\n"
+"POT-Creation-Date: 2026-11-16 20:50+0000\n"
 "PO-Revision-Date: 2026-11-10 16:00+0200\n"
 "Last-Translator: Bookstore\n"
 "Language-Team: Ukrainian\n"
@@ -15,10 +15,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=4; plural=(n % 1 == 0 && n % 10 == 1 && n % 100 != "
-"11 ? 0 : n % 1 == 0 && n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % "
-"100 > 14) ? 1 : n % 1 == 0 && (n % 10 ==0 || (n % 10 >=5 && n % 10 <=9) || "
-"(n % 100 >=11 && n % 100 <=14 )) ? 2: 3);\n"
+"Plural-Forms: nplurals=4; plural=(n % 1 == 0 && n % 10 == 1 && n % 100 != 11 ? 0 : n % 1 == 0 && n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? 1 : n % 1 == 0 && (n % 10 ==0 || (n % 10 >=5 && n % 10 <=9) || (n % 100 >=11 && n % 100 <=14 )) ? 2: 3);\n"
 
 #: api/exceptions.py:16
 msgid "The object is used by other objects and can't be deleted."
@@ -32,16 +29,20 @@ msgstr ""
 "Цей Idempotency-Key уже використано для іншого замовлення. Для нового "
 "замовлення надішліть новий ключ."
 
-#: api/serializers/catalog.py:227
+#: api/serializers/catalog.py:257
 #, python-format
 msgid "The currency %(code)s is turned off."
 msgstr "Валюту %(code)s вимкнено."
 
-#: api/serializers/catalog.py:247 books/models.py:336 books/models.py:527
+#: api/serializers/catalog.py:278 books/models.py:381 books/models.py:629
 msgid "Only a paper book has a cover type."
 msgstr "Тип обкладинки буває лише в паперової книги."
 
-#: api/serializers/catalog.py:265
+#: api/serializers/catalog.py:283
+msgid "Only a paper book has copies in stock."
+msgstr "Примірники на складі бувають лише в паперової книги."
+
+#: api/serializers/catalog.py:301
 msgid "Only users with the “manage stock” permission can change it."
 msgstr "Змінювати можуть лише користувачі з правом «керування залишками»."
 
@@ -50,9 +51,14 @@ msgstr "Змінювати можуть лише користувачі з пр�
 msgid "“%(code)s” is not offered. Choose one of: %(offered)s."
 msgstr "Валюта «%(code)s» недоступна. Оберіть одну з: %(offered)s."
 
-#: api/serializers/orders.py:215
+#: api/serializers/orders.py:214
 msgid "Every book may be in the list only once; use quantity."
 msgstr "Кожна книга може бути в списку лише один раз; використовуйте quantity."
+
+#: api/serializers/orders.py:222 cart/views.py:45 cart/views.py:88
+#, python-format
+msgid "“%(title)s” is not on sale."
+msgstr "«%(title)s» не продається."
 
 #: api/views/catalog.py:139
 msgid "The book is in orders and can't be deleted."
@@ -75,69 +81,70 @@ msgstr "У категорії є книги, її не можна видалит
 msgid "At most %(max)s characters."
 msgstr "Не більше %(max)s символів."
 
-#: books/admin.py:29 books/models.py:151 books/models.py:542
+#: books/admin.py:29 books/models.py:195 books/models.py:697
 msgid "category"
 msgstr "категорія"
 
-#: books/admin.py:30 books/admin.py:247 books/models.py:152 books/models.py:305
+#: books/admin.py:30 books/admin.py:253 books/models.py:196 books/models.py:350
 msgid "categories"
 msgstr "категорії"
 
-#: books/admin.py:38 books/models.py:317 books/models.py:454
-#: books/models.py:541 inventory/models.py:81 orders/models.py:238
+#: books/admin.py:38 books/models.py:362 books/models.py:554
+#: books/models.py:696 orders/models.py:239
 msgid "book"
 msgstr "книга"
 
-#: books/admin.py:39 books/admin.py:118 books/admin.py:134 books/admin.py:150
-#: books/models.py:318
+#: books/admin.py:39 books/admin.py:123 books/admin.py:139 books/admin.py:155
+#: books/models.py:363
 msgid "books"
 msgstr "книги"
 
-#: books/admin.py:52 books/admin.py:53 books/admin.py:251
-#: inventory/models.py:101 inventory/models.py:102
+#: books/admin.py:54 books/admin.py:55 books/admin.py:257 books/admin.py:289
+#: inventory/models.py:107 inventory/models.py:108
 msgid "stock"
 msgstr "залишок"
 
-#: books/admin.py:76 books/models.py:460
+#: books/admin.py:80 books/models.py:560 inventory/models.py:86
+#: orders/models.py:250
 msgid "format"
 msgstr "формат"
 
-#: books/admin.py:77
+#: books/admin.py:81
 msgid "formats"
 msgstr "формати"
 
-#: books/admin.py:91
+#: books/admin.py:96
 msgid "stock status"
 msgstr "наявність"
 
-#: books/admin.py:198 books/templates/books/book_form.html:51
+#: books/admin.py:203 books/templates/books/book_form.html:51
 #: books/templates/books/includes/book_details.html:14
 msgid "Details"
 msgstr "Характеристики"
 
-#: books/admin.py:207 books/filters.py:81
+#: books/admin.py:212 books/filters.py:81
 #: books/templates/books/includes/book_details.html:31
 msgid "Cover"
 msgstr "Обкладинка"
 
-#: books/admin.py:209
+#: books/admin.py:214
 msgid "Sales"
 msgstr "Продаж"
 
-#: books/admin.py:211 orders/admin.py:120
+#: books/admin.py:216 orders/admin.py:120
 msgid "Timestamps"
 msgstr "Дати"
 
-#: books/admin.py:239 books/models.py:283 books/models.py:302
-#: books/models.py:478
+#: books/admin.py:245 books/models.py:327 books/models.py:347
+#: books/models.py:578
 msgid "cover"
 msgstr "обкладинка"
 
-#: books/admin.py:243
+#: books/admin.py:249
 msgid "current cover"
 msgstr "поточна обкладинка"
 
-#: books/admin.py:255
+#: books/admin.py:261
 msgid "available"
 msgstr "у наявності"
 
@@ -163,7 +170,7 @@ msgstr "Видавництво"
 msgid "Language"
 msgstr "Мова"
 
-#: books/filters.py:73 books/templates/books/book_detail.html:73
+#: books/filters.py:73 books/templates/books/book_detail.html:77
 msgid "Format"
 msgstr "Формат"
 
@@ -306,6 +313,14 @@ msgstr "Лише для паперової."
 msgid "— Choose a format —"
 msgstr "— Виберіть формат —"
 
+#: books/forms.py:207
+#, python-format
+msgid ""
+"“%(format)s” is in orders and can't be removed. Turn off “On sale” instead."
+msgstr ""
+"Формат «%(format)s» є в замовленнях, його не можна видалити. Натомість "
+"зніміть позначку «У продажу»."
+
 #: books/models.py:29
 msgid "In stock"
 msgstr "Є в наявності"
@@ -315,180 +330,181 @@ msgstr "Є в наявності"
 msgid "Low (≤ {threshold})"
 msgstr "Мало (≤ {threshold})"
 
-#: books/models.py:34 books/templates/books/includes/stock_badge.html:4
+#: books/models.py:34 books/templates/books/book_detail.html:89
+#: books/templates/books/includes/stock_badge.html:4
 msgid "Out of stock"
 msgstr "Немає в наявності"
 
-#: books/models.py:146 books/models.py:160 books/models.py:201
-#: currencies/models.py:34 inventory/models.py:45
+#: books/models.py:190 books/models.py:204 books/models.py:245
+#: currencies/models.py:34 inventory/models.py:50
 msgid "name"
 msgstr "назва"
 
-#: books/models.py:147 inventory/models.py:46
+#: books/models.py:191 inventory/models.py:51
 msgid "slug"
 msgstr "слаг (у URL)"
 
-#: books/models.py:161
+#: books/models.py:205
 msgid "biography"
 msgstr "біографія"
 
-#: books/models.py:165 books/models.py:237
+#: books/models.py:209 books/models.py:281
 msgid "author"
 msgstr "автор"
 
-#: books/models.py:166
+#: books/models.py:210
 msgid "authors"
 msgstr "автори"
 
-#: books/models.py:185
+#: books/models.py:229
 #, python-format
 msgid "The publication year can't be later than %(year)s."
 msgstr "Рік видання не може бути пізнішим за %(year)s."
 
-#: books/models.py:205 books/models.py:270
+#: books/models.py:249 books/models.py:314
 msgid "publisher"
 msgstr "видавництво"
 
-#: books/models.py:206
+#: books/models.py:250
 msgid "publishers"
 msgstr "видавництва"
 
-#: books/models.py:216
+#: books/models.py:260
 msgid "Paper book"
 msgstr "Паперова книга"
 
-#: books/models.py:217
+#: books/models.py:261
 msgid "E-book"
 msgstr "Електронна книга"
 
-#: books/models.py:218
+#: books/models.py:262
 msgid "Audiobook"
 msgstr "Аудіокнига"
 
-#: books/models.py:221
+#: books/models.py:265
 msgid "Hardcover"
 msgstr "Тверда"
 
-#: books/models.py:222
+#: books/models.py:266
 msgid "Paperback"
 msgstr "М'яка"
 
-#: books/models.py:223
+#: books/models.py:267
 msgid "Dust jacket"
 msgstr "Суперобкладинка"
 
-#: books/models.py:227 config/settings/base.py:387
+#: books/models.py:271 config/settings/base.py:387
 msgid "Ukrainian"
 msgstr "Українська"
 
-#: books/models.py:228 config/settings/base.py:388
+#: books/models.py:272 config/settings/base.py:388
 msgid "English"
 msgstr "Англійська"
 
-#: books/models.py:229
+#: books/models.py:273
 msgid "Polish"
 msgstr "Польська"
 
-#: books/models.py:230
+#: books/models.py:274
 msgid "German"
 msgstr "Німецька"
 
-#: books/models.py:231
+#: books/models.py:275
 msgid "French"
 msgstr "Французька"
 
-#: books/models.py:232
+#: books/models.py:276
 msgid "Spanish"
 msgstr "Іспанська"
 
-#: books/models.py:234 orders/models.py:247
+#: books/models.py:278 orders/models.py:265
 msgid "title"
 msgstr "назва"
 
-#: books/models.py:242 books/models.py:462 orders/admin.py:50
-#: orders/models.py:252
+#: books/models.py:286 books/models.py:562 orders/admin.py:50
+#: orders/models.py:270
 msgid "price"
 msgstr "ціна"
 
-#: books/models.py:257 books/models.py:471 currencies/models.py:42
-#: currencies/models.py:69 orders/models.py:79 payments/models.py:62
+#: books/models.py:301 books/models.py:571 currencies/models.py:42
+#: currencies/models.py:69 orders/models.py:80 payments/models.py:62
 msgid "currency"
 msgstr "валюта"
 
-#: books/models.py:263
+#: books/models.py:307
 msgid "description"
 msgstr "опис"
 
-#: books/models.py:280
+#: books/models.py:324
 msgid "book type"
 msgstr "тип книги"
 
-#: books/models.py:284 users/models.py:42
+#: books/models.py:328 users/models.py:42
 msgid "language"
 msgstr "мова"
 
-#: books/models.py:286
+#: books/models.py:330
 msgid "publication year"
 msgstr "рік видання"
 
-#: books/models.py:293 books/models.py:482
+#: books/models.py:337 books/models.py:582
 msgid "pages"
 msgstr "кількість сторінок"
 
-#: books/models.py:310 orders/models.py:114 payments/models.py:77
+#: books/models.py:355 orders/models.py:115 payments/models.py:77
 msgid "created at"
 msgstr "створено"
 
-#: books/models.py:311 orders/models.py:115 payments/models.py:78
+#: books/models.py:356 orders/models.py:116 payments/models.py:78
 msgid "updated at"
 msgstr "оновлено"
 
-#: books/models.py:448
+#: books/models.py:548
 msgctxt "book format"
 msgid "Paper"
 msgstr "Паперова"
 
-#: books/models.py:449
+#: books/models.py:549
 msgctxt "book format"
 msgid "E-book"
 msgstr "Електронна"
 
-#: books/models.py:450
+#: books/models.py:550
 msgctxt "book format"
 msgid "Audiobook"
 msgstr "Аудіокнига"
 
-#: books/models.py:488
+#: books/models.py:588
 msgid "on sale"
 msgstr "у продажу"
 
-#: books/models.py:490
+#: books/models.py:590
 msgid "Turn off to stop selling this format; old orders keep it."
 msgstr ""
 "Вимкніть, щоб припинити продаж цього формату; старі замовлення його "
 "зберігають."
 
-#: books/models.py:506
+#: books/models.py:608
 msgid "book format"
 msgstr "формат книги"
 
-#: books/models.py:507
+#: books/models.py:609
 msgid "book formats"
 msgstr "формати книг"
 
-#: books/models.py:514
+#: books/models.py:616
 msgid "The book already has this format."
 msgstr "Книга вже має цей формат."
 
-#: books/models.py:529
+#: books/models.py:631
 msgid "An audiobook has no pages."
 msgstr "В аудіокниги немає сторінок."
 
-#: books/models.py:545
+#: books/models.py:700
 msgid "book category"
 msgstr "категорія книги"
 
-#: books/models.py:546
+#: books/models.py:701
 msgid "book categories"
 msgstr "категорії книг"
 
@@ -614,44 +630,54 @@ msgid "Not on sale"
 msgstr "Немає в продажу"
 
 #: books/templates/books/book_detail.html:91
+#: books/templates/books/includes/stock_badge.html:7
+#, python-format
+msgid "Only %(stock)s copy left"
+msgid_plural "Only %(stock)s copies left"
+msgstr[0] "Залишився %(stock)s примірник"
+msgstr[1] "Залишилося %(stock)s примірники"
+msgstr[2] "Залишилося %(stock)s примірників"
+msgstr[3] "Залишилося %(stock)s примірника"
+
+#: books/templates/books/book_detail.html:110
 #: cart/templates/cart/cart_detail.html:18
 #: orders/templates/orders/order_detail.html:32
 msgid "Quantity"
 msgstr "Кількість"
 
-#: books/templates/books/book_detail.html:92
-#: books/templates/books/book_list.html:273
+#: books/templates/books/book_detail.html:111
 #: books/templates/books/book_list.html:275
+#: books/templates/books/book_list.html:277
 msgid "Add to cart"
 msgstr "У кошик"
 
-#: books/templates/books/book_detail.html:101
+#: books/templates/books/book_detail.html:121
 #, python-format
-msgid "In your <a href=\"%(cart_url)s\">cart</a>: %(in_cart)s"
-msgstr "У вашому <a href=\"%(cart_url)s\">кошику</a>: %(in_cart)s"
+msgid "In your <a href=\"%(cart_url)s\">cart</a>:"
+msgstr "У вашому <a href=\"%(cart_url)s\">кошику</a>:"
 
-#: books/templates/books/book_detail.html:116
+#: books/templates/books/book_detail.html:137
 msgid "No description yet."
 msgstr "Опису поки немає."
 
-#: books/templates/books/book_detail.html:123
+#: books/templates/books/book_detail.html:144
 #, python-format
 msgid "Added %(added)s · updated %(updated)s"
 msgstr "Додано %(added)s · оновлено %(updated)s"
 
-#: books/templates/books/book_detail.html:131 templates/403.html:27
+#: books/templates/books/book_detail.html:152 templates/403.html:27
 #: templates/404.html:20 templates/500.html:42
 msgid "Back to catalog"
 msgstr "До каталогу"
 
-#: books/templates/books/book_detail.html:135
+#: books/templates/books/book_detail.html:156
 #: books/templates/books/book_form.html:18
 #: users/templates/users/profile.html:51
 #: users/templates/users/profile_edit.html:12
 msgid "Edit"
 msgstr "Редагувати"
 
-#: books/templates/books/book_detail.html:138
+#: books/templates/books/book_detail.html:159
 msgid "Delete"
 msgstr "Видалити"
 
@@ -756,15 +782,15 @@ msgstr "На сторінці"
 msgid "Show"
 msgstr "Показати"
 
-#: books/templates/books/book_list.html:259
+#: books/templates/books/book_list.html:261
 msgid "Choose format"
 msgstr "Обрати формат"
 
-#: books/templates/books/book_list.html:286
+#: books/templates/books/book_list.html:288
 msgid "No books match these filters."
 msgstr "За цими фільтрами книг не знайдено."
 
-#: books/templates/books/book_list.html:287
+#: books/templates/books/book_list.html:289
 msgid "Show all books"
 msgstr "Показати всі книги"
 
@@ -809,15 +835,6 @@ msgstr "Показати всі"
 msgid "Show less"
 msgstr "Згорнути"
 
-#: books/templates/books/includes/stock_badge.html:7
-#, python-format
-msgid "Only %(stock)s copy left"
-msgid_plural "Only %(stock)s copies left"
-msgstr[0] "Залишився %(stock)s примірник"
-msgstr[1] "Залишилося %(stock)s примірники"
-msgstr[2] "Залишилося %(stock)s примірників"
-msgstr[3] "Залишилося %(stock)s примірника"
-
 #: books/templates/books/includes/stock_badge.html:13
 #, python-format
 msgid "In stock: %(stock)s"
@@ -836,17 +853,17 @@ msgstr "Видалити обкладинку"
 msgid "Upload a new one to replace it:"
 msgstr "Завантажте нову, щоб замінити:"
 
-#: books/views.py:296
+#: books/views.py:304
 #, python-format
 msgid "Book “%(title)s” was created."
 msgstr "Книгу «%(title)s» створено."
 
-#: books/views.py:316
+#: books/views.py:324
 #, python-format
 msgid "Book “%(title)s” was updated."
 msgstr "Книгу «%(title)s» оновлено."
 
-#: books/views.py:378
+#: books/views.py:386
 #, python-format
 msgid ""
 "“%(title)s” is in orders and can't be deleted. Set its stock to 0 to stop "
@@ -855,12 +872,12 @@ msgstr ""
 "«%(title)s» є в замовленнях, тому книгу не можна видалити. Щоб припинити "
 "продаж, встановіть залишок 0."
 
-#: books/views.py:394
+#: books/views.py:402
 #, python-format
 msgid "Book “%(title)s” was deleted."
 msgstr "Книгу «%(title)s» видалено."
 
-#: books/views.py:487
+#: books/views.py:496
 #, python-format
 msgid "from %(price)s"
 msgstr "від %(price)s"
@@ -885,8 +902,22 @@ msgstr "Книга"
 msgid "Cost"
 msgstr "Вартість"
 
-#: cart/templates/cart/cart_detail.html:37
+#: cart/templates/cart/cart_detail.html:42
+#, python-format
+msgid "Format of %(title)s"
+msgstr "Формат «%(title)s»"
+
+#: cart/templates/cart/cart_detail.html:51
+msgid "Change"
+msgstr "Змінити"
+
+#: cart/templates/cart/cart_detail.html:59
 #: orders/templates/orders/checkout.html:114
+msgid "This format is not on sale any more."
+msgstr "Цей формат більше не продається."
+
+#: cart/templates/cart/cart_detail.html:63
+#: orders/templates/orders/checkout.html:117
 #, python-format
 msgid "Only %(stock)s copy left in stock"
 msgid_plural "Only %(stock)s copies left in stock"
@@ -895,27 +926,27 @@ msgstr[1] "На складі лише %(stock)s примірники"
 msgstr[2] "На складі лише %(stock)s примірників"
 msgstr[3] "На складі лише %(stock)s примірника"
 
-#: cart/templates/cart/cart_detail.html:41
-#: orders/templates/orders/checkout.html:118
+#: cart/templates/cart/cart_detail.html:67
+#: orders/templates/orders/checkout.html:121
 msgid "Out of stock now"
 msgstr "Зараз немає в наявності"
 
-#: cart/templates/cart/cart_detail.html:54
+#: cart/templates/cart/cart_detail.html:83
 #, python-format
 msgid "Quantity of %(title)s"
 msgstr "Кількість «%(title)s»"
 
-#: cart/templates/cart/cart_detail.html:55
+#: cart/templates/cart/cart_detail.html:84
 msgid "Update"
 msgstr "Оновити"
 
-#: cart/templates/cart/cart_detail.html:63
+#: cart/templates/cart/cart_detail.html:92
 #, python-format
 msgid "Remove %(title)s"
 msgstr "Прибрати «%(title)s»"
 
-#: cart/templates/cart/cart_detail.html:72
-#: orders/templates/orders/checkout.html:126
+#: cart/templates/cart/cart_detail.html:101
+#: orders/templates/orders/checkout.html:129
 #: orders/templates/orders/emails/order_cancelled.html:40
 #: orders/templates/orders/emails/order_created.html:44
 #: orders/templates/orders/order_detail.html:56
@@ -923,56 +954,56 @@ msgstr "Прибрати «%(title)s»"
 msgid "Total"
 msgstr "Разом"
 
-#: cart/templates/cart/cart_detail.html:82
+#: cart/templates/cart/cart_detail.html:111
 msgid "Continue shopping"
 msgstr "Продовжити покупки"
 
-#: cart/templates/cart/cart_detail.html:85
+#: cart/templates/cart/cart_detail.html:114
 msgid "Clear cart"
 msgstr "Очистити кошик"
 
-#: cart/templates/cart/cart_detail.html:89
+#: cart/templates/cart/cart_detail.html:118
 #: orders/templates/orders/checkout.html:4
 #: orders/templates/orders/checkout.html:10
 #: orders/templates/orders/checkout.html:14
 msgid "Checkout"
 msgstr "Оформлення замовлення"
 
-#: cart/templates/cart/cart_detail.html:94 orders/services.py:82
+#: cart/templates/cart/cart_detail.html:123 orders/services.py:87
 msgid "The cart is empty."
 msgstr "Кошик порожній."
 
-#: cart/templates/cart/cart_detail.html:95
+#: cart/templates/cart/cart_detail.html:124
 #: orders/templates/orders/emails/order_cancelled.html:49
 #: orders/templates/orders/order_list.html:45
 msgid "Go to the catalog"
 msgstr "Перейти до каталогу"
 
-#: cart/views.py:45
-msgid "Quantity must be a whole number, 1 or more."
-msgstr "Кількість має бути цілим числом, від 1."
-
-#: cart/views.py:55 orders/services.py:131
+#: cart/views.py:47 orders/services.py:147
 #, python-format
 msgid "“%(title)s” is out of stock."
 msgstr "«%(title)s» немає в наявності."
 
-#: cart/views.py:60
+#: cart/views.py:52
 #, python-format
 msgid "“%(title)s”: %(quantity)s in the cart, that's all we have in stock."
 msgstr "«%(title)s»: у кошику %(quantity)s, це все, що є на складі."
 
-#: cart/views.py:66
+#: cart/views.py:58
 #, python-format
 msgid "“%(title)s”: %(quantity)s in the cart."
 msgstr "«%(title)s»: у кошику %(quantity)s."
 
-#: cart/views.py:83
+#: cart/views.py:81
+msgid "Quantity must be a whole number, 1 or more."
+msgstr "Кількість має бути цілим числом, від 1."
+
+#: cart/views.py:139
 #, python-format
 msgid "“%(title)s” removed from the cart."
 msgstr "«%(title)s» прибрано з кошика."
 
-#: cart/views.py:95
+#: cart/views.py:152
 msgid "The cart is empty now."
 msgstr "Кошик тепер порожній."
 
@@ -1075,7 +1106,7 @@ msgstr "створено"
 msgid "updated"
 msgstr "оновлено"
 
-#: currencies/models.py:99 orders/models.py:88 orders/models.py:277
+#: currencies/models.py:99 orders/models.py:89 orders/models.py:295
 msgid "exchange rate"
 msgstr "курс валюти"
 
@@ -1170,33 +1201,37 @@ msgstr "Неправильна дата: %(value)s."
 msgid "Inventory"
 msgstr "Склад"
 
-#: inventory/models.py:48
+#: inventory/models.py:53
 msgid "default"
 msgstr "за замовчуванням"
 
-#: inventory/models.py:50
+#: inventory/models.py:55
 msgid "The site sells books from this warehouse. Only one can be the default."
 msgstr ""
 "Сайт продає книги з цього складу. Складом за замовчуванням може бути лише "
 "один."
 
-#: inventory/models.py:57 inventory/models.py:89
+#: inventory/models.py:62 inventory/models.py:95
 msgid "warehouse"
 msgstr "склад"
 
-#: inventory/models.py:58
+#: inventory/models.py:63
 msgid "warehouses"
 msgstr "склади"
 
-#: inventory/models.py:68
+#: inventory/models.py:73
 msgid "Another warehouse is already the default."
 msgstr "Інший склад уже є складом за замовчуванням."
 
-#: inventory/models.py:97 orders/models.py:283
+#: inventory/models.py:103 orders/models.py:301
 msgid "quantity"
 msgstr "кількість"
 
-#: orders/admin.py:54 orders/models.py:261
+#: inventory/models.py:127
+msgid "Only a paper format has copies in a warehouse."
+msgstr "Примірники на складі бувають лише в паперового формату."
+
+#: orders/admin.py:54 orders/models.py:279
 msgid "original price"
 msgstr "початкова ціна"
 
@@ -1218,7 +1253,7 @@ msgstr "Доставка"
 msgid "paid"
 msgstr "оплачено"
 
-#: orders/admin.py:172 orders/models.py:100
+#: orders/admin.py:172 orders/models.py:101
 msgid "total"
 msgstr "сума"
 
@@ -1298,111 +1333,120 @@ msgstr "скасовано: замовлення #%(number)s"
 msgid "Cancelled: %(cancelled)s, skipped: %(skipped)s."
 msgstr "Скасовано: %(cancelled)s, пропущено: %(skipped)s."
 
-#: orders/models.py:29
+#: orders/models.py:30
 msgid "New"
 msgstr "Нове"
 
-#: orders/models.py:30
+#: orders/models.py:31
 msgid "Processing"
 msgstr "Обробляється"
 
-#: orders/models.py:31
+#: orders/models.py:32
 msgid "Shipped"
 msgstr "Відправлено"
 
-#: orders/models.py:32
+#: orders/models.py:33
 msgid "Completed"
 msgstr "Виконано"
 
-#: orders/models.py:33
+#: orders/models.py:34
 msgid "Cancelled"
 msgstr "Скасовано"
 
-#: orders/models.py:36
+#: orders/models.py:37
 msgid "Unpaid"
 msgstr "Не оплачено"
 
-#: orders/models.py:37
+#: orders/models.py:38
 msgid "Partially paid"
 msgstr "Частково оплачено"
 
-#: orders/models.py:38 orders/templates/orders/order_detail.html:85
+#: orders/models.py:39 orders/templates/orders/order_detail.html:85
 #: payments/templates/payments/emails/payment_received.html:29
 msgid "Paid"
 msgstr "Оплачено"
 
-#: orders/models.py:42
+#: orders/models.py:43
 msgid "user"
 msgstr "користувач"
 
-#: orders/models.py:49 payments/models.py:68
+#: orders/models.py:50 payments/models.py:68
 msgid "status"
 msgstr "статус"
 
-#: orders/models.py:59
+#: orders/models.py:60
 msgid "payment status"
 msgstr "статус оплати"
 
-#: orders/models.py:67
+#: orders/models.py:68
 msgid "full name"
 msgstr "ім'я та прізвище"
 
-#: orders/models.py:68 users/models.py:34
+#: orders/models.py:69 users/models.py:34
 msgid "phone"
 msgstr "телефон"
 
-#: orders/models.py:69 users/models.py:35
+#: orders/models.py:70 users/models.py:35
 msgid "delivery address"
 msgstr "адреса доставки"
 
-#: orders/models.py:93
+#: orders/models.py:94
 msgid "UAH for 1 unit of the order currency on the day of the order"
 msgstr "гривень за 1 одиницю валюти замовлення в день замовлення"
 
-#: orders/models.py:112
+#: orders/models.py:113
 msgid "idempotency key"
 msgstr "ключ ідемпотентності"
 
-#: orders/models.py:119 orders/models.py:231 payments/models.py:36
+#: orders/models.py:120 orders/models.py:232 payments/models.py:36
 msgid "order"
 msgstr "замовлення"
 
-#: orders/models.py:120
+#: orders/models.py:121
 msgid "orders"
 msgstr "замовлення"
 
-#: orders/models.py:144
+#: orders/models.py:145
 #, python-format
 msgid "Order #%(number)s"
 msgstr "Замовлення #%(number)s"
 
-#: orders/models.py:268
+#: orders/models.py:260
+msgid "format type"
+msgstr "тип формату"
+
+#: orders/models.py:286
 msgid "original currency"
 msgstr "початкова валюта"
 
-#: orders/models.py:289
+#: orders/models.py:307
 msgid "order item"
 msgstr "позиція замовлення"
 
-#: orders/models.py:290
+#: orders/models.py:308
 msgid "order items"
 msgstr "позиції замовлення"
 
-#: orders/services.py:87
+#: orders/services.py:92
 #, python-format
 msgid "Orders in %(currency)s are not accepted."
 msgstr "Замовлення у %(currency)s не приймаються."
 
-#: orders/services.py:122
+#: orders/services.py:129
 msgid "A book from your cart is no longer sold."
 msgstr "Однієї з книг з вашого кошика більше немає в продажу."
 
-#: orders/services.py:126
+#: orders/services.py:134
+#, python-format
+msgid "“%(title)s” (%(format)s) is not on sale any more."
+msgstr "«%(title)s» (%(format)s) більше не продається."
+
+#: orders/services.py:140
 #, python-format
 msgid "“%(title)s” can't be sold now: no exchange rate for %(currency)s."
 msgstr "«%(title)s» зараз не можна продати: немає курсу %(currency)s."
 
-#: orders/services.py:138
+#: orders/services.py:154
 #, python-format
 msgid "“%(title)s”: only %(stock)s copy left, you ordered %(quantity)s."
 msgid_plural ""
@@ -1419,21 +1463,21 @@ msgstr[3] ""
 "«%(title)s»: залишилося лише %(stock)s примірника, а ви замовили "
 "%(quantity)s."
 
-#: orders/services.py:233 payments/services.py:207
+#: orders/services.py:253 payments/services.py:207
 msgid "Order not found."
 msgstr "Замовлення не знайдено."
 
-#: orders/services.py:235
+#: orders/services.py:255
 #, python-format
 msgid "%(order)s can't be cancelled any more."
 msgstr "%(order)s вже не можна скасувати."
 
-#: orders/services.py:237
+#: orders/services.py:257
 #, python-format
 msgid "%(order)s is already cancelled."
 msgstr "%(order)s уже скасовано."
 
-#: orders/services.py:241
+#: orders/services.py:261
 #, python-format
 msgid "%(order)s is not a new unpaid order any more."
 msgstr "%(order)s уже не є новим неоплаченим замовленням."
@@ -1469,7 +1513,7 @@ msgstr "Оформити замовлення · %(total)s"
 msgid "Your order"
 msgstr "Ваше замовлення"
 
-#: orders/templates/orders/checkout.html:131
+#: orders/templates/orders/checkout.html:134
 msgid ""
 "The books are reserved when you place the order. Then you pay with the “Pay” "
 "button on the order page."
@@ -1571,8 +1615,8 @@ msgid ""
 "<strong>%(order)s</strong> was not paid in time, so we cancelled it and "
 "returned the reserved books to the store."
 msgstr ""
-"<strong>%(order)s</strong> не було оплачено вчасно, тому ми його скасували, "
-"а зарезервовані книги повернули в магазин."
+"<strong>%(order)s</strong> не було оплачено вчасно, тому ми його скасували, а"
+" зарезервовані книги повернули в магазин."
 
 #: orders/templates/orders/emails/order_cancelled.html:28
 #: orders/templates/orders/emails/order_created.html:32
@@ -1877,8 +1921,8 @@ msgid ""
 "We received your payment of <strong>%(amount)s</strong> for "
 "<strong>%(order)s</strong>."
 msgstr ""
-"<strong>%(order)s</strong>: ми отримали вашу оплату <strong>%(amount)s</"
-"strong>."
+"<strong>%(order)s</strong>: ми отримали вашу оплату "
+"<strong>%(amount)s</strong>."
 
 #: payments/templates/payments/emails/payment_received.html:25
 msgid "Order total"

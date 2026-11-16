@@ -21,7 +21,7 @@ from django.utils.translation import gettext_lazy as _
 from rest_framework import serializers
 from rest_framework.exceptions import PermissionDenied
 
-from books.models import Author, Book, Category, Publisher
+from books.models import Author, Book, BookFormat, Category, Publisher
 from currencies.models import BASE_CURRENCY, Currency
 from currencies.services import RateUnavailable, convert
 from inventory.services import set_stock
@@ -92,6 +92,29 @@ class CategoryShortSerializer(serializers.ModelSerializer):
         fields = ["id", "name", "slug"]
 
 
+def _sync_format(book):
+    """The format of the book's type gets the book's price, currency, cover and pages.
+
+    A bridge until the API writes formats itself: a book made or changed
+    by the API is sold on the site with the price the client sent. The
+    other formats of the book (made on the site) stay as they are.
+    """
+    paper = book.book_type == BookFormat.FormatType.PAPER
+    BookFormat.objects.update_or_create(
+        book=book,
+        format_type=book.book_type,
+        defaults={
+            "price": book.price,
+            "currency_id": book.currency_id,
+            "cover_type": book.cover_type if paper else "",
+            "pages": None if book.book_type == BookFormat.FormatType.AUDIOBOOK else book.pages,
+        },
+    )
+    # The formats on sale were read before (or not at all): read again
+    book.__dict__.pop("prefetched_active_formats", None)
+    book.__dict__.pop("_available", None)
+
+
 class BookSerializer(serializers.ModelSerializer):
     """/api/books/: read with nested author and categories, write with ids.
 
@@ -99,9 +122,15 @@ class BookSerializer(serializers.ModelSerializer):
     inventory.change_stock (group "Managers"), like in BookForm on the
     site: an editor may create and edit books, the stock stays as it is.
 
-    "stock" is not a field of Book (inventory.Stock, the default
-    warehouse): declared here, read from book.stock (the with_stock()
-    annotation of the ViewSet), written in create() / update().
+    "stock" is not a field of Book (inventory.Stock: the copies of the
+    paper format in the default warehouse): declared here, read from
+    book.stock (the with_availability() annotation of the ViewSet), written
+    in create() / update(). Only a paper book has copies.
+
+    Until the API gets its own formats (the next stage), the price, the
+    currency, the type, the cover and the pages of a book written here
+    are copied to the format of its type (_sync_format): the site sells
+    formats, and a book made by the API must be on sale there too.
     """
 
     # Reading: nested objects (read_only: they are never parsed from a request)
@@ -195,7 +224,8 @@ class BookSerializer(serializers.ModelSerializer):
         return request.build_absolute_uri(url) if request else url
 
     def get_in_stock(self, book) -> bool:
-        return book.stock > 0
+        # Can it be bought: an e-book on sale always, a paper book with copies
+        return book.available
 
     def get_display_currency(self, book) -> str:
         # Set by BookViewSet (the checked ?currency=); a serializer used
@@ -242,9 +272,15 @@ class BookSerializer(serializers.ModelSerializer):
             return getattr(self.instance, name) if self.instance else default
 
         cover_type = value("cover_type", "")
-        if cover_type and value("book_type", Book.BookType.PAPER) != Book.BookType.PAPER:
+        book_type = value("book_type", Book.BookType.PAPER)
+        if cover_type and book_type != Book.BookType.PAPER:
             raise serializers.ValidationError(
                 {"cover_type": [_("Only a paper book has a cover type.")]}
+            )
+        if attrs.get("stock") and book_type != Book.BookType.PAPER:
+            # A file has no copies (inventory.Stock is only for paper)
+            raise serializers.ValidationError(
+                {"stock": [_("Only a paper book has copies in stock.")]}
             )
         return attrs
 
@@ -271,6 +307,7 @@ class BookSerializer(serializers.ModelSerializer):
         # take it out and write it to the default warehouse after the book
         stock = validated_data.pop("stock", None)
         book = super().create(validated_data)
+        _sync_format(book)
         if stock:  # None or 0: the row made by inventory.signals already has 0
             set_stock(book, stock)
         return book
@@ -278,6 +315,7 @@ class BookSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         stock = validated_data.pop("stock", None)
         book = super().update(instance, validated_data)
+        _sync_format(book)
         # Only a value different from the current one is written: PUT sends
         # back every field it read, and an unchanged stock needs no UPDATE.
         # Like any PUT without a version check (ETag / If-Match), a stock

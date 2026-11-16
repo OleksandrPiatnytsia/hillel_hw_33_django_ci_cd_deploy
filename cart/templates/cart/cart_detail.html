@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load i18n money %}
+{% load i18n money static %}
 
 {% block title %}{% translate "Cart" %}{% endblock %}
 
@@ -21,9 +21,10 @@
           </tr>
         </thead>
         <tbody>
-          {# One SQL query for all items: Cart._get_items() uses in_bulk #}
+          {# Two SQL queries for all items: Cart._get_items() uses in_bulk #}
+          {# and one prefetch of the formats of the books #}
           {% for item in cart %}
-            {% with book=item.book %}
+            {% with book=item.book book_format=item.format %}
               <tr>
                 <td style="width: 6rem">
                   <img class="book-cover book-cover--thumb" src="{{ book.cover_url }}" alt="">
@@ -31,10 +32,35 @@
                 <td>
                   <a class="text-decoration-none" href="{{ book.get_absolute_url }}">{{ book.title }}</a>
                   <div class="small text-body-secondary">{{ book.author.name }}</div>
-                  {% if item.exceeds_stock %}
+                  {% if item.format_choices|length > 1 %}
+                    {# Another format of the same book: auto_submit.js sends the #}
+                    {# form when the select changes; the button is for no-JS #}
+                    <form class="d-flex gap-2 mt-1" method="post" data-auto-submit
+                          action="{% url 'cart:change_format' book_format.pk %}">
+                      {% csrf_token %}
+                      <select class="form-select form-select-sm w-auto" name="format"
+                              aria-label="{% blocktranslate with title=book.title %}Format of {{ title }}{% endblocktranslate %}">
+                        {% for choice in item.format_choices %}
+                          {% book_price choice as choice_price %}
+                          <option value="{{ choice.pk }}" {% if choice.pk == book_format.pk %}selected{% endif %}>
+                            {{ choice.get_format_type_display }} — {{ choice_price }}
+                          </option>
+                        {% endfor %}
+                      </select>
+                      <noscript>
+                        <button class="btn btn-sm btn-outline-secondary" type="submit">{% translate "Change" %}</button>
+                      </noscript>
+                    </form>
+                  {% else %}
+                    <div class="small">{{ book_format.get_format_type_display }}</div>
+                  {% endif %}
+                  {% if item.not_on_sale %}
+                    {# Switched off after it was added: checkout would refuse it #}
+                    <div class="small text-danger">{% translate "This format is not on sale any more." %}</div>
+                  {% elif item.exceeds_stock %}
                     {# Stock dropped after the book was added (someone else bought it) #}
                     <div class="small text-danger">
-                      {% if book.stock %}{% blocktranslate trimmed count stock=book.stock %}
+                      {% if book_format.stock %}{% blocktranslate trimmed count stock=book_format.stock %}
                         Only {{ stock }} copy left in stock
                       {% plural %}
                         Only {{ stock }} copies left in stock
@@ -48,16 +74,19 @@
                   <form class="d-flex gap-2" method="post" action="{% url 'cart:add' book.pk %}">
                     {% csrf_token %}
                     <input type="hidden" name="override" value="1">
-                    {# max is a hint for the browser; Cart.add() limits by stock itself #}
+                    <input type="hidden" name="format" value="{{ book_format.pk }}">
+                    {# max is a hint for the browser (a paper book: its stock); #}
+                    {# Cart.add() limits by stock itself #}
                     <input class="form-control form-control-sm" style="width: 5rem"
                            type="number" name="quantity" value="{{ item.quantity }}"
-                           min="1" max="{{ book.stock }}" aria-label="{% blocktranslate with title=book.title %}Quantity of {{ title }}{% endblocktranslate %}">
+                           min="1" {% if book_format.is_paper %}max="{{ book_format.stock }}"{% endif %}
+                           aria-label="{% blocktranslate with title=book.title %}Quantity of {{ title }}{% endblocktranslate %}">
                     <button class="btn btn-sm btn-outline-secondary" type="submit">{% translate "Update" %}</button>
                   </form>
                 </td>
                 <td class="text-end text-nowrap fw-semibold">{{ item.cost|money:cart.currency }}</td>
                 <td class="text-end">
-                  <form method="post" action="{% url 'cart:remove' book.pk %}">
+                  <form method="post" action="{% url 'cart:remove' book_format.pk %}">
                     {% csrf_token %}
                     <button class="btn btn-sm btn-outline-danger" type="submit"
                             aria-label="{% blocktranslate with title=book.title %}Remove {{ title }}{% endblocktranslate %}">&times;</button>
@@ -95,4 +124,9 @@
     <a class="alert-link" href="{% url 'books:list' %}">{% translate "Go to the catalog" %}</a>
   </div>
 {% endif %}
+{% endblock %}
+
+{% block scripts %}
+  {# The "Format" select of a cart line sends its form by itself #}
+  <script src="{% static 'js/auto_submit.js' %}" defer></script>
 {% endblock %}

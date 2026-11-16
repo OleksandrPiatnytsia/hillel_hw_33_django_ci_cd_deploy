@@ -3,7 +3,7 @@
 
 {% blocktranslate %}{{ order }} was not paid in time, so we cancelled it and returned the reserved books to the store.{% endblocktranslate %}
 
-{% for item in order.items.all %}- {% blocktranslate with title=item.title quantity=item.quantity price=item.price|money:order.currency_id cost=item.cost|money:order.currency_id %}{{ title }}: {{ quantity }} x {{ price }} = {{ cost }}{% endblocktranslate %}
+{% for item in order.items.all %}- {% blocktranslate with title=item.display_title quantity=item.quantity price=item.price|money:order.currency_id cost=item.cost|money:order.currency_id %}{{ title }}: {{ quantity }} x {{ price }} = {{ cost }}{% endblocktranslate %}
 {% endfor %}
 {% blocktranslate with total=order.total|money:order.currency_id %}Total: {{ total }}{% endblocktranslate %}
 
