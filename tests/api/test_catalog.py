@@ -119,6 +119,21 @@ def test_book_filters_category_author_price_and_stock(api_client):
     assert titles(api_client.get("/api/books/?stock=low")) == ["Zakhar Berkut"]
 
 
+def test_book_filters_take_several_values(api_client):
+    """?author=1&author=5 and ?category=a&category=b: OR inside a filter, no duplicates."""
+    poetry, classics = CategoryFactory(slug="poetry"), CategoryFactory(slug="classics")
+    shevchenko, franko = AuthorFactory(), AuthorFactory()
+    BookFactory(title="Kobzar", author=shevchenko, categories=[poetry, classics])
+    BookFactory(title="Zakhar Berkut", author=franko, categories=[classics])
+    BookFactory(title="Other")
+
+    response = api_client.get(f"/api/books/?author={shevchenko.pk}&author={franko.pk}")
+    assert titles(response) == ["Kobzar", "Zakhar Berkut"]
+    response = api_client.get("/api/books/?category=poetry&category=classics")
+    assert titles(response) == ["Kobzar", "Zakhar Berkut"]
+    assert response.json()["count"] == 2
+
+
 def test_book_search_and_ordering(api_client):
     shevchenko = AuthorFactory(name="Taras Shevchenko")
     BookFactory(title="Kobzar", author=shevchenko, price=Decimal("300"))

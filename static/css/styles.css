@@ -95,6 +95,51 @@ main {
     }
 }
 
+/* ---------- Blocks of the filter panel (filter_section.html) ---------- */
+
+.filter-section + .filter-section {
+    border-top: 1px solid var(--bs-border-color);
+}
+
+/* The heading is a button over the whole width: a click anywhere folds it */
+.filter-section-toggle {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.85rem 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font-weight: 600;
+    text-align: start;
+}
+
+/* The chevron points up when open (like "^"), down when folded */
+.filter-chevron {
+    flex-shrink: 0;
+    transition: transform 0.2s;
+}
+
+.filter-section-toggle[aria-expanded="false"] .filter-chevron {
+    transform: rotate(180deg);
+}
+
+.filter-section-body {
+    padding-bottom: 1rem;
+}
+
+/* Without JavaScript every option is shown: a long list scrolls instead
+   of making the panel endless (the script shows 5 and "Show all") */
+.filter-options {
+    max-height: 20rem;
+    overflow-y: auto;
+}
+
+.filter-options .form-check {
+    margin-bottom: 0.35rem;
+}
+
 /* ---------- "Out of stock last" in the "Sort by" menu ---------- */
 
 /* A link that looks like a Bootstrap checkbox: a <span> with the classes of

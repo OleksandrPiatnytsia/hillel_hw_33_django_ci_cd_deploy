@@ -26,7 +26,8 @@ from currencies.display import book_price, display_currency, request_rates
 from currencies.services import price_in
 
 from .cache import get_cached_book
-from .forms import BookFilterForm, BookForm
+from .filters import CatalogFilter
+from .forms import BookForm
 from .models import Author, Book
 
 logger = logging.getLogger(__name__)  # "books.views"
@@ -86,48 +87,35 @@ class BookListView(ElidedPaginationMixin, ListView):
             .with_stock()
         )
 
-        # Unbound form (None) when there are no GET params -> no validation errors
-        self.filter_form = BookFilterForm(self.request.GET or None)
-        # "Price from, $": the prices are in the currency of the switcher.
-        # Before is_valid(): it creates the bound fields, and a BoundField
-        # copies the label when it is created
-        self.currency = display_currency(self.request)
-        for name in ("price_min", "price_max"):
-            field = self.filter_form.fields[name]
-            field.label = f"{field.label}, {self.currency.symbol}"
-        # After is_valid() cleaned_data holds only the fields that passed:
-        # one wrong parameter (an old link to a deleted category) shows its
-        # error, and the other filters (?q=...) still work, instead of the
-        # whole catalog without any filter
-        self.filter_form.is_valid()
-        data = getattr(self.filter_form, "cleaned_data", {})  # unbound: none
-
-        if data.get("q"):
-            queryset = queryset.filter(
-                Q(title__icontains=data["q"]) | Q(author__name__icontains=data["q"])
-            )
-        if data.get("category"):
-            queryset = queryset.filter(categories=data["category"])
-        if data.get("author"):
-            queryset = queryset.filter(author=data["author"])
-        queryset = queryset.by_stock_status(data.get("stock"))
-
         # Prices of the books are in different currencies (650 UAH, 20 USD):
         # "Price from / to" and the sort by price work with the price in the
         # currency of the switcher, calculated by the database (one CASE
         # WHEN per currency, currencies.services.price_in). The same rounded
         # number the card shows, so "to 14.31 $" includes a book shown as
         # 14,31 $.
+        self.currency = display_currency(self.request)
         queryset = queryset.annotate(
             display_price=price_in(self.currency.code, rates=request_rates(self.request))
         )
-        if data.get("price_min") is not None:
-            queryset = queryset.filter(display_price__gte=data["price_min"])
-        if data.get("price_max") is not None:
-            queryset = queryset.filter(display_price__lte=data["price_max"])
+
+        # The filters (books/filters.py, the same set as the API). Unbound
+        # (None) when there are no GET params -> no validation errors.
+        self.filterset = CatalogFilter(self.request.GET or None, queryset=queryset)
+        # "Price from, $": before the validation, a BoundField copies the
+        # label when it is created
+        for name in ("price_min", "price_max"):
+            field = self.filterset.form.fields[name]
+            field.label = f"{field.label}, {self.currency.symbol}"
+        # .qs filters with the values that passed the form: one wrong
+        # parameter (an old link to a deleted category) shows its error,
+        # and the other filters (?q=...) still work, instead of the whole
+        # catalog without any filter
+        queryset = self.filterset.qs
 
         # The sort the list is shown with (for the "Sort by" dropdown)
-        self.sort = data.get("sort") or "title"
+        # Not a filter: read here, an unknown value -> the default
+        sort = self.request.GET.get("sort")
+        self.sort = sort if sort in dict(CatalogFilter.SORT_CHOICES) else "title"
         # "price" in the URL stays (old links work in any currency), the
         # database sorts by the converted price. nulls_last: a book without
         # a rate (no converted price) goes to the end in both directions.
@@ -156,15 +144,18 @@ class BookListView(ElidedPaginationMixin, ListView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["filter_form"] = self.filter_form
+        context["filter_form"] = self.filterset.form
+        # The active filters above the list ("x" removes one) and "Clear all"
+        context["filter_chips"] = self.filterset.chips(self.currency.symbol)
+        context["filter_reset_url"] = self.filterset.reset_url()
         # For the "Per page" dropdown and the hidden field of the filter form
         context["per_page"] = self.per_page
         context["per_page_choices"] = self.PER_PAGE_CHOICES
         # "Sort by" dropdown next to "Per page": every choice is a link,
         # the current one is marked; the button shows its label
-        context["sort_choices"] = BookFilterForm.SORT_CHOICES
+        context["sort_choices"] = CatalogFilter.SORT_CHOICES
         context["sort"] = self.sort
-        context["sort_label"] = dict(BookFilterForm.SORT_CHOICES)[self.sort]
+        context["sort_label"] = dict(CatalogFilter.SORT_CHOICES)[self.sort]
         context["out_last"] = self.out_last
         # Timeout of the {% cache %} fragments of the book cards
         context["cache_timeout"] = settings.BOOK_CACHE_TIMEOUT

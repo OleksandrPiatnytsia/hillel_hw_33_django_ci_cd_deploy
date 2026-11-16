@@ -8,7 +8,8 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from PIL import Image
 
 from books import forms as book_forms
-from books.forms import BookFilterForm, BookForm
+from books.filters import CatalogFilter
+from books.forms import BookForm
 from cart.forms import CartAddForm
 from orders.forms import CheckoutForm
 from users.forms import ProfileForm, SignUpForm
@@ -82,8 +83,8 @@ def test_profile_form_saves_normalized_phone():
 
 
 @pytest.mark.django_db
-def test_book_filter_form_price_from_greater_than_price_to_is_invalid():
-    form = BookFilterForm(data={"price_min": "500", "price_max": "100"})
+def test_catalog_filter_form_price_from_greater_than_price_to_is_invalid():
+    form = CatalogFilter(data={"price_min": "500", "price_max": "100"}).form
 
     assert not form.is_valid()
     assert "__all__" in form.errors  # an error of the whole form, from clean()

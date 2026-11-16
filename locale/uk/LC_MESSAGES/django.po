@@ -1936,3 +1936,52 @@ msgstr "Створити акаунт"
 #: users/views.py:156
 msgid "Your profile is saved."
 msgstr "Профіль збережено."
+
+#: books/filters.py
+#, python-format
+msgid "Search: “%(text)s”"
+msgstr "Пошук: “%(text)s”"
+
+#: books/filters.py
+#, python-format
+msgid "Price: from %(min)s %(symbol)s"
+msgstr "Ціна: від %(min)s %(symbol)s"
+
+#: books/filters.py
+#, python-format
+msgid "Price: up to %(max)s %(symbol)s"
+msgstr "Ціна: до %(max)s %(symbol)s"
+
+#: books/filters.py
+#, python-format
+msgid "Price: %(min)s–%(max)s %(symbol)s"
+msgstr "Ціна: %(min)s–%(max)s %(symbol)s"
+
+#: books/templates/books/book_list.html
+msgid "Remove the filter"
+msgstr "Прибрати фільтр"
+
+#: books/templates/books/book_list.html
+msgid "Clear all"
+msgstr "Очистити все"
+
+#: books/templates/books/includes/filter_section.html
+#, python-format
+msgid "Search: %(label)s"
+msgstr "Пошук: %(label)s"
+
+#: books/templates/books/includes/filter_section.html
+msgid "Nothing found"
+msgstr "Нічого не знайдено"
+
+#: books/templates/books/includes/filter_section.html
+msgid "Show all"
+msgstr "Показати всі"
+
+#: books/templates/books/includes/filter_section.html
+msgid "Show less"
+msgstr "Згорнути"
+
+#: books/templates/books/includes/search_filter.html
+msgid "Find"
+msgstr "Знайти"

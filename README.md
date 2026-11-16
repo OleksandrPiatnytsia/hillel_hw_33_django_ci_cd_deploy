@@ -24,7 +24,7 @@ Redis, Celery, nginx). У цьому ДЗ:
   валюті, валюти в API (див. «Валюти»);
 - єдиний стиль коду: black + flake8 (`pyproject.toml`, `.flake8`), перевіряються
   ще до коміту хуком pre-commit (`.pre-commit-config.yaml`);
-- 567 тестів, покриття 98.81%.
+- 576 тестів, покриття 98.83%.
 
 ## Стек
 
@@ -355,8 +355,9 @@ except IntegrityError:                               # два запити од�
 ### Пагінація, фільтри, пошук, сортування
 
 - Усі списки — по **20**: `{"count": 135, "next": ".../?page=2", "previous": null, "results": [...]}`.
-- Книги (`api/filters.py`, `BookFilter` з django-filter — ті самі, що на сторінці каталогу):
-  `?category=<slug>`, `?author=<id>`, `?price_min=`, `?price_max=`, `?stock=in_stock|low|out`.
+- Книги (`api/filters.py`, `BookFilter` з django-filter — ті самі, що на сторінці каталогу,
+  успадковані з `books/filters.py`): `?category=<slug>`, `?author=<id>` (обидва можна
+  повторювати: `?author=1&author=5` — «або»), `?price_min=`, `?price_max=`, `?stock=in_stock|low|out`.
 - **Валюта книг**: у кожної книги `price` + `currency` (її власна ціна) і
   `display_price` + `display_currency` — ціна у валюті `?currency=` (типово UAH) за
   курсом НБУ на сьогодні, як на сайті з перемикачем. `?price_min=`, `?price_max=` і
@@ -448,7 +449,8 @@ users/
     └── profile_edit.html
 books/
 ├── models.py                # Category, Author, Book (+ cover), BookCategory, BookQuerySet
-├── forms.py                 # BookForm, BookFilterForm, CoverInput
+├── filters.py               # BookFilter (спільний з API), CatalogFilter: фільтри, плашки
+├── forms.py                 # BookForm, CoverInput
 ├── views.py                 # Class-Based Views для книг і авторів, book_search (async)
 ├── urls.py                  # app_name = "books"
 ├── admin.py                 # адмінка (+ мініатюри обкладинок, StockInline)
@@ -786,7 +788,7 @@ INFO config.middleware GET /create/ 403 3.6ms user=ann
 
 | View | Шаблон за замовчуванням | Особливості |
 |---|---|---|
-| `BookListView` | `books/book_list.html` | `paginate_by = 10`; фільтри з GET-параметрів через `BookFilterForm`; `prefetch_related("categories")` |
+| `BookListView` | `books/book_list.html` | `paginate_by = 10`; фільтри з GET-параметрів через `CatalogFilter`; `prefetch_related("categories")` |
 | `BookDetailView` | `books/book_detail.html` | `prefetch_related("categories")` |
 | `BookCreateView` | `books/book_form.html` | `PermissionRequiredMixin` (`add_book`); після збереження редирект на `get_absolute_url()` |
 | `BookUpdateView` | `books/book_form.html` | `PermissionRequiredMixin` (`change_book`); той самий шаблон; заголовок і кнопки залежать від `object` |
@@ -819,14 +821,19 @@ INFO config.middleware GET /create/ 403 3.6ms user=ann
 
 ### Фільтри каталогу
 
-Форма `BookFilterForm`, метод GET (фільтри видно в адресі, сторінку можна
-зберегти в закладки):
+`CatalogFilter` у `books/filters.py` (django-filter), метод GET (фільтри видно в
+адресі, сторінку можна зберегти в закладки). Його основа `BookFilter` — ті самі
+фільтри, що в API (`api/filters.py` лише підставляє свою форму), тож новий фільтр
+додається один раз для сайту й API.
+
+Кілька значень одного параметра — «або»: `?author=3&author=7` — книжки автора 3
+або автора 7. Різні параметри — «і»: ці автори й водночас одна з вибраних категорій.
 
 | Параметр | Що робить |
 |---|---|
 | `q` | пошук за назвою або іменем автора (без урахування регістру, зокрема для кирилиці) |
-| `category` | категорія за `slug` |
-| `author` | автор за `pk` |
+| `category` | категорія за `slug`; кілька: `?category=poetry&category=prose` |
+| `author` | автор за `pk`; кілька: `?author=3&author=7` |
 | `stock` | наявність: `in_stock` / `low` (≤ 5) / `out` |
 | `price_min`, `price_max` | діапазон ціни; якщо «від» більше за «до», форма покаже помилку, а ціни не враховуються |
 | `sort` | `title`, `-title`, `author__name`, `price`, `-price`, `-created_at`, `-sold` (спершу популярні) |
@@ -836,6 +843,31 @@ INFO config.middleware GET /create/ 403 3.6ms user=ann
 форма показує помилку біля поля, а решта фільтрів працює (у `cleaned_data` після
 `is_valid()` лишаються лише поля, що пройшли перевірку). Сортування завжди
 закінчується `pk`: книжки з однаковою назвою чи ціною не «стрибають» між сторінками.
+
+Категорії фільтруються підзапитом `EXISTS` (`BookFilter.filter_category`), а не JOIN
+через `categories__in`: книжка з двох вибраних категорій інакше з'явилася б двічі, а
+`.distinct()` погано поєднується з анотаціями й сортуванням списку.
+
+**Панель фільтрів** (`books/book_list.html`, `books/includes/filter_section.html`,
+`static/js/filter_panel.js`): кожен фільтр — блок, що згортається (Bootstrap collapse;
+згорнуті блоки браузер пам'ятає в `localStorage`). Блоки з галками й перемикачами
+шаблон будує сам за полями `CatalogFilter` (`field.widget_type`), тож новий фільтр
+у `books/filters.py` з'являється в панелі без змін шаблону.
+
+- галка (автор, категорія) або перемикач (наявність) застосовує фільтр одразу;
+  пошук і ціна чекають Enter або своєї кнопки;
+- у довгому списку (понад 5 значень) видно перші 5 і всі вибрані, «Показати всі»
+  відкриває решту; поле пошуку над списком ховає значення, що не підходять;
+- порожні поля не відправляються (подія `formdata`), тож адреса без `?q=&price_min=`;
+- без JavaScript видно всі значення, блоки відкриті, а форму відправляє кнопка
+  «Застосувати» в `<noscript>`.
+
+**Активні фільтри над списком:** кожне вибране значення — окрема плашка
+(«Фріда Мак-Фадден ×», «Ціна: 100–500 ₴ ×»), хрестик прибирає лише його
+(`CatalogFilter.chips()`: поточна адреса без цього значення й без номера сторінки).
+«Очистити все» (`CatalogFilter.reset_url()`) прибирає всі фільтри, а сортування,
+«На сторінці» й «Відсутні в кінці» лишаються. Неправильне значення плашки не має:
+його помилка показана в панелі.
 
 **Спершу популярні** (`?sort=-sold`): за кількістю проданих примірників, скасовані
 замовлення не враховуються (`BookQuerySet.with_sold()`). Підзапит у тому самому
@@ -1504,12 +1536,12 @@ open htmlcov/index.html               # непокриті рядки підсв
 
 | | Кількість | Що перевіряють |
 |---|---|---|
-| `tests/unit/` | 368 | одна функція, модель, форма або один запит; склад, валюти й курси, задачі Celery, Sentry, налаштування production, gunicorn |
+| `tests/unit/` | 376 | одна функція, модель, форма або один запит; склад, валюти й курси, задачі Celery, Sentry, налаштування production, gunicorn |
 | `tests/integration/` | 86 | сценарії з кількох кроків: кошик → замовлення → Stripe → webhook → лист; оплата у валюті; кеш |
-| `tests/api/` | 106 | REST API через `APIClient`: токени, права кожної ролі, фільтри, валюти, замовлення, CORS, throttling, кеш |
+| `tests/api/` | 107 | REST API через `APIClient`: токени, права кожної ролі, фільтри, валюти, замовлення, CORS, throttling, кеш |
 | `tests/test_setup.py` | 7 | сама інфраструктура: налаштування, фабрики, фейки |
 
-Покриття **98.81%** (567 тестів); `--cov-fail-under=70` у `pytest.ini`: якщо покриття впаде
+Покриття **98.83%** (576 тестів); `--cov-fail-under=70` у `pytest.ini`: якщо покриття впаде
 нижче 70%, `pytest` завершиться з помилкою. Ті самі тести запускає CI на кожен push
 і pull request, а звіт `htmlcov` лежить в артефактах запуску (див. «CI/CD»).
 
