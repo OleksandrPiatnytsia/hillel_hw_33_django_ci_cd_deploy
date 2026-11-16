@@ -37,71 +37,51 @@
       </div>
       {% endcache %}
       <div class="text-end">
-        {# The price "from": the cheapest format on sale, in the currency of #}
-        {# the switcher; with one format it is simply the price #}
-        {% price_from book as price %}
+        {# No price "from" here: every format is a tile with its own price, #}
+        {# one format too, so the page looks the same for one or several #}
         {% with formats=book.active_formats %}
-        {% if price %}
-          <div class="fs-4 fw-semibold">
-            {% if formats|length > 1 %}{% translate "from" %} {% endif %}{{ price }}
-          </div>
-          {# Another currency than the format's own: the original price and #}
-          {# the day of the NBU rate it was converted with #}
-          {% if price.converted %}
-            <div class="small text-body-secondary mb-1">
-              {% blocktranslate trimmed with original=price.original date=price.rate_date|date:"d.m.Y" %}
-                {{ original }} at the NBU rate of {{ date }}
-              {% endblocktranslate %}
-            </div>
-          {% endif %}
-        {% else %}
-          <div class="fs-5 text-body-secondary">{% translate "Not on sale" %}</div>
-        {% endif %}
-        {% if book.paper_format and formats|length == 1 %}
-          {# Only a paper book: its copies decide everything. With more #}
-          {# formats the paper tile tells its own stock (below) #}
-          {% include "books/includes/stock_badge.html" with book=book %}
-        {% endif %}
-
         {% if formats %}
-          <form class="mt-3" method="post" action="{% url 'cart:add' book.pk %}">
+          <form method="post" action="{% url 'cart:add' book.pk %}">
             {% csrf_token %}
             <input type="hidden" name="next" value="{{ request.get_full_path }}">
-            {% if formats|length > 1 %}
-              {# The format tiles: radio buttons drawn as buttons (btn-check). #}
-              {# The main format is chosen (Book.main_format: the first one #}
-              {# that can be bought, paper first); a sold out paper book is #}
-              {# disabled, an e-book or an audiobook never runs out #}
-              {% with chosen=book.main_format %}
-              <fieldset class="format-tiles d-flex flex-wrap justify-content-end gap-2 mb-2">
-                <legend class="visually-hidden">{% translate "Format" %}</legend>
-                {% for book_format in formats %}
-                  {% book_price book_format as format_price %}
-                  <input class="btn-check" type="radio" name="format" value="{{ book_format.pk }}"
-                         id="format-{{ book_format.pk }}" autocomplete="off"
-                         {% if book_format.pk == chosen.pk %}checked{% endif %}
-                         {% if not book_format.in_stock %}disabled{% endif %}>
-                  <label class="btn btn-outline-primary format-tile text-start" for="format-{{ book_format.pk }}">
-                    <span class="d-block small">{{ book_format.get_format_type_display }}</span>
-                    <span class="d-block fw-semibold">{{ format_price }}</span>
-                    {% if book_format.is_paper %}
-                      {% if not book_format.in_stock %}
-                        <span class="d-block small">{% translate "Out of stock" %}</span>
-                      {% elif book_format.is_low_stock %}
-                        <span class="d-block small">{% blocktranslate trimmed count stock=book_format.stock %}
-                          Only {{ stock }} copy left
-                        {% plural %}
-                          Only {{ stock }} copies left
-                        {% endblocktranslate %}</span>
-                      {% endif %}
+            {# The format tiles: radio buttons drawn as buttons (btn-check). #}
+            {# The main format is chosen (Book.main_format: the first one #}
+            {# that can be bought, paper first); a sold out paper book is #}
+            {# disabled, an e-book or an audiobook never runs out #}
+            {% with chosen=book.main_format %}
+            <fieldset class="format-tiles d-flex flex-wrap justify-content-end gap-2 mb-2">
+              <legend class="visually-hidden">{% translate "Format" %}</legend>
+              {% for book_format in formats %}
+                {% book_price book_format as format_price %}
+                <input class="btn-check" type="radio" name="format" value="{{ book_format.pk }}"
+                       id="format-{{ book_format.pk }}" autocomplete="off"
+                       {% if book_format.pk == chosen.pk %}checked{% endif %}
+                       {% if not book_format.in_stock %}disabled{% endif %}>
+                <label class="btn btn-outline-primary format-tile text-start" for="format-{{ book_format.pk }}">
+                  <span class="d-block small">{{ book_format.get_format_type_display }}</span>
+                  <span class="d-block fw-semibold">{{ format_price }}</span>
+                  {# Another currency than the format's own: the original #}
+                  {# price and the day of the NBU rate it was converted with #}
+                  {% if format_price.converted %}
+                    <span class="d-block small">{% blocktranslate trimmed with original=format_price.original date=format_price.rate_date|date:"d.m.Y" %}
+                      {{ original }} at the NBU rate of {{ date }}
+                    {% endblocktranslate %}</span>
+                  {% endif %}
+                  {% if book_format.is_paper %}
+                    {% if not book_format.in_stock %}
+                      <span class="d-block small">{% translate "Out of stock" %}</span>
+                    {% elif book_format.is_low_stock %}
+                      <span class="d-block small">{% blocktranslate trimmed count stock=book_format.stock %}
+                        Only {{ stock }} copy left
+                      {% plural %}
+                        Only {{ stock }} copies left
+                      {% endblocktranslate %}</span>
                     {% endif %}
-                  </label>
-                {% endfor %}
-              </fieldset>
-              {% endwith %}
-            {% else %}
-              <input type="hidden" name="format" value="{{ formats.0.pk }}">
-            {% endif %}
+                  {% endif %}
+                </label>
+              {% endfor %}
+            </fieldset>
+            {% endwith %}
             {% if book.available %}
               <div class="d-flex justify-content-end gap-2">
                 {# No max: it depends on the chosen tile (paper: the stock, #}
@@ -112,6 +92,8 @@
               </div>
             {% endif %}
           </form>
+        {% else %}
+          <div class="fs-5 text-body-secondary">{% translate "Not on sale" %}</div>
         {% endif %}
         {% endwith %}
         {% if in_cart %}

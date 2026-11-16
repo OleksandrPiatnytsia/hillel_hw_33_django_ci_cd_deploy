@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Bookstore\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-16 21:50+0000\n"
+"POT-Creation-Date: 2026-11-16 22:04+0000\n"
 "PO-Revision-Date: 2026-11-10 16:00+0200\n"
 "Last-Translator: Bookstore\n"
 "Language-Team: Ukrainian\n"
@@ -221,7 +221,7 @@ msgstr "Видавництво"
 msgid "Language"
 msgstr "Мова"
 
-#: books/filters.py:73 books/templates/books/book_detail.html:77
+#: books/filters.py:73 books/templates/books/book_detail.html:53
 #: cart/templates/cart/cart_detail.html:17
 #: orders/templates/orders/checkout.html:110
 #: orders/templates/orders/emails/order_cancelled.html:27
@@ -386,7 +386,7 @@ msgstr "Є в наявності"
 msgid "Low (≤ {threshold})"
 msgstr "Мало (≤ {threshold})"
 
-#: books/models.py:34 books/templates/books/book_detail.html:89
+#: books/models.py:34 books/templates/books/book_detail.html:72
 #: books/templates/books/includes/stock_badge.html:4
 msgid "Out of stock"
 msgstr "Немає в наявності"
@@ -648,22 +648,12 @@ msgstr "Каталог"
 msgid "Cover of %(title)s"
 msgstr "Обкладинка «%(title)s»"
 
-#: books/templates/books/book_detail.html:46
-#: books/templates/books/includes/price_from.html:11
-msgid "from"
-msgstr "від"
-
-#: books/templates/books/book_detail.html:52
+#: books/templates/books/book_detail.html:66
 #, python-format
 msgid "%(original)s at the NBU rate of %(date)s"
 msgstr "%(original)s за курсом НБУ на %(date)s"
 
-#: books/templates/books/book_detail.html:58
-#: books/templates/books/includes/price_from.html:13
-msgid "Not on sale"
-msgstr "Немає в продажу"
-
-#: books/templates/books/book_detail.html:91
+#: books/templates/books/book_detail.html:74
 #: books/templates/books/includes/stock_badge.html:7
 #, python-format
 msgid "Only %(stock)s copy left"
@@ -673,45 +663,50 @@ msgstr[1] "Залишилося %(stock)s примірники"
 msgstr[2] "Залишилося %(stock)s примірників"
 msgstr[3] "Залишилося %(stock)s примірника"
 
-#: books/templates/books/book_detail.html:110
+#: books/templates/books/book_detail.html:90
 #: cart/templates/cart/cart_detail.html:19
 #: orders/templates/orders/order_detail.html:33
 msgid "Quantity"
 msgstr "Кількість"
 
-#: books/templates/books/book_detail.html:111
+#: books/templates/books/book_detail.html:91
 #: books/templates/books/book_list.html:275
 #: books/templates/books/book_list.html:277
 msgid "Add to cart"
 msgstr "У кошик"
 
-#: books/templates/books/book_detail.html:121
+#: books/templates/books/book_detail.html:96
+#: books/templates/books/includes/price_from.html:13
+msgid "Not on sale"
+msgstr "Немає в продажу"
+
+#: books/templates/books/book_detail.html:103
 #, python-format
 msgid "In your <a href=\"%(cart_url)s\">cart</a>:"
 msgstr "У вашому <a href=\"%(cart_url)s\">кошику</a>:"
 
-#: books/templates/books/book_detail.html:137
+#: books/templates/books/book_detail.html:119
 msgid "No description yet."
 msgstr "Опису поки немає."
 
-#: books/templates/books/book_detail.html:144
+#: books/templates/books/book_detail.html:126
 #, python-format
 msgid "Added %(added)s · updated %(updated)s"
 msgstr "Додано %(added)s · оновлено %(updated)s"
 
-#: books/templates/books/book_detail.html:152 templates/403.html:27
+#: books/templates/books/book_detail.html:134 templates/403.html:27
 #: templates/404.html:20 templates/500.html:42
 msgid "Back to catalog"
 msgstr "До каталогу"
 
-#: books/templates/books/book_detail.html:156
+#: books/templates/books/book_detail.html:138
 #: books/templates/books/book_form.html:18
 #: users/templates/users/profile.html:51
 #: users/templates/users/profile_edit.html:12
 msgid "Edit"
 msgstr "Редагувати"
 
-#: books/templates/books/book_detail.html:159
+#: books/templates/books/book_detail.html:141
 msgid "Delete"
 msgstr "Видалити"
 
@@ -868,6 +863,10 @@ msgstr "Показати всі"
 #: books/templates/books/includes/filter_section.html:46
 msgid "Show less"
 msgstr "Згорнути"
+
+#: books/templates/books/includes/price_from.html:11
+msgid "from"
+msgstr "від"
 
 #: books/templates/books/includes/stock_badge.html:13
 #, python-format

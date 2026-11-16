@@ -601,19 +601,25 @@ def test_book_page_has_a_tile_per_format_on_sale_with_its_price(client):
     # The paper tile is the only chosen one: "checked" stands right after its id
     assert content.count("checked") == 1
     assert re.search(rf'id="format-{paper.pk}" autocomplete="off"\s+checked', content)
-    for text in ["Паперова", "450,00 ₴", "Електронна", "199,00 ₴", "від 199,00 ₴"]:
+    for text in ["Паперова", "450,00 ₴", "Електронна", "199,00 ₴"]:
         assert text in content, text
+    # No price "from" above the tiles: every tile has its own price
+    assert "від 199,00 ₴" not in content
     assert "Аудіокнига" not in content.split("format-tiles")[1].split("</fieldset>")[0]
 
 
 # Generated with AI
-def test_book_page_of_one_format_has_no_tiles(client):
+def test_book_page_of_one_format_has_one_tile(client):
+    # One format looks the same as several: a chosen tile with its price
     book = BookFactory(price="250.00")
+    paper = book.formats.get()
 
     content = _page(client, book)
 
-    assert 'class="btn-check"' not in content
-    assert f'type="hidden" name="format" value="{book.formats.get().pk}"' in content
+    assert content.count('class="btn-check"') == 1
+    assert re.search(rf'id="format-{paper.pk}" autocomplete="off"\s+checked', content)
+    tiles = content.split("format-tiles")[1].split("</fieldset>")[0]
+    assert "Паперова" in tiles and "250,00 ₴" in tiles
     assert "від 250" not in content
 
 
@@ -635,7 +641,7 @@ def test_book_page_shows_a_new_format_at_once(client):
     BookFormatFactory(book=book, format_type=EBOOK, price="99.00")
 
     content = _page(client, book)
-    assert "Електронна" in content and "від 99,00 ₴" in content
+    assert "Електронна" in content and "99,00 ₴" in content
 
 
 # Generated with AI
