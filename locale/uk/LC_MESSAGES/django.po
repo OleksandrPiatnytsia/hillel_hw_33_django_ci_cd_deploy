@@ -1936,3 +1936,144 @@ msgstr "Створити акаунт"
 #: users/views.py:156
 msgid "Your profile is saved."
 msgstr "Профіль збережено."
+
+#: books/filters.py
+#, python-format
+msgid "Search: “%(text)s”"
+msgstr "Пошук: “%(text)s”"
+
+#: books/filters.py
+#, python-format
+msgid "Price: from %(min)s %(symbol)s"
+msgstr "Ціна: від %(min)s %(symbol)s"
+
+#: books/filters.py
+#, python-format
+msgid "Price: up to %(max)s %(symbol)s"
+msgstr "Ціна: до %(max)s %(symbol)s"
+
+#: books/filters.py
+#, python-format
+msgid "Price: %(min)s–%(max)s %(symbol)s"
+msgstr "Ціна: %(min)s–%(max)s %(symbol)s"
+
+#: books/templates/books/book_list.html
+msgid "Remove the filter"
+msgstr "Прибрати фільтр"
+
+#: books/templates/books/book_list.html
+msgid "Clear all"
+msgstr "Очистити все"
+
+#: books/templates/books/includes/filter_section.html
+#, python-format
+msgid "Search: %(label)s"
+msgstr "Пошук: %(label)s"
+
+#: books/templates/books/includes/filter_section.html
+msgid "Nothing found"
+msgstr "Нічого не знайдено"
+
+#: books/templates/books/includes/filter_section.html
+msgid "Show all"
+msgstr "Показати всі"
+
+#: books/templates/books/includes/filter_section.html
+msgid "Show less"
+msgstr "Згорнути"
+
+#: books/templates/books/book_list.html
+#, python-format
+msgid "Show %(count)s book"
+msgid_plural "Show %(count)s books"
+msgstr[0] "Показати %(count)s книгу"
+msgstr[1] "Показати %(count)s книги"
+msgstr[2] "Показати %(count)s книг"
+msgstr[3] "Показати %(count)s книги"
+
+#: currencies/templates/currencies/rates.html
+msgid "NBU exchange rates"
+msgstr "Курси НБУ"
+
+#: currencies/templates/currencies/rates.html
+msgid "History in the admin"
+msgstr "Історія в адмінці"
+
+#: currencies/templates/currencies/rates.html
+msgid "Day"
+msgstr "День"
+
+#: currencies/templates/currencies/rates.html
+msgid "Load from the NBU"
+msgstr "Отримати з НБУ"
+
+#: currencies/templates/currencies/rates.html
+msgid "The newest"
+msgstr "Найновіші"
+
+#: currencies/templates/currencies/rates.html
+#, python-format
+msgid "Rates for <strong>%(date)s</strong>, UAH for 1 unit"
+msgstr "Курси на <strong>%(date)s</strong>, гривень за 1 одиницю"
+
+#: currencies/templates/currencies/rates.html
+msgid "Saved for this day"
+msgstr "Збережено на цей день"
+
+#: currencies/templates/currencies/rates.html
+msgid "Will be saved"
+msgstr "Буде збережено"
+
+#: currencies/templates/currencies/rates.html
+msgid "No active currencies besides UAH."
+msgstr "Немає активних валют, крім гривні."
+
+#: currencies/templates/currencies/rates.html
+msgid "A number left as the NBU gave it is saved as “NBU”; a changed one as “Manual”, and the automatic update won't overwrite it. An empty field: the currency is not saved."
+msgstr "Число, залишене як у НБУ, зберігається як «НБУ»; змінене — як «Вручну», і автоматичне оновлення його не перезапише. Порожнє поле — валюта не зберігається."
+
+#: currencies/templates/currencies/rates.html
+msgid "Confirm and save"
+msgstr "Підтвердити й зберегти"
+
+#: currencies/views.py
+msgid "The NBU did not answer. Try again in a minute."
+msgstr "НБУ не відповів. Спробуйте за хвилину."
+
+#: currencies/views.py
+msgid "The NBU has no rates for this day yet."
+msgstr "У НБУ ще немає курсів на цей день."
+
+#: currencies/views.py
+msgid "The page is out of date: the rates are loaded again."
+msgstr "Сторінка застаріла: курси завантажено заново."
+
+#: currencies/views.py
+#, python-format
+msgid "Rates for %(date)s saved: %(saved)s."
+msgstr "Курси на %(date)s збережено: %(saved)s."
+
+#: currencies/views.py
+msgid "Nothing to save: every field is empty."
+msgstr "Нічого зберігати: усі поля порожні."
+
+#: currencies/views.py
+#, python-format
+msgid "Wrong date: %(value)s."
+msgstr "Неправильна дата: %(value)s."
+
+#: currencies/forms.py
+msgid "The rate must be greater than zero."
+msgstr "Курс має бути більшим за нуль."
+
+#: users/templates/users/profile.html
+msgid "Exchange rates"
+msgstr "Курси валют"
+
+#: users/templates/users/profile.html
+msgid "Load the NBU rates"
+msgstr "Отримати курси НБУ"
+
+#: users/templates/users/profile.html
+msgid "See the numbers of the NBU, correct them if needed and save with a button"
+msgstr "Подивитися курси НБУ, за потреби виправити й зберегти кнопкою"

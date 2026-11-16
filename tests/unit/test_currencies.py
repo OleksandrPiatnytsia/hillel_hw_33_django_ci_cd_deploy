@@ -478,3 +478,144 @@ def test_admin_rate_is_saved_as_manual(admin_client):
     assert response.status_code == 302
     rate = ExchangeRate.objects.get()
     assert (rate.currency_id, rate.rate, rate.source) == ("USD", Decimal("46.5"), "manual")
+
+
+# ---------------------------------------------------------------------------
+# The "NBU rates" page: load, check, save with a button
+# ---------------------------------------------------------------------------
+
+RATES_URL = "/currencies/rates/"
+
+
+def snapshot_of(response):
+    """The signed NBU answer the page put into its form."""
+    return response.context["form"]["snapshot"].value()
+
+
+def test_rates_page_is_only_for_who_may_change_rates(client, customer_client, manager_client):
+    # Anonymous: to the login page; logged in without the right: 403
+    assert client.get(RATES_URL).status_code == 302
+    assert customer_client.get(RATES_URL).status_code == 403
+    assert manager_client.get(RATES_URL).status_code == 403
+
+
+def test_rates_page_shows_the_nbu_numbers_and_saves_nothing(superuser_client, nbu_answer):
+    add_rate("USD", "45.1", day=date(2026, 11, 17), source=ExchangeRate.Source.MANUAL)
+
+    response = superuser_client.get(RATES_URL)
+
+    assert response.status_code == 200
+    assert response.context["rate_date"] == date(2026, 11, 17)
+    rows = {
+        currency.code: (nbu_value, saved)
+        for currency, _, nbu_value, saved in response.context["rows"]
+    }
+    assert rows["USD"][0] == Decimal("45.4274")
+    assert rows["USD"][1].rate == Decimal("45.1")  # the saved manual rate is shown
+    assert rows["EUR"] == (Decimal("50.3379"), None)
+    assert "PLN" not in rows  # not a currency of the shop
+    html = response.content.decode()
+    assert 'data-nbu="45.4274"' in html
+    assert "Курси НБУ" in html
+    # Only shown, nothing saved yet
+    assert ExchangeRate.objects.count() == 1
+
+
+def test_rates_page_asks_the_nbu_for_the_chosen_day(superuser_client, nbu_answer):
+    nbu_answer.follow_date = True
+
+    response = superuser_client.get(RATES_URL, {"date": "2026-11-10"})
+
+    assert nbu_answer.requests[-1]["params"]["date"] == "20261110"
+    assert response.context["rate_date"] == date(2026, 11, 10)
+
+
+def test_unchanged_rate_is_nbu_changed_is_manual_empty_is_skipped(superuser_client, nbu_answer):
+    snapshot = snapshot_of(superuser_client.get(RATES_URL))
+
+    response = superuser_client.post(
+        RATES_URL, {"snapshot": snapshot, "rate_USD": "45.427400", "rate_EUR": "50.5"}
+    )
+
+    assert response.status_code == 302
+    assert response.url == f"{RATES_URL}?date=2026-11-17"
+    saved = {r.currency_id: (r.rate, r.source) for r in ExchangeRate.objects.all()}
+    # 45.427400 == 45.4274: the NBU number -> "nbu"
+    assert saved == {
+        "USD": (Decimal("45.4274"), ExchangeRate.Source.NBU),
+        "EUR": (Decimal("50.5"), ExchangeRate.Source.MANUAL),
+    }
+    page = superuser_client.get(response.url)
+    assert "Курси на 17.11.2026 збережено: EUR (Вручну), USD (НБУ)." in page.content.decode()
+
+
+def test_an_empty_field_leaves_the_rate_as_it_is(superuser_client, nbu_answer):
+    add_rate("EUR", "49", day=date(2026, 11, 17))
+    snapshot = snapshot_of(superuser_client.get(RATES_URL))
+
+    superuser_client.post(RATES_URL, {"snapshot": snapshot, "rate_USD": "45.4274", "rate_EUR": ""})
+
+    assert ExchangeRate.objects.get(currency_id="EUR").rate == Decimal("49")
+
+
+def test_confirmed_nbu_number_replaces_a_manual_rate(superuser_client, nbu_answer):
+    """The person saw both numbers and kept the NBU one: it is "nbu" again."""
+    add_rate("USD", "45.1", day=date(2026, 11, 17), source=ExchangeRate.Source.MANUAL)
+    snapshot = snapshot_of(superuser_client.get(RATES_URL))
+
+    superuser_client.post(RATES_URL, {"snapshot": snapshot, "rate_USD": "45.4274"})
+
+    rate = ExchangeRate.objects.get(currency_id="USD")
+    assert (rate.rate, rate.source) == (Decimal("45.4274"), ExchangeRate.Source.NBU)
+
+
+def test_a_forged_snapshot_saves_nothing(superuser_client, nbu_answer):
+    """The NBU numbers in the hidden field are signed: another number -> "out of date"."""
+    snapshot = snapshot_of(superuser_client.get(RATES_URL))
+
+    response = superuser_client.post(
+        RATES_URL, {"snapshot": snapshot[:-3] + "abc", "rate_USD": "1"}, follow=True
+    )
+
+    assert not ExchangeRate.objects.exists()
+    assert "Сторінка застаріла" in response.content.decode()
+
+
+def test_a_wrong_number_shows_the_form_again(superuser_client, nbu_answer):
+    snapshot = snapshot_of(superuser_client.get(RATES_URL))
+
+    response = superuser_client.post(RATES_URL, {"snapshot": snapshot, "rate_USD": "-5"})
+
+    assert response.status_code == 200
+    assert "rate_USD" in response.context["form"].errors
+    assert not ExchangeRate.objects.exists()
+
+
+@pytest.mark.parametrize(
+    ("body", "status", "text"),
+    [
+        ("[]", 200, "У НБУ ще немає курсів на цей день."),
+        ("Service Unavailable", 503, "НБУ не відповів."),
+        ('{"error": "bad"}', 200, "НБУ не відповів."),
+    ],
+)
+def test_rates_page_when_the_nbu_has_nothing(superuser_client, nbu_answer, body, status, text):
+    nbu_answer.body, nbu_answer.status = body, status
+
+    response = superuser_client.get(RATES_URL)
+
+    assert response.status_code == 200
+    assert response.context["form"] is None
+    assert text in response.content.decode()
+
+
+def test_rates_page_wrong_date(superuser_client, nbu_answer):
+    response = superuser_client.get(RATES_URL, {"date": "16.11.2026"})
+
+    assert "Неправильна дата" in response.content.decode()
+    assert nbu_answer.requests == []
+
+
+def test_profile_links_to_the_rates_page_only_with_the_right(superuser_client, customer_client):
+    assert RATES_URL in superuser_client.get(reverse("users:profile")).content.decode()
+    assert RATES_URL not in customer_client.get(reverse("users:profile")).content.decode()

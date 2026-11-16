@@ -279,3 +279,51 @@ def update_current_rates():
     if newest.date != results[0].date:
         results.append(newest)
     return results
+
+
+# ---------------------------------------------------------------------------
+# The update with a confirmation (the "NBU rates" page of the site)
+# ---------------------------------------------------------------------------
+
+
+def save_confirmed_rates(rate_date, values, published, *, user=None):
+    """Save the rates a staff member confirmed: {code: "nbu" | "manual"}.
+
+    values:    {"USD": Decimal("45.4274"), ...} — what the form sent; a
+               currency without a value is skipped (left as it is)
+    published: {"USD": Decimal("45.4274"), ...} — what the NBU gave when
+               the page was opened
+
+    A value equal to the NBU one is saved as "nbu", even over a manual rate
+    of the day: the person saw both and chose the NBU number. A changed
+    value (or a rate the NBU doesn't have) is "manual", and the automatic
+    update keeps it (update_rates). Equal as numbers: 45.4274 == 45.427400.
+    All in one transaction: either every confirmed rate or none.
+    """
+    sources = {}
+    with transaction.atomic():
+        for code, value in values.items():
+            if value is None:
+                continue
+            nbu_value = published.get(code)
+            source = (
+                ExchangeRate.Source.NBU
+                if nbu_value is not None and value == nbu_value
+                else ExchangeRate.Source.MANUAL
+            )
+            ExchangeRate.objects.update_or_create(
+                currency_id=code,
+                date=rate_date,
+                defaults={"rate": value, "source": source},
+            )
+            sources[code] = source
+
+    if sources:
+        saved = ", ".join(f"{code} {values[code]} ({source})" for code, source in sources.items())
+        logger.info(
+            "Rates for %s confirmed by %s: %s",
+            f"{rate_date:%d.%m.%Y}",
+            getattr(user, "username", "?"),
+            saved,
+        )
+    return sources

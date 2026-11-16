@@ -12,7 +12,7 @@ from pytest_django.asserts import assertRedirects, assertTemplateUsed
 from config import views as config_views
 from orders.models import Order
 
-from ..factories import BookFactory, CategoryFactory, OrderFactory, PaymentFactory
+from ..factories import AuthorFactory, BookFactory, CategoryFactory, OrderFactory, PaymentFactory
 from ..fakes import stripe_event_payload, stripe_webhook_headers
 from ..helpers import message_levels
 
@@ -35,6 +35,156 @@ def test_book_list_filters_by_search_and_category(client):
     assert response.status_code == 200
     assertTemplateUsed(response, "books/book_list.html")
     assert [book.title for book in response.context["books"]] == ["Kobzar"]
+
+
+def test_book_list_filters_by_several_authors(client):
+    """?author=1&author=5: books of any of them (OR inside one filter)."""
+    shevchenko, franko = AuthorFactory(name="Taras Shevchenko"), AuthorFactory(name="Ivan Franko")
+    BookFactory(title="Kobzar", author=shevchenko)
+    BookFactory(title="Zakhar Berkut", author=franko)
+    BookFactory(title="Lisova pisnia", author__name="Lesia Ukrainka")
+
+    response = client.get(reverse("books:list"), {"author": [shevchenko.pk, franko.pk]})
+
+    assert [book.title for book in response.context["books"]] == ["Kobzar", "Zakhar Berkut"]
+
+
+def test_book_list_several_categories_give_each_book_once(client):
+    """A book in two of the chosen categories is not repeated (EXISTS, not a JOIN)."""
+    poetry = CategoryFactory(name="Poetry", slug="poetry")
+    classics = CategoryFactory(name="Classics", slug="classics")
+    BookFactory(title="Kobzar", categories=[poetry, classics])
+    BookFactory(title="Zakhar Berkut", categories=[classics])
+    BookFactory(title="Other", categories=[CategoryFactory()])
+
+    response = client.get(reverse("books:list"), {"category": ["poetry", "classics"]})
+
+    assert [book.title for book in response.context["books"]] == ["Kobzar", "Zakhar Berkut"]
+    assert response.context["paginator"].count == 2
+
+
+def test_book_list_different_filters_are_combined_with_and(client):
+    poetry = CategoryFactory(name="Poetry", slug="poetry")
+    shevchenko = AuthorFactory(name="Taras Shevchenko")
+    BookFactory(title="Kobzar", author=shevchenko, categories=[poetry])
+    BookFactory(title="Haidamaky", author=shevchenko)
+    BookFactory(title="Other poems", categories=[poetry])
+
+    response = client.get(reverse("books:list"), {"author": shevchenko.pk, "category": "poetry"})
+
+    assert [book.title for book in response.context["books"]] == ["Kobzar"]
+
+
+def test_book_list_chips_remove_one_value_each(client):
+    """Every chosen value is a chip; its link is the page without this value only."""
+    poetry = CategoryFactory(name="Poetry", slug="poetry")
+    shevchenko, franko = AuthorFactory(name="Taras Shevchenko"), AuthorFactory(name="Ivan Franko")
+    BookFactory(author=shevchenko, categories=[poetry])
+
+    response = client.get(
+        reverse("books:list"),
+        {
+            "q": "ko",
+            "category": "poetry",
+            "author": [shevchenko.pk, franko.pk],
+            "price_min": "100.00",
+            "sort": "-price",
+            "page": "1",
+        },
+    )
+    chips = {chip["label"]: chip["url"] for chip in response.context["filter_chips"]}
+    s, f = shevchenko.pk, franko.pk
+
+    assert list(chips) == [
+        "Пошук: “ko”",
+        "Poetry",
+        # in the panel order: authors by name, not in the order of the URL
+        "Ivan Franko",
+        "Taras Shevchenko",
+        "Ціна: від 100 ₴",
+    ]
+    # The page number is dropped: the longer list starts from page 1
+    assert chips["Taras Shevchenko"] == (
+        f"?q=ko&category=poetry&author={f}&price_min=100.00&sort=-price"
+    )
+    assert chips["Poetry"] == f"?q=ko&author={s}&author={f}&price_min=100.00&sort=-price"
+    assert chips["Ціна: від 100 ₴"] == f"?q=ko&category=poetry&author={s}&author={f}&sort=-price"
+    # "Clear all": only the sort stays
+    assert response.context["filter_reset_url"] == "?sort=-price"
+    html = response.content.decode()
+    assert "Очистити все" in html
+    assert (
+        f'href="?q=ko&amp;category=poetry&amp;author={f}&amp;price_min=100.00&amp;sort=-price"'
+        in html
+    )
+
+
+def test_book_list_price_chip_shows_the_range_in_the_chosen_currency(client):
+    response = client.get(reverse("books:list"), {"price_min": "99.50", "price_max": "500"})
+
+    [chip] = response.context["filter_chips"]
+    assert chip == {"label": "Ціна: 99.5–500 ₴", "url": "?"}
+
+
+def test_book_list_no_filters_no_chips(client):
+    response = client.get(reverse("books:list"), {"sort": "-price"})
+
+    assert response.context["filter_chips"] == []
+    assert "Очистити все" not in response.content.decode()
+
+
+def test_book_list_wrong_value_gets_no_chip(client):
+    response = client.get(reverse("books:list"), {"category": "deleted-category", "stock": "low"})
+
+    assert [chip["label"] for chip in response.context["filter_chips"]] == ["Мало (≤ 5)"]
+
+
+def test_book_list_panel_has_a_folding_block_per_filter_with_chosen_boxes(client):
+    """Every filter is a block that folds; the chosen values are ticked."""
+    shevchenko = AuthorFactory(name="Taras Shevchenko")
+    AuthorFactory.create_batch(6)  # a long list: a search box over it
+    CategoryFactory(name="Poetry", slug="poetry")
+
+    html = client.get(reverse("books:list"), {"author": shevchenko.pk, "stock": "low"}).text
+
+    for name in ("category", "author", "stock", "price"):
+        assert f'data-bs-target="#filter-{name}"' in html
+    # The text search is the one in the navbar, not a block of the panel
+    assert 'data-bs-target="#filter-q"' not in html
+    assert f'type="checkbox" name="author" value="{shevchenko.pk}" class="form-check-input"' in html
+    assert re.search(rf'value="{shevchenko.pk}"[^>]*checked', html)
+    assert re.search(r'type="radio" name="stock" value="low"[^>]*checked', html)
+    # 7 authors: search + "Show all"; 1 category: neither
+    assert html.count("data-option-search") == 1
+    assert html.count("data-show-all") == 1
+    assert "js/filter_panel.js" in html
+    # No reload: the script replaces [data-catalog-results] and puts the
+    # new errors of the form into [data-form-errors] (always on the page)
+    assert "js/catalog_live.js" in html
+    assert "data-catalog-results" in html
+    assert "<div data-form-errors>" in html
+    assert "<noscript>" in html  # "Apply" without JavaScript
+
+
+def test_book_list_panel_keeps_the_search_of_the_navbar(client):
+    """A checkbox sends the panel form: the ?q= of the navbar must go with it."""
+    html = client.get(reverse("books:list"), {"q": "kobzar"}).text
+
+    assert '<input type="hidden" name="q" value="kobzar">' in html
+
+
+def test_book_list_small_screens_open_the_panel_with_a_button(client):
+    """Below lg the panel is an offcanvas: a button with the number of active
+    filters opens it, "Show N books" at its bottom closes it."""
+    shevchenko, franko = AuthorFactory(), AuthorFactory()
+    BookFactory(author=shevchenko)
+    BookFactory(author=franko)
+
+    html = client.get(reverse("books:list"), {"author": [shevchenko.pk, franko.pk]}).text
+
+    assert 'class="offcanvas-lg offcanvas-start filters-offcanvas"' in html
+    assert re.search(r'data-bs-toggle="offcanvas"[^>]*>\s*Фільтри\s*<span[^>]*>2</span>', html)
+    assert re.search(r'data-sync="show-results">\s*Показати 2 книги\s*<', html)
 
 
 def test_book_list_sorts_by_price(client):

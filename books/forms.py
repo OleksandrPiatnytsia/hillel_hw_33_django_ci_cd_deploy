@@ -7,7 +7,7 @@ from django.utils.translation import gettext_lazy as _
 
 from currencies.models import Currency
 
-from .models import Author, Book, BookQuerySet, Category
+from .models import Book
 
 COVER_MAX_SIZE_MB = 2
 COVER_ALLOWED_EXTENSIONS = ["jpg", "jpeg", "png", "webp"]
@@ -101,76 +101,3 @@ class BookForm(forms.ModelForm):
                     params={"size": size_mb, "limit": COVER_MAX_SIZE_MB},
                 )
         return cover
-
-
-class BookFilterForm(forms.Form):
-    """GET filters for the book catalog. All fields are optional."""
-
-    SORT_CHOICES = [
-        ("title", _("Title A→Z")),
-        ("-title", _("Title Z→A")),
-        ("author__name", _("Author A→Z")),
-        ("price", _("Price: low to high")),
-        ("-price", _("Price: high to low")),
-        ("-created_at", _("Newest first")),
-        # Copies ordered, cancelled orders not counted (BookQuerySet.with_sold)
-        ("-sold", _("Most popular")),
-    ]
-
-    q = forms.CharField(
-        required=False,
-        label=_("Search"),
-        widget=forms.TextInput(
-            attrs={"class": "form-control", "placeholder": _("Title or author")}
-        ),
-    )
-    category = forms.ModelChoiceField(
-        queryset=Category.objects.all(),
-        required=False,
-        to_field_name="slug",  # ?category=fantasy instead of ?category=3
-        label=_("Category"),
-        empty_label=_("All categories"),
-        widget=forms.Select(attrs={"class": "form-select"}),
-    )
-    author = forms.ModelChoiceField(
-        queryset=Author.objects.all(),
-        required=False,  # ?author=<pk>
-        label=_("Author"),
-        empty_label=_("All authors"),
-        widget=forms.Select(attrs={"class": "form-select"}),
-    )
-    stock = forms.ChoiceField(
-        choices=[("", _("Any"))] + BookQuerySet.STOCK_STATUS_CHOICES,
-        required=False,
-        label=_("Availability"),
-        widget=forms.Select(attrs={"class": "form-select"}),
-    )
-    price_min = forms.DecimalField(
-        required=False,
-        min_value=0,
-        label=_("Price from"),
-        widget=forms.NumberInput(attrs={"class": "form-control", "step": "0.01"}),
-    )
-    price_max = forms.DecimalField(
-        required=False,
-        min_value=0,
-        label=_("Price to"),
-        widget=forms.NumberInput(attrs={"class": "form-control", "step": "0.01"}),
-    )
-    sort = forms.ChoiceField(
-        choices=SORT_CHOICES,
-        required=False,
-        label=_("Sort by"),
-        widget=forms.Select(attrs={"class": "form-select"}),
-    )
-
-    def clean(self):
-        cleaned_data = super().clean()
-        price_min = cleaned_data.get("price_min")
-        price_max = cleaned_data.get("price_max")
-        if price_min is not None and price_max is not None and price_min > price_max:
-            # Out of cleaned_data: the catalog ignores both prices (instead of
-            # "from 500 to 100" = always empty) and applies the other filters
-            del cleaned_data["price_min"], cleaned_data["price_max"]
-            raise forms.ValidationError(_("“Price from” can't be greater than “Price to”."))
-        return cleaned_data

@@ -18,6 +18,8 @@ urlpatterns = [
     path("i18n/setlang/", set_language, name="set_language"),
     # The currency switcher (navbar): POST -> session -> back
     path("currency/", set_currency, name="set_currency"),
+    # The NBU rates with a confirmation: /currencies/rates/ (namespace "currencies")
+    path("currencies/", include("currencies.urls")),
     # Login / logout / sign up: /accounts/login/, ... (namespace "users")
     path("accounts/", include("users.urls")),
     # Session cart: /cart/, /cart/add/<book_id>/, ... (namespace "cart")

@@ -3,7 +3,8 @@
 "Price from" and "Price to" of the catalog filter on one row, with a
 two-handle slider under them (static/js/price_range.js).
 
-price_min, price_max: the bound fields of BookFilterForm.
+price_min, price_max: the bound fields of CatalogFilter's form.
+The heading "Price, $" is the one of its block (filter_section.html).
 price_range: {"min": 12, "max": 1511} from BookListView.price_range(), the
 ends of the slider; None -> no slider, only the two fields.
 
@@ -11,10 +12,12 @@ The number fields are the ones sent with the form. The slider has no
 "name": it only fills the fields. A handle at its end empties its field,
 so "from the cheapest" adds no ?price_min= to the URL. Without JavaScript
 the slider stays hidden and the fields work as before.
+
+"Apply" sends the form: the price is the only filter that waits for a
+button (a checkbox sends it at once), as the user types two numbers.
 {% endcomment %}
-<div class="mb-3" data-price-range>
-  {# One label for both: "Price, $"; each field keeps its own label for screen readers #}
-  <div class="form-label small fw-semibold">{% translate "Price" %}, {{ display_currency.symbol }}</div>
+<div data-price-range>
+  {# Each field keeps its own label for screen readers #}
   <div class="d-flex align-items-center gap-2">
     <label class="visually-hidden" for="{{ price_min.id_for_label }}">{{ price_min.label }}</label>
     {{ price_min }}
@@ -33,6 +36,7 @@ the slider stays hidden and the fields work as before.
              aria-label="{{ price_max.label }}">
     </div>
   {% endif %}
+  <button class="btn btn-sm btn-outline-primary w-100 mt-3" type="submit">{% translate "Apply" %}</button>
   {% for error in price_min.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
   {% for error in price_max.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
 </div>

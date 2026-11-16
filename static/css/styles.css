@@ -73,26 +73,95 @@ main {
 /* ---------- Filters sidebar ---------- */
 
 @media (min-width: 992px) {
-    /* Sidebar stays visible while scrolling the results (lg+ only) */
-    .filters-sidebar {
+    /* Sidebar stays visible while scrolling the results (lg+ only).
+       Sticky is the offcanvas wrapper, not the form: a sticky element
+       moves only inside its parent, and the parent of the wrapper is the
+       whole-height column. */
+    .filters-offcanvas {
         position: sticky;
         /* below the sticky navbar + 1rem gap, otherwise it hides under the navbar */
         top: calc(var(--app-navbar-height) + 1rem);
-        /* Never taller than the window, so the buttons in the footer are
-           always on the screen. 10rem, not just the navbar: at the top of
-           the page the card is not stuck yet and starts lower, under the
-           "Catalog" heading (~8.6rem from the top of the window). */
+        /* Never taller than the window. 10rem, not just the navbar: at the
+           top of the page the panel is not stuck yet and starts lower,
+           under the "Catalog" heading (~8.6rem from the top of the window). */
         max-height: calc(100vh - 10rem);
+        display: flex;
+        flex-direction: column;
     }
 
-    /* Only the fields scroll when the window is low; the header and the
-       footer with "Apply" / "Reset" always stay visible. .card is a flex
-       column, so the body takes the free height; min-height: 0 lets it
-       shrink below its content (a flex item doesn't by default). */
+    /* The body of the offcanvas and the card take the free height;
+       min-height: 0 lets them shrink below their content (a flex item
+       doesn't by default), so only the fields of the card scroll */
+    .filters-offcanvas .offcanvas-body {
+        flex: 1 1 auto;
+        min-height: 0;
+    }
+
+    .filters-sidebar {
+        width: 100%;
+        min-height: 0;
+    }
+
     .filters-sidebar .card-body {
         overflow-y: auto;
         min-height: 0;
     }
+}
+
+/* ---------- The catalog results while the new list loads (catalog_live.js) ---------- */
+
+.catalog-results {
+    transition: opacity 0.15s;
+}
+
+.catalog-results[aria-busy="true"] {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+/* ---------- Blocks of the filter panel (filter_section.html) ---------- */
+
+.filter-section + .filter-section {
+    border-top: 1px solid var(--bs-border-color);
+}
+
+/* The heading is a button over the whole width: a click anywhere folds it */
+.filter-section-toggle {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.85rem 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font-weight: 600;
+    text-align: start;
+}
+
+/* The chevron points up when open (like "^"), down when folded */
+.filter-chevron {
+    flex-shrink: 0;
+    transition: transform 0.2s;
+}
+
+.filter-section-toggle[aria-expanded="false"] .filter-chevron {
+    transform: rotate(180deg);
+}
+
+.filter-section-body {
+    padding-bottom: 1rem;
+}
+
+/* Without JavaScript every option is shown: a long list scrolls instead
+   of making the panel endless (the script shows 5 and "Show all") */
+.filter-options {
+    max-height: 20rem;
+    overflow-y: auto;
+}
+
+.filter-options .form-check {
+    margin-bottom: 0.35rem;
 }
 
 /* ---------- "Out of stock last" in the "Sort by" menu ---------- */

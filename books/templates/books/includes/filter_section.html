@@ -1,0 +1,58 @@
+{% load i18n %}
+{% comment %}
+One block of the catalog filter panel: a heading that folds the block and
+its content (Bootstrap collapse). Open by default; static/js/filter_panel.js
+remembers the folded ones in the browser.
+
+name: the parameter (category, author, ...): the id of the block
+label: the heading
+field: a bound field with checkboxes or radio buttons; or
+body: the template of another content (the search, the price), it gets
+      the same context
+{% endcomment %}
+<section class="filter-section">
+  <h2 class="h6 m-0">
+    <button class="filter-section-toggle" type="button"
+            data-bs-toggle="collapse" data-bs-target="#filter-{{ name }}"
+            aria-expanded="true" aria-controls="filter-{{ name }}">
+      <span>{{ label }}</span>
+      <svg class="filter-chevron" width="14" height="14" viewBox="0 0 16 16" aria-hidden="true">
+        <path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+              stroke-linejoin="round" d="m3 10 5-5 5 5"/>
+      </svg>
+    </button>
+  </h2>
+  <div class="collapse show" id="filter-{{ name }}" data-filter-section="{{ name }}">
+    <div class="filter-section-body">
+      {% if field %}
+        {# A search in the list and "Show all": only for long lists #}
+        {% if field|length > 5 %}
+          <input type="search" class="form-control form-control-sm mb-2" data-option-search
+                 placeholder="{% translate 'Search' %}"
+                 aria-label="{% blocktranslate with label=label %}Search: {{ label }}{% endblocktranslate %}">
+        {% endif %}
+        <div class="filter-options" data-options>
+          {% for option in field %}
+            <div class="form-check" data-option>
+              {{ option.tag }}
+              <label class="form-check-label" for="{{ option.id_for_label }}">{{ option.choice_label }}</label>
+            </div>
+          {% endfor %}
+          <p class="small text-body-secondary mb-0" data-nothing-found hidden>{% translate "Nothing found" %}</p>
+        </div>
+        {% if field|length > 5 %}
+          {# Shown by the script, which hides the options after the 5th #}
+          <button type="button" class="btn btn-link btn-sm p-0 mt-1" data-show-all hidden
+                  data-label-more="{% translate 'Show all' %}" data-label-less="{% translate 'Show less' %}">
+            {% translate "Show all" %}
+          </button>
+        {% endif %}
+        {% for error in field.errors %}
+          <div class="invalid-feedback d-block">{{ error }}</div>
+        {% endfor %}
+      {% else %}
+        {% include body %}
+      {% endif %}
+    </div>
+  </div>
+</section>
