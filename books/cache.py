@@ -58,9 +58,13 @@ def get_cached_book(pk):
         logger.debug("Book cache hit: id=%s", pk)
     else:
         # The object goes into Redis pickled, with what it has loaded:
-        # select_related -> the author inside, prefetch_related -> the list
+        # select_related -> the author and the publisher inside, prefetch_related -> the list
         # of categories inside. A cache hit then needs no query for them.
-        book = Book.objects.select_related("author").prefetch_related("categories").get(pk=pk)
+        book = (
+            Book.objects.select_related("author", "publisher")
+            .prefetch_related("categories")
+            .get(pk=pk)
+        )
         # Never the stock: it would be stale after the first order
         book.__dict__.pop("_stock", None)
         cache.set(key, book, settings.BOOK_CACHE_TIMEOUT)

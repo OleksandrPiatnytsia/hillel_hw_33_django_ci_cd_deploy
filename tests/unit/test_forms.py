@@ -102,6 +102,7 @@ def _book_form_data():
         "author": AuthorFactory().pk,
         "price": "199.90",
         "currency": "UAH",
+        "book_type": "paper",  # the select always sends one
         "description": "",
     }
 

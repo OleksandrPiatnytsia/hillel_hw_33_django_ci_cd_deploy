@@ -3,20 +3,27 @@
 Stage 1 of the new Book fields: the model and its checks, the data
 migrations (the publishers, the rights of the groups), the admin and the
 cache of the book pages.
+Stage 2: the book form of the site, the "Details" block of the book page,
+seed_books.
 """
 
+from io import StringIO
+
 import pytest
+from django.conf import settings
 from django.contrib.auth.models import Group
 from django.core.cache import cache
 from django.core.exceptions import ValidationError
+from django.core.management import call_command
 from django.db.models import ProtectedError
 from django.urls import reverse
 from django.utils import timezone, translation
 
 from books.cache import book_key, get_cached_book
+from books.forms import BookForm
 from books.models import Book, Publisher
 
-from ..factories import BookFactory
+from ..factories import AuthorFactory, BookFactory
 
 pytestmark = pytest.mark.django_db
 
@@ -252,3 +259,188 @@ def test_a_renamed_publisher_drops_the_cache_of_its_books():
     assert cache.get(book_key(book.pk)) is None
     # Books of other publishers keep their cache
     assert cache.get(book_key(other.pk)) is not None
+
+
+# ---------------------------------------------------------------------------
+# The book form of the site
+# ---------------------------------------------------------------------------
+
+
+def _form_data(**changes):
+    data = {
+        "title": "Kobzar",
+        "author": AuthorFactory().pk,
+        "price": "250.00",
+        "currency": "UAH",
+        "description": "",
+        "book_type": "paper",
+    }
+    return {**data, **changes}
+
+
+# Generated with AI
+def test_book_form_saves_the_details():
+    publisher = Publisher.objects.get(name="Ранок")
+    form = BookForm(
+        data=_form_data(
+            publisher=publisher.pk,
+            cover_type="soft",
+            language="pl",
+            publication_year="2015",
+            pages="120",
+        )
+    )
+
+    assert form.is_valid(), form.errors
+    book = form.save()
+
+    assert (book.publisher, book.cover_type, book.language) == (publisher, "soft", "pl")
+    assert (book.publication_year, book.pages) == (2015, 120)
+
+
+# Generated with AI
+def test_book_form_details_are_optional_except_the_type():
+    form = BookForm(data=_form_data(book_type=""))
+
+    assert list(form.errors) == ["book_type"]
+
+
+# Generated with AI
+def test_book_form_shows_the_cover_error_of_an_ebook_under_the_cover_field():
+    form = BookForm(data=_form_data(book_type="ebook", cover_type="hard"))
+
+    assert list(form.errors) == ["cover_type"]
+
+
+# Generated with AI
+def test_book_form_rejects_a_future_year():
+    form = BookForm(data=_form_data(publication_year=str(timezone.now().year + 1)))
+
+    assert list(form.errors) == ["publication_year"]
+
+
+# Generated with AI
+def test_book_form_groups_the_details_and_keeps_the_cover_last():
+    form = BookForm()
+
+    assert [field.name for field in form.detail_fields()] == BookForm.DETAIL_FIELDS
+    main = [field.name for field in form.main_fields()]
+    assert "cover" not in main and "publisher" not in main
+    # Empty choices say "not known", the year's arrows stop at this year
+    with translation.override("en"):
+        assert form.fields["language"].choices[0] == ("", "— Not known —")
+        assert form.fields["publisher"].empty_label == "— Not known —"
+    assert form.fields["publication_year"].widget.attrs["max"] == timezone.now().year
+
+
+# Generated with AI
+def test_book_form_page_has_the_details_block(manager_client):
+    response = manager_client.get(reverse("books:create"))
+
+    content = response.content.decode()
+    assert "<fieldset" in content
+    for field in BookForm.DETAIL_FIELDS:
+        assert f'name="{field}"' in content, field
+    # The cover after the details
+    assert content.index('name="pages"') < content.index('name="cover"')
+
+
+# ---------------------------------------------------------------------------
+# The book page
+# ---------------------------------------------------------------------------
+
+
+def _page(client, book, language="uk"):
+    client.cookies[settings.LANGUAGE_COOKIE_NAME] = language
+    return client.get(reverse("books:detail", args=[book.pk])).content.decode()
+
+
+# Generated with AI
+def test_book_page_shows_the_details_in_the_language_of_the_site(client):
+    book = BookFactory(
+        publisher=Publisher.objects.get(name="Фоліо"),
+        cover_type="hard",
+        language="en",
+        publication_year=2017,
+        pages=224,
+    )
+
+    content = _page(client, book, "uk")
+    for text in ["Фоліо", "Тверда", "Англійська", "2017", "224"]:
+        assert text in content, text
+
+    # Another cached fragment for English: the labels are English
+    content = _page(client, book, "en")
+    for text in ["Details", "Hardcover", "English", "Paper book"]:
+        assert text in content, text
+
+
+# Generated with AI
+def test_book_page_hides_unknown_details(client):
+    book = BookFactory()
+
+    content = _page(client, book, "en")
+
+    # Only the type: the other details are not known
+    assert "Paper book" in content
+    for text in ["Publisher", "Publication year", "Pages"]:
+        assert f'<dt class="col-sm-4 col-lg-3">{text}</dt>' not in content, text
+
+
+# Generated with AI
+def test_a_renamed_publisher_is_shown_on_the_book_page_at_once(client):
+    publisher = Publisher.objects.create(name="Old name")
+    book = BookFactory(publisher=publisher)
+    assert "Old name" in _page(client, book)
+
+    publisher.name = "New name"
+    publisher.save()
+
+    assert "New name" in _page(client, book)
+
+
+# ---------------------------------------------------------------------------
+# seed_books
+# ---------------------------------------------------------------------------
+
+
+# Generated with AI
+def test_seed_books_fills_the_details():
+    call_command("seed_books", stdout=StringIO())
+
+    hobbit = Book.objects.get(title="Хоббіт")
+    assert hobbit.publisher.name == "Видавництво Старого Лева"
+    assert (hobbit.cover_type, hobbit.language, hobbit.publication_year) == ("hard", "uk", 2019)
+    trees = Book.objects.get(title="Таємне життя дерев")
+    assert (trees.book_type, trees.cover_type, trees.pages) == ("audiobook", "", None)
+    # Different values for the filters of the catalog
+    assert set(Book.objects.values_list("book_type", flat=True)) == {"paper", "ebook", "audiobook"}
+    assert set(Book.objects.values_list("language", flat=True)) == {"uk", "en"}
+
+
+# Generated with AI
+def test_seed_books_fills_only_the_empty_details_of_existing_books():
+    author = AuthorFactory(name="Дж.Р. Толкін")
+    # Seeded before the details existed: no details at all
+    old = BookFactory(title="Хоббіт", author=author)
+    # A manager has typed some details in: they stay
+    edited = BookFactory(title="Володар перснів", author=author, language="en", pages=999)
+    out = StringIO()
+
+    call_command("seed_books", stdout=out)
+
+    old.refresh_from_db()
+    edited.refresh_from_db()
+    assert (old.publisher.name, old.cover_type, old.pages) == (
+        "Видавництво Старого Лева",
+        "hard",
+        304,
+    )
+    assert (edited.language, edited.pages) == ("en", 999)
+    assert (edited.publisher.name, edited.cover_type) == ("Vivat", "dust_jacket")
+    assert "+ details of Хоббіт" in out.getvalue()
+
+    # A second run changes nothing
+    again = StringIO()
+    call_command("seed_books", stdout=again)
+    assert "+ details" not in again.getvalue()

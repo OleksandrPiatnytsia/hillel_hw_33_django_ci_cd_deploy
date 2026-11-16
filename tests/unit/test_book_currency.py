@@ -36,6 +36,7 @@ def form_data(**changes):
         "author": AuthorFactory().pk,
         "price": "20.00",
         "currency": "USD",
+        "book_type": "paper",  # the select always sends one
         "description": "",
     }
     return {**data, **changes}

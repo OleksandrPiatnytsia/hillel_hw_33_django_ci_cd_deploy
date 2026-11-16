@@ -40,36 +40,27 @@ that's how we tell "add" from "edit".
             </div>
           {% endif %}
 
-          {% for field in form %}
+          {% for field in form.main_fields %}
             <div class="mb-3">
-              {% if field.name == "categories" %}
-                {# CheckboxSelectMultiple: render each checkbox in Bootstrap's form-check #}
-                <div class="form-label">{{ field.label }}</div>
-                <div class="d-flex flex-wrap gap-3">
-                  {% for checkbox in field %}
-                    <div class="form-check">
-                      {{ checkbox.tag }}
-                      <label class="form-check-label" for="{{ checkbox.id_for_label }}">
-                        {{ checkbox.choice_label }}
-                      </label>
-                    </div>
-                  {% endfor %}
-                </div>
-              {% else %}
-                <label class="form-label" for="{{ field.id_for_label }}">
-                  {{ field.label }}{% if field.field.required %} <span class="text-danger">*</span>{% endif %}
-                </label>
-                {{ field }}
-              {% endif %}
-
-              {% if field.help_text %}
-                <div class="form-text">{{ field.help_text }}</div>
-              {% endif %}
-              {% for error in field.errors %}
-                <div class="invalid-feedback d-block">{{ error }}</div>
-              {% endfor %}
+              {% include "books/includes/book_form_field.html" %}
             </div>
           {% endfor %}
+
+          {# The details of the edition: one block, two or three fields in a row #}
+          <fieldset class="border rounded p-3 mb-3">
+            <legend class="float-none w-auto px-2 fs-6 fw-semibold mb-0">{% translate "Details" %}</legend>
+            <div class="row g-3">
+              {% for field in form.detail_fields %}
+                <div class="{% if field.name == 'publisher' %}col-12{% else %}col-sm-6 col-lg-4{% endif %}">
+                  {% include "books/includes/book_form_field.html" %}
+                </div>
+              {% endfor %}
+            </div>
+          </fieldset>
+
+          <div class="mb-3">
+            {% include "books/includes/book_form_field.html" with field=form.cover %}
+          </div>
 
           <div class="d-flex gap-2">
             <button type="submit" class="btn btn-primary">

@@ -34,6 +34,7 @@ def book_form_data(author, **changes):
         "author": author.pk,
         "price": "250.50",
         "currency": "UAH",
+        "book_type": "paper",  # the select always sends one
         "categories": [],
         "description": "Poems",
     }

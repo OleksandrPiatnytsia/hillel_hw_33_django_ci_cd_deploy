@@ -3,7 +3,7 @@
 {# Cached fragments ({% cache %}): parts that are the same for every visitor. #}
 {# The key: the fragment name + book.pk + the language (the texts around the #}
 {# data are translated). books/signals.py deletes them when the book, its #}
-{# author or its categories change (the names are in books.cache.FRAGMENTS). #}
+{# author, its publisher or its categories change (names: books.cache.FRAGMENTS). #}
 {# NOT inside them, because they differ per visitor or per minute: #}
 {#   csrf_token (a cached token would be someone else's -> 403 and a leak), #}
 {#   "In your cart", the Edit / Delete buttons (permissions), the stock. #}
@@ -81,6 +81,8 @@
     {% else %}
       <p class="text-body-secondary fst-italic">{% translate "No description yet." %}</p>
     {% endif %}
+
+    {% include "books/includes/book_details.html" %}
 
     <p class="small text-body-secondary mb-0">
       {# Filters are not allowed inside blocktranslate: "with" applies them first #}
