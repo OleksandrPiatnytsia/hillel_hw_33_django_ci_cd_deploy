@@ -129,10 +129,14 @@ def test_a_publisher_with_books_cannot_be_deleted():
 def test_publishers_are_ordered_by_name_and_shown_by_name():
     names = list(Publisher.objects.values_list("name", flat=True))
 
-    # The database sorts by its collation: the Ukrainian names first, the
-    # Latin ones after them (Python's sorted() would put Latin first)
-    assert names[0] == "А-БА-БА-ГА-ЛА-МА-ГА"
-    assert names.index("Ранок") < names.index("Vivat")
+    # Without order_by() the list comes in Meta.ordering = ["name"].
+    # Where Cyrillic and Latin go depends on the collation of the database
+    # (local Docker: Cyrillic first, Postgres of CI: Latin first), so the
+    # test compares with the database's own sort, not with fixed names
+    assert Publisher._meta.ordering == ["name"]
+    assert names == list(Publisher.objects.order_by("name").values_list("name", flat=True))
+    # Inside one alphabet the order is the same in every collation
+    assert names.index("А-БА-БА-ГА-ЛА-МА-ГА") < names.index("Ранок")
     assert str(Publisher.objects.get(name="Ранок")) == "Ранок"
 
 
