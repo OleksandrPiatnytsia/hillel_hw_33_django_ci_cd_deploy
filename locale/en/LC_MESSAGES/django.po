@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Bookstore\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-16 21:40+0000\n"
+"POT-Creation-Date: 2026-11-16 21:50+0000\n"
 "PO-Revision-Date: 2026-11-10 16:00+0200\n"
 "Last-Translator: Bookstore\n"
 "Language-Team: English\n"
@@ -27,36 +27,36 @@ msgid ""
 "for a new order."
 msgstr ""
 
-#: api/serializers/catalog.py:110
+#: api/serializers/catalog.py:109
 #, python-format
 msgid "The currency %(code)s is turned off."
 msgstr ""
 
-#: api/serializers/catalog.py:215
+#: api/serializers/catalog.py:214
 msgid "Only users with the “manage stock” permission can change it."
 msgstr ""
 
-#: api/serializers/catalog.py:237
+#: api/serializers/catalog.py:236
 msgid "The book of a format can't be changed."
 msgstr ""
 
-#: api/serializers/catalog.py:240
+#: api/serializers/catalog.py:239
 msgid "The type of a format can't be changed; add a new format instead."
 msgstr ""
 
-#: api/serializers/catalog.py:245 books/models.py:590
+#: api/serializers/catalog.py:244 books/models.py:588
 msgid "Only a paper book has a cover type."
 msgstr ""
 
-#: api/serializers/catalog.py:247 books/models.py:592
+#: api/serializers/catalog.py:246 books/models.py:590
 msgid "An audiobook has no pages."
 msgstr ""
 
-#: api/serializers/catalog.py:249
+#: api/serializers/catalog.py:248
 msgid "Only a paper book has copies in stock."
 msgstr ""
 
-#: api/serializers/catalog.py:252 books/models.py:575
+#: api/serializers/catalog.py:251 books/models.py:573
 msgid "The book already has this format."
 msgstr ""
 
@@ -121,7 +121,7 @@ msgstr ""
 msgid "At most %(max)s characters."
 msgstr ""
 
-#: books/admin.py:33 books/models.py:195 books/models.py:658
+#: books/admin.py:33 books/models.py:195 books/models.py:656
 msgid "category"
 msgstr ""
 
@@ -130,7 +130,7 @@ msgid "categories"
 msgstr ""
 
 #: books/admin.py:42 books/models.py:321 books/models.py:511
-#: books/models.py:657 orders/models.py:239
+#: books/models.py:655 orders/models.py:239
 msgid "book"
 msgstr ""
 
@@ -171,7 +171,7 @@ msgstr ""
 msgid "Timestamps"
 msgstr ""
 
-#: books/admin.py:241 books/models.py:306 books/models.py:537
+#: books/admin.py:241 books/models.py:306 books/models.py:536
 msgid "cover"
 msgstr ""
 
@@ -210,6 +210,11 @@ msgid "Language"
 msgstr ""
 
 #: books/filters.py:73 books/templates/books/book_detail.html:77
+#: cart/templates/cart/cart_detail.html:17
+#: orders/templates/orders/checkout.html:110
+#: orders/templates/orders/emails/order_cancelled.html:27
+#: orders/templates/orders/emails/order_created.html:31
+#: orders/templates/orders/order_detail.html:31
 msgid "Format"
 msgstr ""
 
@@ -490,31 +495,31 @@ msgstr ""
 msgid "currency"
 msgstr ""
 
-#: books/models.py:541
+#: books/models.py:539
 msgid "pages"
 msgstr ""
 
-#: books/models.py:547
+#: books/models.py:545
 msgid "on sale"
 msgstr ""
 
-#: books/models.py:549
+#: books/models.py:547
 msgid "Turn off to stop selling this format; old orders keep it."
 msgstr ""
 
-#: books/models.py:567
+#: books/models.py:565
 msgid "book format"
 msgstr ""
 
-#: books/models.py:568
+#: books/models.py:566
 msgid "book formats"
 msgstr ""
 
-#: books/models.py:661
+#: books/models.py:659
 msgid "book category"
 msgstr ""
 
-#: books/models.py:662
+#: books/models.py:660
 msgid "book categories"
 msgstr ""
 
@@ -647,8 +652,8 @@ msgstr[0] ""
 msgstr[1] ""
 
 #: books/templates/books/book_detail.html:110
-#: cart/templates/cart/cart_detail.html:18
-#: orders/templates/orders/order_detail.html:32
+#: cart/templates/cart/cart_detail.html:19
+#: orders/templates/orders/order_detail.html:33
 msgid "Quantity"
 msgstr ""
 
@@ -728,10 +733,10 @@ msgid "Publication year"
 msgstr ""
 
 #: books/templates/books/book_list.html:82
-#: cart/templates/cart/cart_detail.html:17
-#: orders/templates/orders/emails/order_cancelled.html:27
-#: orders/templates/orders/emails/order_created.html:31
-#: orders/templates/orders/order_detail.html:31
+#: cart/templates/cart/cart_detail.html:18
+#: orders/templates/orders/emails/order_cancelled.html:28
+#: orders/templates/orders/emails/order_created.html:32
+#: orders/templates/orders/order_detail.html:32
 msgid "Price"
 msgstr ""
 
@@ -814,7 +819,7 @@ msgid ""
 msgstr ""
 
 #: books/templates/books/includes/book_format_rows.html:52
-#: cart/templates/cart/cart_detail.html:20
+#: cart/templates/cart/cart_detail.html:21
 msgid "Remove"
 msgstr ""
 
@@ -888,90 +893,92 @@ msgid "Cart"
 msgstr ""
 
 #: cart/templates/cart/cart_detail.html:16
+#: orders/templates/orders/checkout.html:109
 #: orders/templates/orders/emails/order_cancelled.html:26
 #: orders/templates/orders/emails/order_created.html:30
 #: orders/templates/orders/order_detail.html:30
 msgid "Book"
 msgstr ""
 
-#: cart/templates/cart/cart_detail.html:19
-#: orders/templates/orders/emails/order_cancelled.html:29
-#: orders/templates/orders/emails/order_created.html:33
-#: orders/templates/orders/order_detail.html:33
+#: cart/templates/cart/cart_detail.html:20
+#: orders/templates/orders/checkout.html:111
+#: orders/templates/orders/emails/order_cancelled.html:30
+#: orders/templates/orders/emails/order_created.html:34
+#: orders/templates/orders/order_detail.html:34
 msgid "Cost"
 msgstr ""
 
-#: cart/templates/cart/cart_detail.html:42
+#: cart/templates/cart/cart_detail.html:46
 #, python-format
 msgid "Format of %(title)s"
 msgstr ""
 
-#: cart/templates/cart/cart_detail.html:51
+#: cart/templates/cart/cart_detail.html:55
 msgid "Change"
 msgstr ""
 
-#: cart/templates/cart/cart_detail.html:59
-#: orders/templates/orders/checkout.html:114
+#: cart/templates/cart/cart_detail.html:63
+#: orders/templates/orders/checkout.html:122
 msgid "This format is not on sale any more."
 msgstr ""
 
-#: cart/templates/cart/cart_detail.html:63
-#: orders/templates/orders/checkout.html:117
+#: cart/templates/cart/cart_detail.html:67
+#: orders/templates/orders/checkout.html:125
 #, python-format
 msgid "Only %(stock)s copy left in stock"
 msgid_plural "Only %(stock)s copies left in stock"
 msgstr[0] ""
 msgstr[1] ""
 
-#: cart/templates/cart/cart_detail.html:67
-#: orders/templates/orders/checkout.html:121
+#: cart/templates/cart/cart_detail.html:71
+#: orders/templates/orders/checkout.html:129
 msgid "Out of stock now"
 msgstr ""
 
-#: cart/templates/cart/cart_detail.html:83
+#: cart/templates/cart/cart_detail.html:87
 #, python-format
 msgid "Quantity of %(title)s"
 msgstr ""
 
-#: cart/templates/cart/cart_detail.html:84
+#: cart/templates/cart/cart_detail.html:88
 msgid "Update"
 msgstr ""
 
-#: cart/templates/cart/cart_detail.html:92
+#: cart/templates/cart/cart_detail.html:96
 #, python-format
 msgid "Remove %(title)s"
 msgstr ""
 
-#: cart/templates/cart/cart_detail.html:101
-#: orders/templates/orders/checkout.html:129
-#: orders/templates/orders/emails/order_cancelled.html:40
-#: orders/templates/orders/emails/order_created.html:44
-#: orders/templates/orders/order_detail.html:56
+#: cart/templates/cart/cart_detail.html:105
+#: orders/templates/orders/checkout.html:140
+#: orders/templates/orders/emails/order_cancelled.html:42
+#: orders/templates/orders/emails/order_created.html:46
+#: orders/templates/orders/order_detail.html:59
 #: orders/templates/orders/order_list.html:18
 msgid "Total"
 msgstr ""
 
-#: cart/templates/cart/cart_detail.html:111
+#: cart/templates/cart/cart_detail.html:115
 msgid "Continue shopping"
 msgstr ""
 
-#: cart/templates/cart/cart_detail.html:114
+#: cart/templates/cart/cart_detail.html:118
 msgid "Clear cart"
 msgstr ""
 
-#: cart/templates/cart/cart_detail.html:118
+#: cart/templates/cart/cart_detail.html:122
 #: orders/templates/orders/checkout.html:4
 #: orders/templates/orders/checkout.html:10
 #: orders/templates/orders/checkout.html:14
 msgid "Checkout"
 msgstr ""
 
-#: cart/templates/cart/cart_detail.html:123 orders/services.py:87
+#: cart/templates/cart/cart_detail.html:127 orders/services.py:87
 msgid "The cart is empty."
 msgstr ""
 
-#: cart/templates/cart/cart_detail.html:124
-#: orders/templates/orders/emails/order_cancelled.html:49
+#: cart/templates/cart/cart_detail.html:128
+#: orders/templates/orders/emails/order_cancelled.html:51
 #: orders/templates/orders/order_list.html:45
 msgid "Go to the catalog"
 msgstr ""
@@ -1236,8 +1243,8 @@ msgid "Payment"
 msgstr ""
 
 #: orders/admin.py:119 orders/templates/orders/checkout.html:22
-#: orders/templates/orders/emails/order_created.html:49
-#: orders/templates/orders/order_detail.html:68
+#: orders/templates/orders/emails/order_created.html:51
+#: orders/templates/orders/order_detail.html:71
 msgid "Delivery"
 msgstr ""
 
@@ -1351,7 +1358,7 @@ msgstr ""
 msgid "Partially paid"
 msgstr ""
 
-#: orders/models.py:39 orders/templates/orders/order_detail.html:85
+#: orders/models.py:39 orders/templates/orders/order_detail.html:88
 #: payments/templates/payments/emails/payment_received.html:29
 msgid "Paid"
 msgstr ""
@@ -1492,7 +1499,7 @@ msgstr ""
 msgid "Your order"
 msgstr ""
 
-#: orders/templates/orders/checkout.html:134
+#: orders/templates/orders/checkout.html:146
 msgid ""
 "The books are reserved when you place the order. Then you pay with the “Pay” "
 "button on the order page."
@@ -1544,10 +1551,10 @@ msgstr ""
 
 #: orders/templates/orders/emails/daily_report.txt:15
 #: orders/templates/orders/emails/order_cancelled.html:14
-#: orders/templates/orders/emails/order_cancelled.html:56
+#: orders/templates/orders/emails/order_cancelled.html:58
 #: orders/templates/orders/emails/order_cancelled.txt:15
 #: orders/templates/orders/emails/order_created.html:18
-#: orders/templates/orders/emails/order_created.html:66
+#: orders/templates/orders/emails/order_created.html:68
 #: orders/templates/orders/emails/order_created.txt:18
 #: payments/templates/payments/emails/payment_received.html:16
 #: payments/templates/payments/emails/payment_received.html:60
@@ -1589,18 +1596,18 @@ msgid ""
 "returned the reserved books to the store."
 msgstr ""
 
-#: orders/templates/orders/emails/order_cancelled.html:28
-#: orders/templates/orders/emails/order_created.html:32
+#: orders/templates/orders/emails/order_cancelled.html:29
+#: orders/templates/orders/emails/order_created.html:33
 msgid "Qty"
 msgstr ""
 
-#: orders/templates/orders/emails/order_cancelled.html:45
+#: orders/templates/orders/emails/order_cancelled.html:47
 #: orders/templates/orders/emails/order_cancelled.txt:10
 msgid "If you still want these books, please place a new order:"
 msgstr ""
 
-#: orders/templates/orders/emails/order_cancelled.html:51
-#: orders/templates/orders/emails/order_created.html:60
+#: orders/templates/orders/emails/order_cancelled.html:53
+#: orders/templates/orders/emails/order_created.html:62
 #: payments/templates/payments/emails/payment_received.html:54
 msgid "Open the order"
 msgstr ""
@@ -1643,7 +1650,7 @@ msgid ""
 "are reserved for you."
 msgstr ""
 
-#: orders/templates/orders/emails/order_created.html:56
+#: orders/templates/orders/emails/order_created.html:58
 #, python-format
 msgid "Payment status: <strong>%(status)s</strong>"
 msgstr ""
@@ -1675,31 +1682,31 @@ msgstr ""
 msgid "My orders"
 msgstr ""
 
-#: orders/templates/orders/order_detail.html:75
+#: orders/templates/orders/order_detail.html:78
 #, python-format
 msgid "Created %(date)s"
 msgstr ""
 
-#: orders/templates/orders/order_detail.html:81
+#: orders/templates/orders/order_detail.html:84
 #, python-format
 msgid "Paid %(paid)s of %(total)s (%(percent)s%%)"
 msgstr ""
 
-#: orders/templates/orders/order_detail.html:97
+#: orders/templates/orders/order_detail.html:100
 #, python-format
 msgid "Pay %(due)s"
 msgstr ""
 
-#: orders/templates/orders/order_detail.html:99
+#: orders/templates/orders/order_detail.html:102
 msgid "Card payment on the Stripe page"
 msgstr ""
 
-#: orders/templates/orders/order_detail.html:107
+#: orders/templates/orders/order_detail.html:110
 #, python-format
 msgid "Cancel %(order)s? The books will go back to stock."
 msgstr ""
 
-#: orders/templates/orders/order_detail.html:111
+#: orders/templates/orders/order_detail.html:114
 msgid "Cancel order"
 msgstr ""
 

@@ -14,6 +14,7 @@
         <thead>
           <tr>
             <th scope="col" colspan="2">{% translate "Book" %}</th>
+            <th scope="col">{% translate "Format" %}</th>
             <th scope="col" class="text-end">{% translate "Price" %}</th>
             <th scope="col">{% translate "Quantity" %}</th>
             <th scope="col" class="text-end">{% translate "Cost" %}</th>
@@ -32,10 +33,13 @@
                 <td>
                   <a class="text-decoration-none" href="{{ book.get_absolute_url }}">{{ book.title }}</a>
                   <div class="small text-body-secondary">{{ book.author.name }}</div>
+                </td>
+                {# The format: its own column, the warnings of the format under it #}
+                <td>
                   {% if item.format_choices|length > 1 %}
                     {# Another format of the same book: auto_submit.js sends the #}
                     {# form when the select changes; the button is for no-JS #}
-                    <form class="d-flex gap-2 mt-1" method="post" data-auto-submit
+                    <form class="d-flex gap-2" method="post" data-auto-submit
                           action="{% url 'cart:change_format' book_format.pk %}">
                       {% csrf_token %}
                       <select class="form-select form-select-sm w-auto" name="format"
@@ -52,14 +56,14 @@
                       </noscript>
                     </form>
                   {% else %}
-                    <div class="small">{{ book_format.get_format_type_display }}</div>
+                    <span class="text-nowrap">{{ book_format.get_format_type_display }}</span>
                   {% endif %}
                   {% if item.not_on_sale %}
                     {# Switched off after it was added: checkout would refuse it #}
-                    <div class="small text-danger">{% translate "This format is not on sale any more." %}</div>
+                    <div class="small text-danger mt-1">{% translate "This format is not on sale any more." %}</div>
                   {% elif item.exceeds_stock %}
                     {# Stock dropped after the book was added (someone else bought it) #}
-                    <div class="small text-danger">
+                    <div class="small text-danger mt-1">
                       {% if book_format.stock %}{% blocktranslate trimmed count stock=book_format.stock %}
                         Only {{ stock }} copy left in stock
                       {% plural %}
@@ -98,7 +102,7 @@
         </tbody>
         <tfoot>
           <tr>
-            <th scope="row" colspan="4" class="text-end">{% translate "Total" %}</th>
+            <th scope="row" colspan="5" class="text-end">{% translate "Total" %}</th>
             {# cart.total reuses the items loaded for the table: no second query #}
             <td class="text-end text-nowrap fs-5 fw-semibold">{{ cart.total|money:cart.currency }}</td>
             <td></td>

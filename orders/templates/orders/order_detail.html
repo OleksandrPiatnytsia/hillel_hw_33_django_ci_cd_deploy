@@ -28,6 +28,7 @@
           <thead>
             <tr>
               <th scope="col">{% translate "Book" %}</th>
+              <th scope="col">{% translate "Format" %}</th>
               <th scope="col" class="text-end">{% translate "Price" %}</th>
               <th scope="col" class="text-end">{% translate "Quantity" %}</th>
               <th scope="col" class="text-end">{% translate "Cost" %}</th>
@@ -38,7 +39,9 @@
             {% for item in order.items.all %}
               <tr>
                 {# item.title / item.price: copies from the moment of ordering #}
-                <td><a class="text-decoration-none" href="{{ item.book.get_absolute_url }}">{{ item.display_title }}</a></td>
+                <td><a class="text-decoration-none" href="{{ item.book.get_absolute_url }}">{{ item.title }}</a></td>
+                {# item.format_type: a copy, what was bought even if the format changed later #}
+                <td class="text-nowrap">{{ item.get_format_type_display }}</td>
                 <td class="text-end text-nowrap">
                   {{ item.price|money:order.currency_id }}
                   {# Converted from the book's own currency: the price it had then #}
@@ -53,7 +56,7 @@
           </tbody>
           <tfoot>
             <tr>
-              <th scope="row" colspan="3" class="text-end">{% translate "Total" %}</th>
+              <th scope="row" colspan="4" class="text-end">{% translate "Total" %}</th>
               <td class="text-end text-nowrap fs-5 fw-semibold">{{ order.total|money:order.currency_id }}</td>
             </tr>
           </tfoot>

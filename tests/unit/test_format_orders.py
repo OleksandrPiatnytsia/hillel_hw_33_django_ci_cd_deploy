@@ -301,7 +301,33 @@ def test_order_page_shows_the_format(customer_client, customer):
 
     content = customer_client.get(order.get_absolute_url()).content.decode()
 
-    assert "Тигролови (Паперова)" in content and "Тигролови (Електронна)" in content
+    # The format in its own column: a header and a cell per line, the
+    # title without "(Паперова)"
+    assert '<th scope="col">Формат</th>' in content
+    assert '<td class="text-nowrap">Паперова</td>' in content
+    assert '<td class="text-nowrap">Електронна</td>' in content
+    assert "Тигролови (Паперова)" not in content
+
+
+# Generated with AI
+def test_cart_and_checkout_show_the_format_in_its_own_column(customer_client):
+    book, paper, ebook = _two_formats(stock=5)
+    url = reverse("cart:add", args=[book.pk])
+    customer_client.post(url, {"quantity": 1, "format": paper.pk})
+    customer_client.post(url, {"quantity": 2, "format": ebook.pk})
+
+    cart = customer_client.get(reverse("cart:detail")).content.decode()
+    checkout = customer_client.get(reverse("orders:checkout")).content.decode()
+
+    # The cart: the column header and the select of the format, not next
+    # to the title any more
+    assert '<th scope="col">Формат</th>' in cart
+    assert cart.count('<select class="form-select form-select-sm w-auto" name="format"') == 2
+    # The checkout summary: a column with the format of every line
+    assert '<th scope="col">Формат</th>' in checkout
+    assert '<td class="text-nowrap">Паперова</td>' in checkout
+    assert '<td class="text-nowrap">Електронна</td>' in checkout
+    assert "(Паперова)" not in checkout
 
 
 # Generated with AI
