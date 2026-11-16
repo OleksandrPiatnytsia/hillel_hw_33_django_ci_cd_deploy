@@ -13,7 +13,8 @@ from django.test import RequestFactory
 from django.urls import reverse
 from django.utils import translation
 
-from cart.cart import Cart
+from books.models import BookFormat
+from cart.cart import CART_SESSION_KEY, Cart
 from currencies.display import (
     SESSION_KEY,
     book_price,
@@ -25,6 +26,7 @@ from currencies.models import Currency, ExchangeRate
 from currencies.templatetags.money import money
 
 from ..factories import BookFactory
+from ..helpers import format_id
 
 pytestmark = pytest.mark.django_db
 
@@ -131,7 +133,7 @@ def test_rates_are_read_once_per_request(django_assert_num_queries):
         request_rates(request)
     with django_assert_num_queries(0):
         for _ in range(24):
-            book_price(request, BookFactory.build(price=Decimal("650"), currency_id="UAH"))
+            book_price(request, BookFormat(price=Decimal("650"), currency_id="UAH"))
 
 
 # Generated with AI
@@ -158,9 +160,9 @@ def test_money_filter_accepts_a_currency_and_skips_empty_values():
 
 # Generated with AI
 def test_book_price_converts_and_keeps_the_original():
-    book = BookFactory.build(price=Decimal("650.00"), currency_id="UAH")
+    book_format = BookFormat(price=Decimal("650.00"), currency_id="UAH")
 
-    price = book_price(request_with("USD"), book)
+    price = book_price(request_with("USD"), book_format)
 
     assert (str(price), price.converted, price.original) == ("14,31 $", True, "650,00 ₴")
     assert price.rate_date == TODAY
@@ -168,9 +170,9 @@ def test_book_price_converts_and_keeps_the_original():
 
 # Generated with AI
 def test_book_price_between_two_foreign_currencies_shows_the_newer_rate_date():
-    book = BookFactory.build(price=Decimal("10.00"), currency_id="EUR")
+    book_format = BookFormat(price=Decimal("10.00"), currency_id="EUR")
 
-    price = book_price(request_with("USD"), book)
+    price = book_price(request_with("USD"), book_format)
 
     assert str(price) == "11,08 $"  # 10 * 50.3379 / 45.4274
     assert price.rate_date == TODAY  # USD 16.11, EUR 13.11
@@ -178,19 +180,17 @@ def test_book_price_between_two_foreign_currencies_shows_the_newer_rate_date():
 
 # Generated with AI
 def test_book_price_in_its_own_currency_is_not_converted():
-    price = book_price(
-        request_with("USD"), BookFactory.build(price=Decimal("20"), currency_id="USD")
-    )
+    price = book_price(request_with("USD"), BookFormat(price=Decimal("20"), currency_id="USD"))
 
     assert (str(price), price.converted, price.rate_date) == ("20,00 $", False, None)
 
 
 # Generated with AI
-def test_a_book_in_a_currency_without_a_rate_keeps_its_own_currency():
+def test_a_format_in_a_currency_without_a_rate_keeps_its_own_currency():
     Currency.objects.create(code="PLN", name="Zloty", symbol="zł")
-    book = BookFactory.build(price=Decimal("40"), currency_id="PLN")
+    book_format = BookFormat(price=Decimal("40"), currency_id="PLN")
 
-    assert str(book_price(request_with("USD"), book)) == "40,00 zł"
+    assert str(book_price(request_with("USD"), book_format)) == "40,00 zł"
 
 
 # ---------------------------------------------------------------------------
@@ -312,7 +312,10 @@ def test_cart_is_in_the_chosen_currency(client, mixed_books):
 # Generated with AI
 def test_cart_object_follows_the_session_currency(mixed_books):
     request = request_with("EUR")
-    request.session = {SESSION_KEY: "EUR", "cart": {str(mixed_books[1].pk): {"quantity": 2}}}
+    request.session = {
+        SESSION_KEY: "EUR",
+        CART_SESSION_KEY: {str(format_id(mixed_books[1])): {"quantity": 2}},
+    }
 
     cart = Cart(request)
 

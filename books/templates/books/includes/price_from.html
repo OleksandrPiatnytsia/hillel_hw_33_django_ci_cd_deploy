@@ -1,0 +1,14 @@
+{% load i18n money %}
+{% comment %}
+The price of a book in a list (catalog card, author page): the cheapest
+format on sale in the currency of the switcher, "from" when there are
+several formats, "Not on sale" without any.
+Usage: {% include "books/includes/price_from.html" with book=book %}
+The book should come with with_active_formats(): no query per book.
+{% endcomment %}
+{% price_from book as price %}
+{% if price %}
+  <span class="fw-semibold">{% if book.active_formats|length > 1 %}{% translate "from" %} {% endif %}{{ price }}</span>
+{% else %}
+  <span class="text-body-secondary small">{% translate "Not on sale" %}</span>
+{% endif %}

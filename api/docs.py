@@ -18,6 +18,7 @@ from drf_spectacular.utils import (
 
 from .serializers.catalog import (
     AuthorSerializer,
+    BookFormatSerializer,
     BookSerializer,
     CategorySerializer,
     PublisherSerializer,
@@ -94,9 +95,10 @@ CURRENCY_PARAMETER = OpenApiParameter(
     required=False,
     description=(
         'A code from /api/currencies/ ("USD", "EUR"; "UAH" by default): '
-        '"display_price" of every book in it, converted at today\'s NBU rate. '
-        "?price_min=, ?price_max= and ?ordering=price use this price too, so "
-        "books priced in different currencies are compared correctly. "
+        '"display_price" of every book (the cheapest format on sale) and of '
+        "every format in it, converted at today's NBU rate. ?price_min=, "
+        "?price_max= and ?ordering=price of the books use this price too, so "
+        "formats priced in different currencies are compared correctly. "
         "A code that is not offered: 400."
     ),
 )
@@ -105,9 +107,29 @@ book_schema = catalog_schema(
     "book",
     "books",
     "Needs the permissions of the user's group: add_book (Editors, Managers), "
-    "change_book (Editors, Managers), delete_book (Managers). Changing "
-    '"stock" needs inventory.change_stock (Managers), otherwise 403.',
+    "change_book (Editors, Managers), delete_book (Managers). The prices, "
+    "types, covers, pages and stock belong to the formats of the book: "
+    '"formats" lists the ones on sale, /api/formats/ writes them. A new '
+    "book is not on sale until its first format is added.",
     protected="The book is in orders.",
+    read_parameters=[CURRENCY_PARAMETER],
+)
+format_schema = catalog_schema(
+    BookFormatSerializer,
+    "format",
+    "formats",
+    "One way to buy a book: paper, e-book or audiobook, each with its own price "
+    '("format_type" and "book_id" are set only when the format is created). '
+    '"cover_type" only for paper, "pages" not for an audiobook, one format of '
+    "a type per book. Needs the permissions of the user's group: "
+    "add_bookformat, change_bookformat, delete_bookformat (Editors, Managers). "
+    'Changing "stock" (paper only; null for a file) needs '
+    "inventory.change_stock (Managers), otherwise 403. Turned off formats "
+    "(is_active: false) are listed only for users who may change them.",
+    protected=(
+        "The format is in orders, or it is the last format of the book: "
+        'turn it off instead ("is_active": false).'
+    ),
     read_parameters=[CURRENCY_PARAMETER],
 )
 currency_schema = extend_schema_view(
@@ -172,10 +194,15 @@ ORDER_CREATE = dict(
     summary="Create an order",
     description=(
         "The delivery data and the books at once (there is no cart in the "
-        "API). The prices and the total come from the catalog; the copies "
-        'are reserved right away. "currency": a code from /api/currencies/ '
-        '("UAH" by default); every book is converted into it at today\'s NBU '
-        'rate and the order keeps that rate. 400 with "items" when there '
+        "API). Every line names a format: "
+        '{"format_id": 12, "quantity": 2} (the formats are in "formats" of '
+        'a book). {"book_id": 7, "quantity": 2} is accepted for a book with '
+        'one format on sale; with several it is 400: send "format_id". '
+        "The prices and the total come from the catalog; the copies of a "
+        "paper format are reserved right away (an e-book or an audiobook "
+        'has no copies). "currency": a code from /api/currencies/ '
+        '("UAH" by default); every format is converted into it at today\'s '
+        'NBU rate and the order keeps that rate. 400 with "items" when there '
         "are not enough copies: nothing is saved then. Payment: open "
         '"site_url" of the answer, the order page has the "Pay" button '
         "(in the order currency)."
@@ -192,7 +219,7 @@ IDEMPOTENCY_KEY_PARAMETER = OpenApiParameter(
         "(e.g. a UUID). Send the same request with the same key again (a "
         "timeout, a retry) and the answer is the order of the first request, "
         '201 with the header "Idempotent-Replayed: true": no second order. '
-        "The same key with other books or another address: 422."
+        "The same key with other formats or another address: 422."
     ),
 )
 

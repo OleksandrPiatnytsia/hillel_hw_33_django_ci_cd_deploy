@@ -23,7 +23,7 @@ from payments.services import PaymentError, record_manual_payment
 
 from ..factories import BookFactory, OrderFactory
 from ..fakes import stripe_event_payload, stripe_webhook_headers
-from ..helpers import message_levels
+from ..helpers import format_id, message_levels
 
 pytestmark = pytest.mark.django_db
 
@@ -43,7 +43,7 @@ def order(customer):
     dollar_book = BookFactory(price=Decimal("20.00"), currency_id="USD")
     return create_order(
         customer,
-        {hryvnia_book.pk: 3, dollar_book.pk: 1},
+        {format_id(hryvnia_book): 3, format_id(dollar_book): 1},
         currency="USD",
         full_name="Ann Shevchenko",
         phone="+380671234567",

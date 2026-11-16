@@ -1,11 +1,15 @@
 from django.contrib import admin
 from django.db.models import Count
-from django.utils.html import format_html
+from django.utils.html import format_html, format_html_join
+from django.utils.safestring import mark_safe
 from django.utils.translation import gettext_lazy as _
 
+from currencies.display import format_money
+from currencies.models import BASE_CURRENCY
+from currencies.services import current_rates
 from inventory.models import Stock
 
-from .models import Author, Book, BookCategory, BookQuerySet, Category, Publisher
+from .models import Author, Book, BookCategory, BookFormat, BookQuerySet, Category, Publisher
 
 # ---------------------------------------------------------------------------
 # Inlines
@@ -40,10 +44,12 @@ class CategoryBookInline(BaseBookCategoryInline):
 
 
 class StockInline(admin.TabularInline):
-    """Copies of the book per warehouse, on the Book page.
+    """Copies of a paper book per warehouse, on the page of its paper format.
 
     Editable only with inventory.change_stock (group "Managers"): Django
     shows the rows read-only for users with only view_stock (Editors).
+    An e-book or an audiobook has no copies: no rows (see
+    BookFormatAdmin.get_inlines).
     """
 
     model = Stock
@@ -53,13 +59,36 @@ class StockInline(admin.TabularInline):
     verbose_name_plural = _("stock")
 
     def has_add_permission(self, request, obj=None):
-        # A new book (obj is None): no rows here. Its row in the default
-        # warehouse is made by inventory.signals right after the book is
+        # A new format (obj is None): no rows here. Its row in the default
+        # warehouse is made by inventory.signals right after the format is
         # saved; a row from this form for the same warehouse would then
-        # break the unique (book, warehouse) constraint.
+        # break the unique (format, warehouse) constraint.
         if obj is None:
             return False
         return super().has_add_permission(request, obj)
+
+
+class BookFormatInline(admin.TabularInline):
+    """Formats of the book (paper, e-book, audiobook) with their prices, on the Book page.
+
+    One row per format. BookFormat.clean() refuses a cover for a non-paper
+    format and pages for an audiobook; the unique (book, format_type)
+    constraint refuses a second row of the same format.
+    Rights: books.add/change/delete_bookformat (Editors and Managers).
+    The copies of the paper book are on the page of the format: the link
+    "Change" of its row (show_change_link) opens it.
+    """
+
+    model = BookFormat
+    fields = ["format_type", "price", "currency", "cover_type", "pages", "is_active"]
+    verbose_name = _("format")
+    verbose_name_plural = _("formats")
+    show_change_link = True
+
+    def get_extra(self, request, obj=None, **kwargs):
+        # A new book (obj is None): one empty row to fill; an existing book:
+        # only its formats, "Add another" for one more
+        return 1 if obj is None else 0
 
 
 # ---------------------------------------------------------------------------
@@ -138,22 +167,21 @@ class BookAdmin(admin.ModelAdmin):
         "cover_thumbnail",
         "title",
         "author",
-        "price",
-        "currency",
+        "format_list",
+        "price_from",
         "stock",
         "is_available",
         "category_list",
         "created_at",
     ]
     list_display_links = ["title"]
-    # No "stock" here: it is a value of inventory.Stock, not a column of
-    # the book; quantities are edited in the Stock list or on the book page
-    list_editable = ["price"]
+    # No list_editable: the prices are of the formats (the rows on the
+    # book page, or the list of the formats), the stock of inventory.Stock
     list_filter = [
         StockStatusFilter,
-        "currency",
         "categories",
-        "book_type",
+        # The books that have a format of this type (on sale or not)
+        ("formats__format_type", admin.ChoicesFieldListFilter),
         "language",
         "publisher",
         "created_at",
@@ -170,23 +198,13 @@ class BookAdmin(admin.ModelAdmin):
     # (needs search_fields in AuthorAdmin and PublisherAdmin)
     autocomplete_fields = ["author", "publisher"]
     readonly_fields = ["cover_preview", "created_at", "updated_at"]
-    inlines = [StockInline, BookCategoryInline]
+    inlines = [BookFormatInline, BookCategoryInline]
     fieldsets = [
         (None, {"fields": ["title", "author", "description"]}),
-        # The edition; tuples = fields on one line
-        (
-            _("Details"),
-            {
-                "fields": [
-                    "publisher",
-                    ("book_type", "cover_type"),
-                    ("language", "publication_year", "pages"),
-                ]
-            },
-        ),
+        # The edition; a tuple = fields on one line. The type, the cover
+        # type, the pages and the price are of the formats (the inline below)
+        (_("Details"), {"fields": ["publisher", ("language", "publication_year")]}),
         (_("Cover"), {"fields": ["cover_preview", "cover"]}),
-        # A tuple = fields on one line: the price and its currency side by side
-        (_("Sales"), {"fields": [("price", "currency")]}),
         (
             _("Timestamps"),
             {"fields": ["created_at", "updated_at"], "classes": ["collapse"]},
@@ -194,15 +212,19 @@ class BookAdmin(admin.ModelAdmin):
     ]
 
     def get_queryset(self, request):
-        # Author and currency via JOIN, categories in one extra query — not
-        # a query per row
+        # The author via JOIN, the categories and the formats in one extra
+        # query each — not a query per row
         return (
             super()
             .get_queryset(request)
-            .select_related("author", "currency")
-            .prefetch_related("categories")
-            # "stock" for the list column, its sorting and StockStatusFilter
-            .with_stock()
+            .select_related("author")
+            .prefetch_related("categories", "formats")
+            # "stock" (of the paper format) and "available" for the list
+            # columns, their sorting and StockStatusFilter
+            .with_availability()
+            # "display_price": the cheapest format on sale in UAH, like the
+            # price "from" of the catalog; sortable
+            .with_display_price(BASE_CURRENCY, rates=current_rates())
         )
 
     # format_html escapes the arguments and marks the result as safe HTML,
@@ -224,6 +246,29 @@ class BookAdmin(admin.ModelAdmin):
     def cover_preview(self, obj):
         return self._cover_img(obj, 160)
 
+    @admin.display(description=_("formats"))
+    def format_list(self, obj):
+        """Every format with its own price; a format not on sale is struck through."""
+        return format_html_join(
+            mark_safe("<br>"),
+            '<span style="{}">{}&nbsp;{}</span>',
+            (
+                (
+                    "" if book_format.is_active else "text-decoration: line-through; opacity: .6",
+                    book_format.get_format_type_display(),
+                    format_money(book_format.price, book_format.currency_id),
+                )
+                for book_format in obj.formats.all()
+            ),
+        )
+
+    @admin.display(description=_("price from"), ordering="display_price")
+    def price_from(self, obj):
+        # "—": no format on sale
+        if obj.display_price is None:
+            return "—"
+        return format_money(obj.display_price, BASE_CURRENCY)
+
     @admin.display(description=_("categories"))
     def category_list(self, obj):
         return ", ".join(category.name for category in obj.categories.all())
@@ -232,6 +277,35 @@ class BookAdmin(admin.ModelAdmin):
     def stock(self, obj):
         return obj.stock
 
-    @admin.display(description=_("available"), boolean=True, ordering="stock")
+    @admin.display(description=_("available"), boolean=True, ordering="available")
     def is_available(self, obj):
-        return obj.stock > 0
+        # A digital format on sale, or paper with copies (with_availability)
+        return obj.available
+
+
+@admin.register(BookFormat)
+class BookFormatAdmin(admin.ModelAdmin):
+    """One format of a book; the page of a paper book has its copies per warehouse.
+
+    Usually opened from the book page (the link of a format row). The list
+    is the quick way to find the formats switched off or priced in a currency.
+    """
+
+    list_display = ["__str__", "format_type", "price", "currency", "is_active", "stock"]
+    list_filter = ["format_type", "is_active", "currency"]
+    # Also for the search-as-you-type of the format in StockAdmin
+    search_fields = ["book__title", "book__author__name"]
+    autocomplete_fields = ["book"]
+    list_select_related = ["book", "currency"]
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).with_stock()
+
+    def get_inlines(self, request, obj):
+        # Copies only for a saved paper book: a file has no stock
+        return [StockInline] if obj is not None and obj.is_paper else []
+
+    @admin.display(description=_("stock"), ordering="stock")
+    def stock(self, obj):
+        # "—" for a file: it has no copies, 0 would look like "sold out"
+        return obj.stock if obj.is_paper else "—"

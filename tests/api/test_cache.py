@@ -83,8 +83,8 @@ def test_books_are_not_cached(api_client, django_assert_num_queries):
     BookFactory()
     api_client.get("/api/books/")
 
-    # COUNT + books + categories, every time: the stock must be fresh
-    with django_assert_num_queries(3):
+    # COUNT + books + categories + formats, every time: the stock must be fresh
+    with django_assert_num_queries(4):
         api_client.get("/api/books/")
 
 

@@ -6,8 +6,10 @@ Reading (GET /api/orders/, /api/orders/<pk>/):
      "payment_status": "unpaid", ..., "currency": "USD",
      "exchange_rate": "45.427400", "total": "11.04",
      "paid_amount": "0.00", "amount_due": "11.04",
-     "items": [{"book": {"id": 7, "title": "Kobzar"}, "title": "Kobzar",
-                "price": "5.52", "original_price": "250.50",
+     "items": [{"book": {"id": 7, "title": "Kobzar"},
+                "format": {"id": 12, "format_type": "ebook",
+                           "format_type_display": "Електронна"},
+                "title": "Kobzar", "price": "5.52", "original_price": "250.50",
                 "original_currency": "UAH", "quantity": 2, "cost": "11.04"}],
      "can_be_cancelled": true,
      "site_url": "http://localhost:8000/orders/12/"}
@@ -17,10 +19,15 @@ there is no cart in the API (README: why):
 
     {"full_name": "Ann Shevchenko", "phone": "+380 67 123 45 67",
      "address": "Kyiv, Khreshchatyk 1", "currency": "USD",
-     "items": [{"book_id": 7, "quantity": 2}, {"book_id": 9, "quantity": 1}]}
+     "items": [{"format_id": 12, "quantity": 2}, {"book_id": 9, "quantity": 1}]}
+
+A line names a format (paper, e-book, audiobook of a book: "formats" of
+/api/books/). "book_id" is a short form for a book with ONE format on
+sale; a book sold in several formats needs "format_id" (400 otherwise:
+the API doesn't choose the format for the client).
 
 All the money of an order (prices, total, paid, due) is in its currency,
-chosen once at creation ("UAH" without "currency"); the books are
+chosen once at creation ("UAH" without "currency"); the formats are
 converted at the NBU rate of that day and the order keeps the rates.
 The prices, the total and the statuses are never taken from the request:
 orders.services.create_order() sets them, the same function as the
@@ -34,7 +41,7 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from django.utils.translation import gettext_lazy as _
 from rest_framework import serializers
 
-from books.models import Book
+from books.models import Book, BookFormat
 from currencies.models import BASE_CURRENCY
 from currencies.services import available_currencies
 from orders.models import Order, OrderItem
@@ -49,6 +56,14 @@ class OrderedBookSerializer(serializers.ModelSerializer):
         fields = ["id", "title"]
 
 
+class OrderedFormatSerializer(serializers.Serializer):
+    """The format of an order line: its id and the type bought."""
+
+    id = serializers.IntegerField(source="format_id")
+    format_type = serializers.CharField()
+    format_type_display = serializers.CharField(source="get_format_type_display")
+
+
 class OrderItemSerializer(serializers.ModelSerializer):
     """One line of an order, as it was at the moment of ordering.
 
@@ -60,6 +75,9 @@ class OrderItemSerializer(serializers.ModelSerializer):
     """
 
     book = OrderedBookSerializer(read_only=True)
+    # source="*": built from the line itself, from its copy of the type
+    # (what was bought, even if the format is changed later), no query
+    format = OrderedFormatSerializer(source="*", read_only=True)
     cost = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
     original_currency = serializers.CharField(source="original_currency_id", read_only=True)
 
@@ -67,6 +85,7 @@ class OrderItemSerializer(serializers.ModelSerializer):
         model = OrderItem
         fields = [
             "book",
+            "format",
             "title",
             "price",
             "original_price",
@@ -154,11 +173,62 @@ class OrderSerializer(serializers.ModelSerializer):
 
 
 class OrderItemCreateSerializer(serializers.Serializer):
-    """One line of a new order: which book and how many."""
+    """One line of a new order: which format and how many.
+
+        {"format_id": 12, "quantity": 2}   the format (from "formats" of a book)
+        {"book_id": 7, "quantity": 2}      a book with one format on sale
+
+    validate() puts the chosen BookFormat into attrs["format"].
+    """
 
     # An unknown id -> 400 for this line: "Invalid pk "999" - object does not exist."
-    book_id = serializers.PrimaryKeyRelatedField(queryset=Book.objects.all())
+    format_id = serializers.PrimaryKeyRelatedField(
+        queryset=BookFormat.objects.select_related("book"), required=False
+    )
+    book_id = serializers.PrimaryKeyRelatedField(queryset=Book.objects.all(), required=False)
     quantity = serializers.IntegerField(min_value=1)
+
+    def validate(self, attrs):
+        book_format, book = attrs.get("format_id"), attrs.get("book_id")
+        if book_format is None and book is None:
+            raise serializers.ValidationError(_("Send “format_id” (or “book_id”)."))
+        if book_format is not None and book is not None:
+            raise serializers.ValidationError(_("Send either “format_id” or “book_id”, not both."))
+
+        if book_format is not None:
+            if not book_format.is_active:
+                raise serializers.ValidationError(
+                    {"format_id": [_("“%(title)s” is not on sale.") % {"title": book_format}]}
+                )
+        else:
+            # The formats on sale (one query per line): with one of them the
+            # choice is clear; with several the client must choose, a
+            # silent "paper" could sell the wrong thing
+            formats = book.active_formats
+            if not formats:
+                raise serializers.ValidationError(
+                    {"book_id": [_("“%(title)s” is not on sale.") % {"title": book.title}]}
+                )
+            if len(formats) > 1:
+                raise serializers.ValidationError(
+                    {
+                        "book_id": [
+                            _(
+                                "“%(title)s” is sold in several formats (%(formats)s): "
+                                "send “format_id”."
+                            )
+                            % {
+                                "title": book.title,
+                                "formats": ", ".join(
+                                    f"{f.pk} — {f.get_format_type_display()}" for f in formats
+                                ),
+                            }
+                        ]
+                    }
+                )
+            book_format = formats[0]
+        attrs["format"] = book_format
+        return attrs
 
 
 class OrderCreateSerializer(serializers.Serializer):
@@ -207,15 +277,40 @@ class OrderCreateSerializer(serializers.Serializer):
             raise serializers.ValidationError(error.messages)
 
     def validate_items(self, items):
-        # One line per book (OrderItem has a unique constraint on it):
-        # 3 copies = quantity 3, not the same book three times
-        book_ids = [item["book_id"].pk for item in items]
-        if len(book_ids) != len(set(book_ids)):
+        # One line per format: 3 copies = quantity 3, not the same format three
+        # times (also when one line names it by book_id, the other by format_id)
+        format_ids = [item["format"].pk for item in items]
+        if len(format_ids) != len(set(format_ids)):
             raise serializers.ValidationError(
-                _("Every book may be in the list only once; use quantity.")
+                _("Every format may be in the list only once; use quantity.")
             )
         return items
 
     def quantities(self):
-        """{book_id: quantity}: the format of create_order() (and of the cart)."""
-        return {item["book_id"].pk: item["quantity"] for item in self.validated_data["items"]}
+        """{format_id: quantity}: the format of create_order() (and of the cart)."""
+        return {item["format"].pk: item["quantity"] for item in self.validated_data["items"]}
+
+    def same_items(self, order_items):
+        """Are these lines of an order the lines of this request? (the idempotency check)
+
+        Compared as the request names them: a "format_id" line with the
+        format of the order line, a "book_id" line with its book. The format
+        of a book_id line is chosen now and may be another one than at the
+        first request (a format turned off, a new one added), the book is
+        the same. Two order lines of one book can't match one book_id line.
+        """
+        requested = {}
+        for item in self.validated_data["items"]:
+            if "format_id" in item:
+                requested["format", item["format"].pk] = item["quantity"]
+            else:
+                requested["book", item["book_id"].pk] = item["quantity"]
+        ordered = {}
+        for line in order_items:
+            key = ("format", line.format_id)
+            if key not in requested:
+                key = ("book", line.book_id)
+            if key in ordered:
+                return False
+            ordered[key] = line.quantity
+        return ordered == requested

@@ -8,6 +8,7 @@ changes must delete them:
     Book saved / deleted                -> that book
     Author saved (name)                 -> all books of the author
     Publisher saved (name)              -> all books of the publisher
+    BookFormat saved / deleted          -> its book (price, format tiles)
     Category saved / deleted (name)     -> all books of the category
     Book <-> Category link changed      -> that book (or the books of
       (form, admin inline, .add())         the category, from its side)
@@ -22,7 +23,7 @@ from django.db.models.signals import m2m_changed, post_delete, post_save
 from django.dispatch import receiver
 
 from .cache import invalidate_books
-from .models import Author, Book, BookCategory, Category, Publisher
+from .models import Author, Book, BookCategory, BookFormat, Category, Publisher
 
 
 @receiver([post_save, post_delete], sender=Book)
@@ -42,6 +43,13 @@ def publisher_changed(sender, instance, **kwargs):
     # The same as the author: the name is shown on the book page. A
     # publisher with books can't be deleted (PROTECT)
     invalidate_books(instance.books.values_list("pk", flat=True), "Publisher saved")
+
+
+@receiver([post_save, post_delete], sender=BookFormat)
+def book_format_changed(sender, instance, signal, **kwargs):
+    """A format added, its price changed, turned off or removed (admin inline,
+    the book form, the API): the book page and the card show the formats."""
+    invalidate_books([instance.book_id], _reason("Book format", signal))
 
 
 @receiver([post_save, post_delete], sender=Category)

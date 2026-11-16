@@ -28,7 +28,7 @@ class OrderItemInline(admin.TabularInline):
     """
 
     model = OrderItem
-    fields = ["book", "title", "price_display", "original", "quantity", "cost"]
+    fields = ["book", "format_type", "title", "price_display", "original", "quantity", "cost"]
     readonly_fields = fields
     extra = 0
 

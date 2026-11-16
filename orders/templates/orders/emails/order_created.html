@@ -28,6 +28,7 @@ Values are auto-escaped as on the site: a title with "<" can't break it.
                style="border-collapse:collapse; font-size:14px;">
           <tr style="background:#f1f3f5;">
             <th align="left">{% translate "Book" %}</th>
+            <th align="left">{% translate "Format" %}</th>
             <th align="right">{% translate "Price" %}</th>
             <th align="right">{% translate "Qty" %}</th>
             <th align="right">{% translate "Cost" %}</th>
@@ -35,13 +36,14 @@ Values are auto-escaped as on the site: a title with "<" can't break it.
           {% for item in order.items.all %}
             <tr style="border-bottom:1px solid #dee2e6;">
               <td>{{ item.title }}</td>
+              <td style="white-space:nowrap;">{{ item.get_format_type_display }}</td>
               <td align="right" style="white-space:nowrap;">{{ item.price|money:order.currency_id }}</td>
               <td align="right">{{ item.quantity }}</td>
               <td align="right" style="white-space:nowrap;">{{ item.cost|money:order.currency_id }}</td>
             </tr>
           {% endfor %}
           <tr>
-            <td colspan="3" align="right"><strong>{% translate "Total" %}</strong></td>
+            <td colspan="4" align="right"><strong>{% translate "Total" %}</strong></td>
             <td align="right" style="white-space:nowrap;"><strong>{{ order.total|money:order.currency_id }}</strong></td>
           </tr>
         </table>

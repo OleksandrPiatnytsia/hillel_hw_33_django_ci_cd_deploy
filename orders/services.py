@@ -12,7 +12,7 @@ from django.db import transaction
 from django.utils.translation import gettext as _
 from django.utils.translation import ngettext
 
-from books.models import Book
+from books.models import BookFormat
 from config.celery import enqueue_on_commit
 from currencies.models import BASE_CURRENCY
 from currencies.services import available_currencies, convert, cross_rate, current_rates
@@ -47,14 +47,19 @@ def create_order(
     currency=BASE_CURRENCY,
     idempotency_key="",
 ):
-    """Create an order from {book_id: quantity} and reserve the stock.
+    """Create an order from {format_id: quantity} and reserve the paper copies.
+
+    A line is a FORMAT of a book (paper, e-book, audiobook) with its own
+    price. Only paper books have copies in the warehouse: they are checked
+    and reserved; an e-book or an audiobook is a file, always available.
+    Every format must be on sale (BookFormat.is_active).
 
     currency: the code of the order currency (the checkout sends the one of
-    the switcher). Every book is converted from its own currency at today's
-    rate: the price of one copy is rounded to 0.01, then multiplied by the
-    quantity (the same numbers the cart showed). The order keeps the rates
-    it used (Order.exchange_rate, OrderItem.exchange_rate), so it never
-    changes when the rates do.
+    the switcher). Every format is converted from its own currency at
+    today's rate: the price of one copy is rounded to 0.01, then multiplied
+    by the quantity (the same numbers the cart showed). The order keeps the
+    rates it used (Order.exchange_rate, OrderItem.exchange_rate), so it
+    never changes when the rates do.
 
     idempotency_key: the Idempotency-Key header of the API (the site sends
     none). Saved with the order; a second order of this user with the same
@@ -69,8 +74,8 @@ def create_order(
     The copies are taken from the default warehouse (inventory.Stock).
 
     Flow:
-    1. Lock the stock rows of the ordered books (SELECT ... FOR UPDATE).
-    2. Check that every book exists and has enough stock.
+    1. Lock the stock rows of the ordered paper books (SELECT ... FOR UPDATE).
+    2. Check that every format exists, is on sale and (paper) has enough copies.
     3. Create the Order and its OrderItems with the current prices.
     4. Reserve: quantity -= ordered for every stock row.
     5. COMMIT: the locks are released.
@@ -89,6 +94,10 @@ def create_order(
     with transaction.atomic():
         warehouse = Warehouse.objects.get_default()
 
+        # The formats with their books, without a lock: OrderItem copies
+        # the title, the type and the price
+        formats = BookFormat.objects.select_related("book").in_bulk(list(quantities))
+
         # select_for_update(): other transactions that want to lock or
         # change these rows WAIT until this one ends. Without the lock two
         # users could both read stock = 1 and both buy the last copy:
@@ -96,40 +105,47 @@ def create_order(
         #   A: stock = 0                  B: stock = 0  (2 copies sold, 1 existed)
         # With the lock B waits on its SELECT, then reads stock 0 -> error.
         #
-        # The locked rows are the Stock rows (book + warehouse), not the
-        # books: the stock lives there. Editing a book's title or price at
-        # the same moment doesn't wait for a checkout.
+        # The locked rows are the Stock rows (paper format + warehouse), not
+        # the books: the stock lives there. Editing a book's title or price
+        # at the same moment doesn't wait for a checkout. An e-book has no
+        # row and needs no lock.
         #
-        # order_by("book_id"): every checkout locks the rows in the same
-        # order. Otherwise A could lock book 1 and wait for book 2, while B
-        # locked book 2 and waits for book 1 -> deadlock (PostgreSQL would
-        # cancel one).
+        # order_by("format_id"): every checkout locks the rows in the same
+        # order. Otherwise A could lock format 1 and wait for format 2,
+        # while B locked format 2 and waits for format 1 -> deadlock
+        # (PostgreSQL would cancel one).
+        paper_ids = [pk for pk, book_format in formats.items() if book_format.is_paper]
         stocks = {
-            stock.book_id: stock
+            stock.format_id: stock
             for stock in Stock.objects.select_for_update()
-            .filter(warehouse=warehouse, book_id__in=quantities)
-            .order_by("book_id")
+            .filter(warehouse=warehouse, format_id__in=paper_ids)
+            .order_by("format_id")
         }
-        # Title and price, without a lock: OrderItem copies them
-        books = Book.objects.in_bulk(list(quantities))
 
         problems = []
-        for book_id, quantity in quantities.items():
-            book = books.get(book_id)
-            # No row in the default warehouse = nothing to sell
-            available = stocks[book_id].quantity if book_id in stocks else 0
-            if book is None:
+        for format_id, quantity in quantities.items():
+            book_format = formats.get(format_id)
+            if book_format is None:
                 problems.append(_("A book from your cart is no longer sold."))
-            elif book.currency_id not in rates:
-                # Only if the rates of the book's currency were deleted by hand
+                continue
+            title = book_format.book.title
+            if not book_format.is_active:
+                problems.append(
+                    _("“%(title)s” (%(format)s) is not on sale any more.")
+                    % {"title": title, "format": book_format.get_format_type_display()}
+                )
+            elif book_format.currency_id not in rates:
+                # Only if the rates of the format's currency were deleted by hand
                 problems.append(
                     _("“%(title)s” can't be sold now: no exchange rate for %(currency)s.")
-                    % {"title": book.title, "currency": book.currency_id}
+                    % {"title": title, "currency": book_format.currency_id}
                 )
-            elif available < quantity:
+            elif book_format.is_paper:
+                # No row in the default warehouse = nothing to sell
+                available = stocks[format_id].quantity if format_id in stocks else 0
                 if available == 0:
-                    problems.append(_("“%(title)s” is out of stock.") % {"title": book.title})
-                else:
+                    problems.append(_("“%(title)s” is out of stock.") % {"title": title})
+                elif available < quantity:
                     # ngettext: the form depends on the number. Ukrainian
                     # has three ("залишився 1 примірник", "2 примірники",
                     # "5 примірників"), English two; the .po file holds them all
@@ -139,7 +155,7 @@ def create_order(
                             "“%(title)s”: only %(stock)s copies left, you ordered %(quantity)s.",
                             available,
                         )
-                        % {"title": book.title, "stock": available, "quantity": quantity}
+                        % {"title": title, "stock": available, "quantity": quantity}
                     )
         if problems:
             # Leaving the "with" block with an exception = ROLLBACK
@@ -159,20 +175,23 @@ def create_order(
 
         items = []
         total = Decimal("0.00")
-        for book_id, quantity in quantities.items():
-            book = books[book_id]
+        for format_id, quantity in quantities.items():
+            book_format = formats[format_id]
             # The price of ONE copy in the order currency, rounded
-            price = convert(book.price, book.currency_id, currency, rates)
+            price = convert(book_format.price, book_format.currency_id, currency, rates)
             items.append(
                 OrderItem(
                     order=order,
-                    book=book,
-                    # Copies: the order keeps the title and price of today
-                    title=book.title,
+                    book=book_format.book,
+                    format=book_format,
+                    # Copies: the order keeps the title, the type and the
+                    # price of today
+                    format_type=book_format.format_type,
+                    title=book_format.book.title,
                     price=price,
-                    original_price=book.price,
-                    original_currency_id=book.currency_id,
-                    exchange_rate=cross_rate(book.currency_id, currency, rates).quantize(
+                    original_price=book_format.price,
+                    original_currency_id=book_format.currency_id,
+                    exchange_rate=cross_rate(book_format.currency_id, currency, rates).quantize(
                         CROSS_RATE_PLACES
                     ),
                     quantity=quantity,
@@ -182,7 +201,8 @@ def create_order(
             # Reserve: the copies are taken from the stock now, not after
             # payment, so nobody else can buy them while this user pays.
             # Returned only if the order is cancelled (cancel_order()).
-            stocks[book_id].quantity -= quantity
+            if book_format.is_paper:
+                stocks[format_id].quantity -= quantity
 
         # One INSERT for all items, one UPDATE for all stock rows
         OrderItem.objects.bulk_create(items)
@@ -205,7 +225,7 @@ def create_order(
 
 
 def cancel_order(order_id, *, user=None, only_unpaid=False, notify_customer=False):
-    """Cancel an order and return its books to the stock.
+    """Cancel an order and return its paper books to the stock.
 
     user=None: a manager (admin) or a command — any not cancelled order.
     user=<User>: the customer — only their own order, only while
@@ -240,14 +260,16 @@ def cancel_order(order_id, *, user=None, only_unpaid=False, notify_customer=Fals
         ):
             raise OrderError(_("%(order)s is not a new unpaid order any more.") % {"order": order})
 
-        # Return the reserved copies to the default warehouse, where
-        # create_order() took them. return_to_stock() adds in SQL
-        # (UPDATE ... SET quantity = quantity + n), on the current value.
-        # The rows are locked by the UPDATE itself; going in book_id order
-        # keeps the lock order the same as in create_order().
+        # Return the reserved paper copies to the default warehouse, where
+        # create_order() took them; an e-book or an audiobook took none.
+        # return_to_stock() adds in SQL (UPDATE ... SET quantity = quantity
+        # + n), on the current value. The rows are locked by the UPDATE
+        # itself; going in format_id order keeps the lock order the same as
+        # in create_order().
         warehouse = Warehouse.objects.get_default()
-        for item in order.items.order_by("book_id"):
-            return_to_stock(item.book_id, item.quantity, warehouse)
+        paper_items = order.items.filter(format_type=BookFormat.FormatType.PAPER)
+        for item in paper_items.order_by("format_id"):
+            return_to_stock(item.format_id, item.quantity, warehouse)
 
         order.status = Order.Status.CANCELLED
         order.save(update_fields=["status", "updated_at"])

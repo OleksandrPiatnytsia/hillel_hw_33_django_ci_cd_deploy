@@ -3,9 +3,9 @@ from decimal import Decimal
 from django.core.management.base import BaseCommand
 from django.db import transaction
 
-from books.models import Author, Book, Category, Publisher
+from books.models import Author, Book, BookFormat, Category, Publisher
 from currencies.models import BASE_CURRENCY
-from inventory.services import set_stock
+from inventory.services import paper_format_of, set_stock
 
 # slug -> name
 CATEGORIES = {
@@ -16,49 +16,25 @@ CATEGORIES = {
     "naukova-fantastyka": "Наукова фантастика",
 }
 
-# title, author, price, stock, description, category slugs.
-# The price is in UAH; "8.50 EUR" is a price in another currency (a few
-# books, so the catalog shows conversion from different currencies).
+# title, author, stock of the paper book, description, category slugs.
+# The prices are in FORMATS below.
 BOOKS = [
-    ("Хоббіт", "Дж.Р. Толкін", "99.75", 3437, "Пригоди Більбо Торбина.", ["fentezi", "prigodi"]),
-    (
-        "Володар перснів",
-        "Дж.Р. Толкін",
-        "650.00",
-        12,
-        "Епічна сага про Середзем'я.",
-        ["fentezi", "prigodi"],
-    ),
+    ("Хоббіт", "Дж.Р. Толкін", 3437, "Пригоди Більбо Торбина.", ["fentezi", "prigodi"]),
+    ("Володар перснів", "Дж.Р. Толкін", 12, "Епічна сага про Середзем'я.", ["fentezi", "prigodi"]),
     (
         "Гра престолів",
         "Джордж Мартін",
-        "8.50 EUR",
         4,
         "Перша книга циклу «Пісня льоду й полум'я».",
         ["fentezi", "roman"],
     ),
-    ("Відьмак. Останнє бажання", "Анджей Сапковський", "280.00", 0, "", ["fentezi"]),
-    (
-        "Дюна",
-        "Френк Герберт",
-        "390.00",
-        7,
-        "Класика наукової фантастики.",
-        ["naukova-fantastyka", "roman"],
-    ),
-    (
-        "Марсіянин",
-        "Енді Вейр",
-        "250.00",
-        25,
-        "Виживання на Марсі.",
-        ["naukova-fantastyka", "prigodi"],
-    ),
-    ("Таємне життя дерев", "Петер Вольлебен", "4.50 USD", 2, "", []),
+    ("Відьмак. Останнє бажання", "Анджей Сапковський", 0, "", ["fentezi"]),
+    ("Дюна", "Френк Герберт", 7, "Класика наукової фантастики.", ["naukova-fantastyka", "roman"]),
+    ("Марсіянин", "Енді Вейр", 25, "Виживання на Марсі.", ["naukova-fantastyka", "prigodi"]),
+    ("Таємне життя дерев", "Петер Вольлебен", 0, "", []),
     (
         "Вбивство в «Східному експресі»",
         "Агата Крісті",
-        "140.00",
         30,
         "Пуаро розслідує вбивство в потязі.",
         ["detektyv"],
@@ -66,44 +42,66 @@ BOOKS = [
     (
         "Собака Баскервілів",
         "Артур Конан Дойл",
-        "120.00",
         0,
         "Шерлок Холмс і родове прокляття.",
         ["detektyv", "prigodi"],
     ),
-    ("Воно", "Стівен Кінг", "11.00 USD", 5, "Жах у містечку Деррі.", ["roman"]),
-    ("Сяйво", "Стівен Кінг", "360.00", 15, "", ["roman"]),
-    (
-        "Тигролови",
-        "Іван Багряний",
-        "200.00",
-        9,
-        "Втеча з ешелону на Далекому Сході.",
-        ["prigodi", "roman"],
-    ),
+    ("Воно", "Стівен Кінг", 5, "Жах у містечку Деррі.", ["roman"]),
+    ("Сяйво", "Стівен Кінг", 15, "", ["roman"]),
+    ("Тигролови", "Іван Багряний", 9, "Втеча з ешелону на Далекому Сході.", ["prigodi", "roman"]),
 ]
 
-PAPER, EBOOK, AUDIOBOOK = Book.BookType.PAPER, Book.BookType.EBOOK, Book.BookType.AUDIOBOOK
-HARD, SOFT, JACKET = Book.CoverType.HARD, Book.CoverType.SOFT, Book.CoverType.DUST_JACKET
-
-# The details of the edition, by title: publisher, type, cover, language,
-# year, pages. Sample values for the catalog filters (different
-# publishers, types, languages and years), not the exact real editions.
-# None / "" = not known: "Воно" has no publisher, the e-books and the
-# audiobook have no cover.
+# The details of the edition, by title: publisher, language, year.
+# Sample values for the catalog filters, not the exact real editions.
+# None = not known: "Воно" has no publisher.
 DETAILS = {
-    "Хоббіт": ("Видавництво Старого Лева", PAPER, HARD, "uk", 2019, 304),
-    "Володар перснів": ("Vivat", PAPER, JACKET, "uk", 2021, 1216),
-    "Гра престолів": ("Клуб Сімейного Дозвілля", PAPER, HARD, "uk", 2018, 800),
-    "Відьмак. Останнє бажання": ("Клуб Сімейного Дозвілля", EBOOK, "", "uk", 2020, 320),
-    "Дюна": ("Клуб Сімейного Дозвілля", PAPER, HARD, "uk", 2019, 592),
-    "Марсіянин": ("Наш Формат", PAPER, SOFT, "uk", 2021, 384),
-    "Таємне життя дерев": ("Наш Формат", AUDIOBOOK, "", "uk", 2018, None),
-    "Вбивство в «Східному експресі»": ("Клуб Сімейного Дозвілля", PAPER, SOFT, "uk", 2020, 256),
-    "Собака Баскервілів": ("Фоліо", PAPER, HARD, "uk", 2017, 224),
-    "Воно": (None, PAPER, SOFT, "en", 2019, 1184),
-    "Сяйво": ("Клуб Сімейного Дозвілля", PAPER, HARD, "uk", 2016, 448),
-    "Тигролови": ("Фоліо", EBOOK, "", "uk", 2022, None),
+    "Хоббіт": ("Видавництво Старого Лева", "uk", 2019),
+    "Володар перснів": ("Vivat", "uk", 2021),
+    "Гра престолів": ("Клуб Сімейного Дозвілля", "uk", 2018),
+    "Відьмак. Останнє бажання": ("Клуб Сімейного Дозвілля", "uk", 2020),
+    "Дюна": ("Клуб Сімейного Дозвілля", "uk", 2019),
+    "Марсіянин": ("Наш Формат", "uk", 2021),
+    "Таємне життя дерев": ("Наш Формат", "uk", 2018),
+    "Вбивство в «Східному експресі»": ("Клуб Сімейного Дозвілля", "uk", 2020),
+    "Собака Баскервілів": ("Фоліо", "uk", 2017),
+    "Воно": (None, "en", 2019),
+    "Сяйво": ("Клуб Сімейного Дозвілля", "uk", 2016),
+    "Тигролови": ("Фоліо", "uk", 2022),
+}
+
+PAPER, EBOOK, AUDIOBOOK = (
+    BookFormat.FormatType.PAPER,
+    BookFormat.FormatType.EBOOK,
+    BookFormat.FormatType.AUDIOBOOK,
+)
+HARD, SOFT, JACKET = (
+    BookFormat.CoverType.HARD,
+    BookFormat.CoverType.SOFT,
+    BookFormat.CoverType.DUST_JACKET,
+)
+
+# The formats of every book: type, price, cover (paper only), pages (not
+# for an audiobook). The price is in UAH; "8.50 EUR" is a price in another
+# currency (a few formats, so the catalog shows the conversion). Some
+# books in several formats (the tiles of the book page, the price "from"),
+# some only as an e-book or an audiobook (always available, no stock).
+FORMATS = {
+    "Хоббіт": [
+        (PAPER, "99.75", HARD, 304),
+        (EBOOK, "79.00", "", 304),
+        (AUDIOBOOK, "149.00", "", None),
+    ],
+    "Володар перснів": [(PAPER, "650.00", JACKET, 1216), (EBOOK, "299.00", "", 1216)],
+    "Гра престолів": [(PAPER, "8.50 EUR", HARD, 800), (EBOOK, "5.00 USD", "", 800)],
+    "Відьмак. Останнє бажання": [(EBOOK, "280.00", "", 320)],
+    "Дюна": [(PAPER, "390.00", HARD, 592), (AUDIOBOOK, "249.00", "", None)],
+    "Марсіянин": [(PAPER, "250.00", SOFT, 384)],
+    "Таємне життя дерев": [(AUDIOBOOK, "4.50 USD", "", None)],
+    "Вбивство в «Східному експресі»": [(PAPER, "140.00", SOFT, 256)],
+    "Собака Баскервілів": [(PAPER, "120.00", HARD, 224)],
+    "Воно": [(PAPER, "11.00 USD", SOFT, 1184)],
+    "Сяйво": [(PAPER, "360.00", HARD, 448)],
+    "Тигролови": [(EBOOK, "200.00", "", 288)],
 }
 
 
@@ -119,75 +117,72 @@ class Command(BaseCommand):
             if created:
                 self.stdout.write(f"+ category {name}")
 
-        for title, author_name, price_text, stock, description, slugs in BOOKS:
-            # "650.00" -> 650.00 UAH, "8.50 EUR" -> 8.50 EUR
-            price, _, currency = price_text.partition(" ")
+        for title, author_name, stock, description, slugs in BOOKS:
             author, _ = Author.objects.get_or_create(name=author_name)
             book, created = Book.objects.get_or_create(
-                title=title,
-                author=author,
-                defaults={
-                    "price": Decimal(price),
-                    "currency_id": currency or BASE_CURRENCY,
-                    "description": description,
-                },
+                title=title, author=author, defaults={"description": description}
             )
-            if created:
-                self._fill_details(book, DETAILS.get(title))
-            if created:
-                # Only for a new book: re-running doesn't reset the stock
-                # that orders have changed since. The row with 0 is already
-                # there (inventory.signals); this sets the real number.
-                set_stock(book, stock)
             # add() skips links that already exist, so re-running is safe
             book.categories.add(*(categories[slug] for slug in slugs))
             if created:
                 self.stdout.write(f"+ book {book}")
-            elif self._fill_details(book, DETAILS.get(title)):
+            if self._fill_details(book, DETAILS[title]) and not created:
                 self.stdout.write(f"+ details of {book}")
+            if self._add_formats(book, FORMATS[title]):
+                self.stdout.write(f"+ formats of {book}")
+                # Only with the new formats: re-running doesn't reset the
+                # stock that orders have changed since. The row with 0 is
+                # already there (inventory.signals, made with the paper
+                # format); this sets the real number. A file has no copies.
+                if paper_format_of(book) is not None:
+                    set_stock(book, stock)
 
         self.stdout.write(
             self.style.SUCCESS(
                 f"Done: {Category.objects.count()} categories, "
                 f"{Author.objects.count()} authors, "
-                f"{Book.objects.count()} books."
+                f"{Book.objects.count()} books, "
+                f"{BookFormat.objects.count()} formats."
             )
         )
+
+    def _add_formats(self, book, formats):
+        """The formats of FORMATS for a book that has none. True if they were created.
+
+        A book that already has a format keeps its formats as they are: a
+        manager may have changed a price, turned a format off or deleted it.
+        """
+        if book.formats.exists():
+            return False
+        for format_type, price_text, cover_type, pages in formats:
+            # "650.00" -> 650.00 UAH, "8.50 EUR" -> 8.50 EUR
+            price, _, currency = price_text.partition(" ")
+            book.formats.create(
+                format_type=format_type,
+                price=Decimal(price),
+                currency_id=currency or BASE_CURRENCY,
+                cover_type=cover_type,
+                pages=pages,
+            )
+        return True
 
     def _fill_details(self, book, details):
         """Fill the details of the edition that the book doesn't have yet.
 
         Only the empty fields: a book seeded before these fields gets them
-        on a re-run, but what a manager has typed in stays. The type is
-        "paper" by default, so it is set only together with the other
-        details (a book without any of them). True if something changed.
+        on a re-run, but what a manager has typed in stays. True if
+        something changed.
         """
-        if details is None:
-            return False
-        publisher_name, book_type, cover_type, language, year, pages = details
+        publisher_name, language, year = details
         publisher = None
         if publisher_name:
             # get_or_create: the list comes from the migration books.0012,
             # but a name missing there must not stop the command
             publisher, _ = Publisher.objects.get_or_create(name=publisher_name)
-        has_details = any(
-            [book.publisher_id, book.cover_type, book.language, book.publication_year, book.pages]
-        )
-        values = {
-            "publisher": publisher,
-            "cover_type": cover_type,
-            "language": language,
-            "publication_year": year,
-            "pages": pages,
-        }
-        if not has_details:
-            values["book_type"] = book_type
+        values = {"publisher": publisher, "language": language, "publication_year": year}
         changed = []
         for field, value in values.items():
-            current = getattr(book, field)
-            # The type always has a value: compare it; the others: only empty ones
-            needed = current != value if field == "book_type" else value and not current
-            if needed:
+            if value and not getattr(book, field):
                 setattr(book, field, value)
                 changed.append(field)
         if changed:

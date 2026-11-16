@@ -63,10 +63,15 @@ def get_cached_book(pk):
         book = (
             Book.objects.select_related("author", "publisher")
             .prefetch_related("categories")
+            # The formats on sale (the tiles and the price of the book
+            # page); books.signals drops the cache when a format changes
+            .with_active_formats()
             .get(pk=pk)
         )
-        # Never the stock: it would be stale after the first order
+        # Never the stock or the availability: they would be stale after
+        # the first order
         book.__dict__.pop("_stock", None)
+        book.__dict__.pop("_available", None)
         cache.set(key, book, settings.BOOK_CACHE_TIMEOUT)
         logger.debug("Book cache miss: id=%s, cached for %s s", pk, settings.BOOK_CACHE_TIMEOUT)
     return book

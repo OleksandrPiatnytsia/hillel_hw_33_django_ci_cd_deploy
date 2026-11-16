@@ -7,6 +7,7 @@ from django.urls import reverse
 from django.utils.translation import gettext
 from django.utils.translation import gettext_lazy as _
 
+from books.models import BookFormat
 from currencies.models import BASE_CURRENCY
 
 
@@ -224,7 +225,7 @@ class Order(models.Model):
 
 
 class OrderItem(models.Model):
-    """One line of an order: which book, at what price, how many."""
+    """One line of an order: which book in which format, at what price, how many."""
 
     order = models.ForeignKey(
         Order,
@@ -241,6 +242,23 @@ class OrderItem(models.Model):
         on_delete=models.PROTECT,
         related_name="order_items",  # book.order_items.all()
     )
+    # The format that was bought: paper, e-book or audiobook. book is
+    # always format.book; kept as its own column for the reports and the
+    # "Most popular" sort, which count by book.
+    format = models.ForeignKey(
+        "books.BookFormat",
+        verbose_name=_("format"),
+        # PROTECT: a format that was ever ordered can't be deleted (turn
+        # off "on sale" instead), like the book
+        on_delete=models.PROTECT,
+        related_name="order_items",  # book_format.order_items.all()
+    )
+    # A copy of format.format_type at the moment of ordering: what the
+    # customer bought stays the same even if the format is changed later.
+    # Cancelling returns copies to the stock only for "paper".
+    format_type = models.CharField(
+        _("format type"), max_length=10, choices=BookFormat.FormatType.choices
+    )
     # Copies of the book data at the moment of ordering: if the title or the
     # price of the book changes later, the old order still shows what was
     # actually bought and for how much
@@ -254,8 +272,8 @@ class OrderItem(models.Model):
         decimal_places=2,
         validators=[MinValueValidator(Decimal("0.00"))],
     )
-    # The price of the book in ITS currency at the moment of ordering
-    # (Book.price, Book.currency): 650.00 UAH -> price 14.31 in a USD order.
+    # The price of the format in ITS currency at the moment of ordering
+    # (BookFormat.price, BookFormat.currency): 650.00 UAH -> price 14.31 in a USD order.
     # The same as price + order currency when nothing was converted.
     original_price = models.DecimalField(
         _("original price"),
@@ -289,10 +307,11 @@ class OrderItem(models.Model):
         verbose_name = _("order item")
         verbose_name_plural = _("order items")
         constraints = [
-            # One line per book in an order: 3 books = quantity 3, not 3 lines
+            # One line per format in an order: 3 paper books = quantity 3,
+            # not 3 lines. The same book in two formats = two lines.
             models.UniqueConstraint(
-                fields=["order", "book"],
-                name="orders_orderitem_unique_book_per_order",
+                fields=["order", "format"],
+                name="orders_orderitem_unique_format_per_order",
             ),
             models.CheckConstraint(
                 condition=models.Q(quantity__gte=1),
@@ -305,7 +324,17 @@ class OrderItem(models.Model):
         ]
 
     def __str__(self):
-        return f"{self.title} × {self.quantity}"
+        return f"{self.display_title} × {self.quantity}"
+
+    @property
+    def display_title(self):
+        """ "Кобзар (Paper)": the title with the format, in the active language.
+
+        Built when it is read, so an email rendered inside
+        translation.override(<the customer's language>) gets the label in
+        that language.
+        """
+        return f"{self.title} ({self.get_format_type_display()})"
 
     @property
     def cost(self):

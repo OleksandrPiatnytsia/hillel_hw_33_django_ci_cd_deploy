@@ -31,42 +31,78 @@
         <p class="mb-2"><a class="link-secondary" href="{{ book.author.get_absolute_url }}">{{ book.author.name }}</a></p>
         {% for category in book.categories.all %}
           {# Click on a category -> catalog filtered by it #}
-          <a class="badge rounded-pill bg-body-secondary text-body border text-decoration-none"
-             href="{% url 'books:list' %}?category={{ category.slug }}">{{ category.name }}</a>
+          <a class="filter-chip" href="{% url 'books:list' %}?category={{ category.slug }}">{{ category.name }}</a>
         {% endfor %}
       </div>
       {% endcache %}
       <div class="text-end">
-        {% book_price book as price %}
-        <div class="fs-4 fw-semibold">{{ price }}</div>
-        {# Another currency than the book's own: the original price and the #}
-        {# day of the NBU rate it was converted with #}
-        {% if price.converted %}
-          <div class="small text-body-secondary mb-1">
-            {% blocktranslate trimmed with original=price.original date=price.rate_date|date:"d.m.Y" %}
-              {{ original }} at the NBU rate of {{ date }}
-            {% endblocktranslate %}
-          </div>
-        {% endif %}
-        {% include "books/includes/stock_badge.html" with book=book %}
-
-        {% if book.stock %}
-          <form class="d-flex justify-content-end gap-2 mt-3" method="post"
-                action="{% url 'cart:add' book.pk %}">
+        {# No price "from" here: every format is a tile with its own price, #}
+        {# one format too, so the page looks the same for one or several #}
+        {% with formats=book.active_formats %}
+        {% if formats %}
+          <form method="post" action="{% url 'cart:add' book.pk %}">
             {% csrf_token %}
             <input type="hidden" name="next" value="{{ request.get_full_path }}">
-            {# max is a hint for the browser; Cart.add() limits by stock itself #}
-            <input class="form-control" style="width: 5rem" type="number" name="quantity"
-                   value="1" min="1" max="{{ book.stock }}" aria-label="{% translate 'Quantity' %}">
-            <button class="btn btn-primary text-nowrap" type="submit">{% translate "Add to cart" %}</button>
+            {# The format tiles: radio buttons drawn as buttons (btn-check). #}
+            {# The main format is chosen (Book.main_format: the first one #}
+            {# that can be bought, paper first); a sold out paper book is #}
+            {# disabled, an e-book or an audiobook never runs out #}
+            {% with chosen=book.main_format %}
+            <fieldset class="format-tiles d-flex flex-wrap justify-content-end gap-2 mb-2">
+              <legend class="visually-hidden">{% translate "Format" %}</legend>
+              {% for book_format in formats %}
+                {% book_price book_format as format_price %}
+                <input class="btn-check" type="radio" name="format" value="{{ book_format.pk }}"
+                       id="format-{{ book_format.pk }}" autocomplete="off"
+                       {% if book_format.pk == chosen.pk %}checked{% endif %}
+                       {% if not book_format.in_stock %}disabled{% endif %}>
+                <label class="btn btn-outline-primary format-tile text-start" for="format-{{ book_format.pk }}">
+                  <span class="d-block small">{{ book_format.get_format_type_display }}</span>
+                  <span class="d-block fw-semibold">{{ format_price }}</span>
+                  {# Another currency than the format's own: the original #}
+                  {# price and the day of the NBU rate it was converted with #}
+                  {% if format_price.converted %}
+                    <span class="d-block small">{% blocktranslate trimmed with original=format_price.original date=format_price.rate_date|date:"d.m.Y" %}
+                      {{ original }} at the NBU rate of {{ date }}
+                    {% endblocktranslate %}</span>
+                  {% endif %}
+                  {% if book_format.is_paper %}
+                    {% if not book_format.in_stock %}
+                      <span class="d-block small">{% translate "Out of stock" %}</span>
+                    {% elif book_format.is_low_stock %}
+                      <span class="d-block small">{% blocktranslate trimmed count stock=book_format.stock %}
+                        Only {{ stock }} copy left
+                      {% plural %}
+                        Only {{ stock }} copies left
+                      {% endblocktranslate %}</span>
+                    {% endif %}
+                  {% endif %}
+                </label>
+              {% endfor %}
+            </fieldset>
+            {% endwith %}
+            {% if book.available %}
+              <div class="d-flex justify-content-end gap-2">
+                {# No max: it depends on the chosen tile (paper: the stock, #}
+                {# a file: none); Cart.add() limits a paper book by its stock #}
+                <input class="form-control" style="width: 5rem" type="number" name="quantity"
+                       value="1" min="1" aria-label="{% translate 'Quantity' %}">
+                <button class="btn btn-primary text-nowrap" type="submit">{% translate "Add to cart" %}</button>
+              </div>
+            {% endif %}
           </form>
+        {% else %}
+          <div class="fs-5 text-body-secondary">{% translate "Not on sale" %}</div>
         {% endif %}
+        {% endwith %}
         {% if in_cart %}
+          {# [(format, quantity), ...] of BookDetailView: "Paper — 2, E-book — 1" #}
           <div class="small mt-2">
             {% url 'cart:detail' as cart_url %}
             {% blocktranslate trimmed %}
-              In your <a href="{{ cart_url }}">cart</a>: {{ in_cart }}
+              In your <a href="{{ cart_url }}">cart</a>:
             {% endblocktranslate %}
+            {% for book_format, quantity in in_cart %}{{ book_format.get_format_type_display }} — {{ quantity }}{% if not forloop.last %}, {% endif %}{% endfor %}
           </div>
         {% endif %}
       </div>
@@ -83,13 +119,6 @@
     {% endif %}
 
     {% include "books/includes/book_details.html" %}
-
-    <p class="small text-body-secondary mb-0">
-      {# Filters are not allowed inside blocktranslate: "with" applies them first #}
-      {% blocktranslate trimmed with added=book.created_at|date:"d.m.Y H:i" updated=book.updated_at|date:"d.m.Y H:i" %}
-        Added {{ added }} · updated {{ updated }}
-      {% endblocktranslate %}
-    </p>
     {% endcache %}
   </div>
 

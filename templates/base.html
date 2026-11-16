@@ -32,6 +32,15 @@
   <footer class="border-top py-3 bg-body">
     <div class="container small text-body-secondary">
       {% translate "Bookstore · Hillel Django homework" %}
+      {# The version and the deployed commit (config/version.py): after a #}
+      {# deploy the commit changes, so the new code is visibly online #}
+      {% if app_version %}
+        · <span title="{% translate 'Version of the site' %}">v{{ app_version }}</span>
+        {% if app_commit %}
+          (<a class="link-secondary" href="{{ app_commit_url }}" title="{% translate 'Deployed commit' %}"
+              target="_blank" rel="noopener">{{ app_commit|slice:":7" }}</a>)
+        {% endif %}
+      {% endif %}
     </div>
   </footer>
 

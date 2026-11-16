@@ -29,6 +29,7 @@ from orders.tasks import (
 from users.tasks import clear_expired_sessions
 
 from ..factories import BookFactory, OrderFactory, UserFactory
+from ..helpers import format_id
 
 pytestmark = pytest.mark.django_db
 
@@ -59,7 +60,7 @@ def test_order_email_is_sent_by_the_task_after_commit(
 ):
     book = BookFactory()  # outside: its cache invalidation is an on_commit too
     with django_capture_on_commit_callbacks(execute=True) as callbacks:
-        order = create_order(customer, {book.pk: 1}, **DELIVERY)
+        order = create_order(customer, {format_id(book): 1}, **DELIVERY)
 
     # The email task is queued only after COMMIT: nothing sent before it
     assert [callback.__qualname__ for callback in callbacks] == ["enqueue_on_commit.<locals>.send"]
@@ -96,7 +97,7 @@ def test_broker_down_runs_the_task_here(
     monkeypatch.setattr(send_order_created_email_task, "delay", no_broker)
 
     with django_capture_on_commit_callbacks(execute=True):
-        create_order(customer, {BookFactory().pk: 1}, **DELIVERY)
+        create_order(customer, {format_id(BookFactory()): 1}, **DELIVERY)
 
     assert len(mailoutbox) == 1  # sent synchronously instead
 
@@ -116,8 +117,8 @@ def test_every_task_of_the_beat_schedule_exists(settings):
 def test_cancel_unpaid_orders_task_cancels_only_old_orders(customer, settings):
     settings.ORDER_UNPAID_MAX_AGE_HOURS = 24
     book = BookFactory(stock=10)
-    old = create_order(customer, {book.pk: 2}, **DELIVERY)
-    new = create_order(customer, {book.pk: 3}, **DELIVERY)
+    old = create_order(customer, {format_id(book): 2}, **DELIVERY)
+    new = create_order(customer, {format_id(book): 3}, **DELIVERY)
     Order.objects.filter(pk=old.pk).update(created_at=timezone.now() - timedelta(hours=25))
 
     cancel_unpaid_orders.delay()
@@ -135,7 +136,7 @@ def test_automatic_cancellation_emails_the_customer(
 ):
     settings.ORDER_UNPAID_MAX_AGE_HOURS = 24
     book = BookFactory(title="Kobzar")
-    order = create_order(customer, {book.pk: 2}, **DELIVERY)
+    order = create_order(customer, {format_id(book): 2}, **DELIVERY)
     Order.objects.filter(pk=order.pk).update(created_at=timezone.now() - timedelta(hours=25))
 
     with django_capture_on_commit_callbacks(execute=True):
@@ -161,7 +162,7 @@ def test_order_paid_while_the_command_runs_is_skipped(customer, monkeypatch, mai
     """The payment comes between the SELECT of old orders and the cancel."""
     from orders.management.commands import cancel_unpaid_orders as command
 
-    order = create_order(customer, {BookFactory(stock=5).pk: 1}, **DELIVERY)
+    order = create_order(customer, {format_id(BookFactory(stock=5)): 1}, **DELIVERY)
     Order.objects.filter(pk=order.pk).update(created_at=timezone.now() - timedelta(hours=25))
     real_cancel_order = command.cancel_order
 
@@ -185,7 +186,7 @@ def test_customer_cancelling_own_order_gets_no_cancellation_email(
     customer, mailoutbox, django_capture_on_commit_callbacks
 ):
     book = BookFactory()
-    order = create_order(customer, {book.pk: 1}, **DELIVERY)
+    order = create_order(customer, {format_id(book): 1}, **DELIVERY)
 
     with django_capture_on_commit_callbacks(execute=True):
         cancel_order(order.pk, user=customer)

@@ -1,20 +1,24 @@
 """Unit tests of inventory: warehouses, Stock rows, book.stock, the rights.
 
-The stock moved from the column Book.stock to inventory.Stock (hw_31).
-The tests of orders, the cart and the API check that nothing changed for
-the user; these check the new parts themselves.
+The stock moved from the column Book.stock to inventory.Stock (hw_31),
+then from the book to its paper format (BookFormat): an e-book or an
+audiobook has no copies. The tests of orders, the cart and the API check
+what the user sees; these check the parts themselves.
 """
 
 import pytest
 from django.db import IntegrityError
 
 from books.forms import BookForm
-from books.models import Book
+from django.core.exceptions import ValidationError
+
+from books.models import Book, BookFormat
 from inventory.models import Stock, Warehouse
 from inventory.services import return_to_stock, set_stock
 from orders.services import cancel_order, create_order
 
-from ..factories import AuthorFactory, BookFactory, UserFactory
+from ..factories import AuthorFactory, BookFactory, BookFormatFactory, UserFactory
+from ..helpers import format_id
 
 pytestmark = pytest.mark.django_db
 
@@ -34,20 +38,23 @@ def test_only_one_warehouse_can_be_the_default():
 
 
 # Generated with AI
-def test_a_new_book_gets_a_stock_row_with_zero():
-    book = Book.objects.create(title="New", author=AuthorFactory(), price="100.00")
+def test_a_new_paper_format_gets_a_stock_row_with_zero_a_file_gets_none():
+    book = Book.objects.create(title="New", author=AuthorFactory())
+    paper = book.formats.create(format_type="paper", price="100.00")
+    ebook = book.formats.create(format_type="ebook", price="50.00")
 
-    stock = Stock.objects.get(book=book)
-    assert (stock.warehouse.is_default, stock.quantity) == (True, 0)
+    stock = Stock.objects.get(format__book=book)
+    assert (stock.format, stock.warehouse.is_default, stock.quantity) == (paper, True, 0)
+    assert not ebook.stocks.exists()
     assert book.stock == 0
 
 
 # Generated with AI
-def test_one_row_per_book_per_warehouse():
+def test_one_row_per_format_per_warehouse():
     book = BookFactory()
 
     with pytest.raises(IntegrityError):
-        Stock.objects.create(book=book, warehouse=Warehouse.objects.get_default())
+        Stock.objects.create(format=book.formats.get(), warehouse=Warehouse.objects.get_default())
 
 
 # Generated with AI
@@ -56,7 +63,7 @@ def test_stock_can_not_go_below_zero_in_the_database():
 
     # PositiveIntegerField -> CHECK (quantity >= 0) in PostgreSQL
     with pytest.raises(IntegrityError):
-        Stock.objects.filter(book=book).update(quantity=-1)
+        Stock.objects.filter(format__book=book).update(quantity=-1)
 
 
 # Generated with AI
@@ -87,7 +94,7 @@ def test_book_without_annotation_reads_stock_once_and_refresh_resets_it(django_a
     with django_assert_num_queries(1):
         assert (book.stock, book.stock) == (4, 4)  # the second read: no query
 
-    Stock.objects.filter(book=book).update(quantity=9)
+    Stock.objects.filter(format__book=book).update(quantity=9)
     book.refresh_from_db()
     assert book.stock == 9
 
@@ -95,26 +102,27 @@ def test_book_without_annotation_reads_stock_once_and_refresh_resets_it(django_a
 # Generated with AI
 def test_return_to_stock_adds_in_sql_and_recreates_a_missing_row():
     book = BookFactory(stock=2)
+    paper = book.formats.get()
     warehouse = Warehouse.objects.get_default()
 
-    return_to_stock(book.pk, 3, warehouse)
-    assert Stock.objects.get(book=book).quantity == 5
+    return_to_stock(paper.pk, 3, warehouse)
+    assert Stock.objects.get(format=paper).quantity == 5
 
-    Stock.objects.filter(book=book).delete()
-    return_to_stock(book.pk, 1, warehouse)
-    assert Stock.objects.get(book=book).quantity == 1
+    Stock.objects.filter(format=paper).delete()
+    return_to_stock(paper.pk, 1, warehouse)
+    assert Stock.objects.get(format=paper).quantity == 1
 
 
 # Generated with AI
 def test_order_takes_and_cancel_returns_the_copies_of_the_default_warehouse():
     book = BookFactory(stock=5)
     order = create_order(
-        UserFactory(), {book.pk: 2}, full_name="Ann", phone="+380671234567", address="Kyiv"
+        UserFactory(), {format_id(book): 2}, full_name="Ann", phone="+380671234567", address="Kyiv"
     )
-    assert Stock.objects.get(book=book).quantity == 3
+    assert Stock.objects.get(format__book=book).quantity == 3
 
     cancel_order(order.pk)
-    assert Stock.objects.get(book=book).quantity == 5
+    assert Stock.objects.get(format__book=book).quantity == 5
 
 
 # ---------------------------------------------------------------------------
@@ -145,9 +153,6 @@ def test_book_form_keeps_the_stock_even_if_a_stock_value_is_posted():
     data = {
         "title": "Renamed",
         "author": book.author.pk,
-        "price": "250.00",
-        "currency": "UAH",
-        "book_type": "paper",  # the select always sends one
         "description": "",
         "stock": "999",  # not a field of the form: ignored
     }
@@ -166,3 +171,45 @@ def test_a_book_not_saved_yet_has_no_copies(django_assert_num_queries):
 
     with django_assert_num_queries(0):  # no row can exist: no query
         assert book.stock == 0
+
+
+# ---------------------------------------------------------------------------
+# Only the paper format has copies
+# ---------------------------------------------------------------------------
+
+
+# Generated with AI
+def test_set_stock_takes_a_book_or_its_paper_format_and_refuses_a_file():
+    book = BookFactory(stock=1)
+    paper = book.formats.get()
+    ebook = BookFormatFactory(book=book, format_type="ebook")
+
+    set_stock(paper, 4)
+    assert (paper.stock, Book.objects.with_stock().get(pk=book.pk).stock) == (4, 4)
+
+    with pytest.raises(ValueError):
+        set_stock(ebook, 3)
+    with pytest.raises(ValueError):
+        set_stock(BookFactory(format_type="ebook"), 3)
+
+
+# Generated with AI
+def test_stock_row_of_an_ebook_is_refused_by_the_admin_form_check():
+    ebook = BookFormatFactory(format_type="ebook")
+    row = Stock(format=ebook, warehouse=Warehouse.objects.get_default(), quantity=1)
+
+    with pytest.raises(ValidationError) as error:
+        row.full_clean()
+    assert "format" in error.value.message_dict
+
+
+# Generated with AI
+def test_book_formats_with_stock_reads_every_format_in_one_query(django_assert_num_queries):
+    book = BookFactory(stock=3)
+    BookFormatFactory(book=book, format_type="ebook")
+
+    with django_assert_num_queries(1):
+        formats = {f.format_type: (f.stock, f.in_stock) for f in BookFormat.objects.with_stock()}
+
+    # A file has no copies but is always available
+    assert formats == {"paper": (3, True), "ebook": (0, True)}

@@ -215,6 +215,22 @@ def test_production_settings_allow_the_railway_hosts():
     assert values["ALLOWED_HOSTS"] == ["bookstore.up.railway.app", "healthcheck.railway.app"]
 
 
+def test_every_deploy_has_its_own_cache_keys():
+    """The prefix of the cache keys is the deployed commit: a new deploy never
+    reads the HTML fragments and the Book objects cached by the old code."""
+    show = "from django.conf import settings as s; print(s.CACHES['default']['KEY_PREFIX'])"
+
+    deployed = run_with_production_settings(
+        "shell", "--no-imports", "-c", show, RAILWAY_GIT_COMMIT_SHA="335de9f0123456789"
+    )
+    local = run_with_production_settings(
+        "shell", "--no-imports", "-c", show, RAILWAY_GIT_COMMIT_SHA="", APP_COMMIT=""
+    )
+
+    assert deployed.stdout.strip() == "335de9f"
+    assert local.stdout.strip() == ""
+
+
 def test_worker_on_railway_starts_without_a_domain():
     """The Celery worker has no public domain, but runs on Railway too."""
     values = production_settings(DJANGO_ALLOWED_HOSTS="", RAILWAY_ENVIRONMENT_NAME="production")
