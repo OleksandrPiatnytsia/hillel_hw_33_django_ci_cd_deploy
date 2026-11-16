@@ -8,14 +8,13 @@ Unknown parameters are ignored; a wrong value (?price_min=abc,
 
 from django import forms
 from django.db.models import F
-from django.utils.translation import gettext_lazy as _
 from rest_framework.filters import OrderingFilter
 
 import books.filters
 
 
 class BookFilterForm(forms.Form):
-    """The form behind BookFilter: the check of the price range.
+    """The form behind BookFilter: the check of the price and year ranges.
 
     django-filter builds a form from the filters to validate the
     parameters; Meta.form gives it this base class with our clean().
@@ -23,14 +22,13 @@ class BookFilterForm(forms.Form):
 
     def clean(self):
         cleaned_data = super().clean()
-        price_min = cleaned_data.get("price_min")
-        price_max = cleaned_data.get("price_max")
         # The site ignores such a range and shows a hint; an API client
         # gets 400: "from 500 to 100" is a mistake in its code
-        # The error goes to price_min: django-filter answers with form.errors,
-        # where an error of the whole form would be under the key "__all__"
-        if price_min is not None and price_max is not None and price_min > price_max:
-            self.add_error("price_min", _("“Price from” can't be greater than “Price to”."))
+        # The error goes to price_min / year_min: django-filter answers with
+        # form.errors, where an error of the whole form would be under the
+        # key "__all__"
+        for low_name, _high_name, error in books.filters.wrong_ranges(cleaned_data):
+            self.add_error(low_name, error)
         return cleaned_data
 
 
@@ -44,6 +42,11 @@ class BookFilter(books.filters.BookFilter):
                           currency of ?currency= (display_price, UAH by
                           default): books of every currency are compared
     ?stock=in_stock | low | out  availability (BookQuerySet.by_stock_status)
+    ?publisher=<id>       books of a publisher; several: ?publisher=1&publisher=4
+    ?language=uk | en | pl | de | fr | es    several: ?language=uk&language=en
+    ?book_type=paper | ebook | audiobook     several allowed
+    ?cover_type=hard | soft | dust_jacket    several allowed
+    ?year_min= / ?year_max=   publication year range, both ends included
     The text search (?search=) and the sort (?ordering=) come from
     SearchFilter / OrderingFilter in the ViewSet.
     """

@@ -2,6 +2,7 @@
 
 BookFilter turns GET parameters into .filter() calls:
     ?category=fantasy&category=poetry&author=3&author=7&stock=in_stock&price_min=100
+    ?publisher=5&language=uk&language=en&book_type=ebook&cover_type=hard&year_min=2015
 
 Several values of one parameter (?author=3&author=7) mean "OR": books of
 the author 3 or of the author 7. Different parameters mean "AND": books of
@@ -20,7 +21,7 @@ from django import forms
 from django.db.models import Exists, OuterRef, Q
 from django.utils.translation import gettext_lazy as _
 
-from .models import Author, Book, BookCategory, BookQuerySet, Category
+from .models import Author, Book, BookCategory, BookQuerySet, Category, Publisher
 
 
 class BookFilter(django_filters.FilterSet):
@@ -46,6 +47,47 @@ class BookFilter(django_filters.FilterSet):
         method="filter_author",
         label=_("Author"),
         widget=forms.CheckboxSelectMultiple(attrs={"class": "form-check-input"}),
+    )
+    publisher = django_filters.ModelMultipleChoiceFilter(
+        queryset=Publisher.objects.all(),  # ?publisher=<pk>
+        method="filter_any_of",
+        label=_("Publisher"),
+        widget=forms.CheckboxSelectMultiple(attrs={"class": "form-check-input"}),
+    )
+    # The choices of the model (Book.Language, ...): the value in the URL is
+    # the code (?language=uk), the panel shows the translated label
+    language = django_filters.MultipleChoiceFilter(
+        choices=Book.Language.choices,
+        method="filter_any_of",
+        label=_("Language"),
+        widget=forms.CheckboxSelectMultiple(attrs={"class": "form-check-input"}),
+    )
+    book_type = django_filters.MultipleChoiceFilter(
+        choices=Book.BookType.choices,
+        method="filter_any_of",
+        label=_("Book type"),
+        widget=forms.CheckboxSelectMultiple(attrs={"class": "form-check-input"}),
+    )
+    cover_type = django_filters.MultipleChoiceFilter(
+        choices=Book.CoverType.choices,
+        method="filter_any_of",
+        label=_("Cover"),
+        widget=forms.CheckboxSelectMultiple(attrs={"class": "form-check-input"}),
+    )
+    # A range like the price; a book without a year is not in any range
+    year_min = django_filters.NumberFilter(
+        field_name="publication_year",
+        lookup_expr="gte",
+        min_value=0,
+        label=_("Year from"),
+        widget=forms.NumberInput(attrs={"class": "form-control", "step": "1"}),
+    )
+    year_max = django_filters.NumberFilter(
+        field_name="publication_year",
+        lookup_expr="lte",
+        min_value=0,
+        label=_("Year to"),
+        widget=forms.NumberInput(attrs={"class": "form-control", "step": "1"}),
     )
     # One choice of three, like before: "Low" is a part of "In stock", as
     # checkboxes they would overlap
@@ -73,7 +115,20 @@ class BookFilter(django_filters.FilterSet):
 
     class Meta:
         model = Book
-        fields = ["category", "author", "stock", "price_min", "price_max"]
+        # The order of the blocks in the panel
+        fields = [
+            "category",
+            "author",
+            "publisher",
+            "language",
+            "book_type",
+            "cover_type",
+            "year_min",
+            "year_max",
+            "stock",
+            "price_min",
+            "price_max",
+        ]
 
     # method=: our own filtering instead of field_name + lookup_expr.
     # "value" is what the form field gave: a queryset of the chosen
@@ -92,27 +147,52 @@ class BookFilter(django_filters.FilterSet):
         # A book has one author (ForeignKey): IN (...) gives no duplicates
         return queryset.filter(author__in=value) if value else queryset
 
+    def filter_any_of(self, queryset, name, value):
+        """One of the chosen values: publisher, language, type, cover.
+
+        A field of the book itself (no JOIN): IN (...) gives no duplicates.
+        Not django-filter's own MultipleChoiceFilter filtering: it adds
+        .distinct(), which does not go well with the annotations of the list.
+        """
+        return queryset.filter(**{f"{name}__in": value}) if value else queryset
+
     def filter_stock(self, queryset, name, value):
         # The rule "low = 1..5" lives in one place, the model's queryset
         return queryset.by_stock_status(value)
 
 
-class CatalogFilterForm(forms.Form):
-    """The form of the site's catalog: a wrong price range is skipped.
+# The ranges of the filters: (from, to, the error of "from > to")
+RANGES = [
+    ("price_min", "price_max", _("“Price from” can't be greater than “Price to”.")),
+    ("year_min", "year_max", _("“Year from” can't be greater than “Year to”.")),
+]
 
-    "From 500 to 100" would always give an empty list: both prices are
-    taken out of cleaned_data (the catalog ignores them and applies the
-    other filters) and the hint is shown above the filters. The API answers
-    such a range with 400 instead (api.filters.BookFilterForm).
+
+def wrong_ranges(cleaned_data):
+    """[(from, to, error)] of the ranges where "from" is greater than "to"."""
+    wrong = []
+    for low_name, high_name, error in RANGES:
+        low, high = cleaned_data.get(low_name), cleaned_data.get(high_name)
+        if low is not None and high is not None and low > high:
+            wrong.append((low_name, high_name, error))
+    return wrong
+
+
+class CatalogFilterForm(forms.Form):
+    """The form of the site's catalog: a wrong range is skipped.
+
+    "Price from 500 to 100" (or "year from 2020 to 2010") would always give
+    an empty list: both ends are taken out of cleaned_data (the catalog
+    ignores them and applies the other filters) and the hint is shown above
+    the filters. The API answers such a range with 400 instead
+    (api.filters.BookFilterForm).
     """
 
     def clean(self):
         cleaned_data = super().clean()
-        price_min = cleaned_data.get("price_min")
-        price_max = cleaned_data.get("price_max")
-        if price_min is not None and price_max is not None and price_min > price_max:
-            del cleaned_data["price_min"], cleaned_data["price_max"]
-            raise forms.ValidationError(_("“Price from” can't be greater than “Price to”."))
+        for low_name, high_name, error in wrong_ranges(cleaned_data):
+            del cleaned_data[low_name], cleaned_data[high_name]
+            self.add_error(None, error)
         return cleaned_data
 
 
@@ -147,6 +227,26 @@ class CatalogFilter(BookFilter):
         fields = ["q", *BookFilter.Meta.fields]
         form = CatalogFilterForm
 
+    # The blocks of the panel offer only the values some book has: 32
+    # publishers from the migration, but a catalog of 12 books has 5 of
+    # them; 6 languages, but the books are in 2. A block without values is
+    # not shown at all (books/book_list.html).
+    VALUES_IN_USE = ["language", "book_type", "cover_type"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        fields = self.form.fields
+        # A value nobody has (an old link) is then an error of the panel,
+        # like a deleted category; the API accepts every publisher
+        fields["publisher"].queryset = Publisher.objects.filter(
+            Exists(Book.objects.filter(publisher=OuterRef("pk")))
+        )
+        for name in self.VALUES_IN_USE:
+            in_use = set(Book.objects.exclude(**{name: ""}).values_list(name, flat=True).distinct())
+            fields[name].choices = [
+                (value, label) for value, label in fields[name].choices if value in in_use
+            ]
+
     def search(self, queryset, name, value):
         return queryset.filter(Q(title__icontains=value) | Q(author__name__icontains=value))
 
@@ -173,6 +273,22 @@ class CatalogFilter(BookFilter):
             chips.append(self._chip(category.name, "category", value=category.slug))
         for author in data.get("author") or []:
             chips.append(self._chip(author.name, "author", value=str(author.pk)))
+        for publisher in data.get("publisher") or []:
+            chips.append(self._chip(publisher.name, "publisher", value=str(publisher.pk)))
+        for name in ["language", "book_type", "cover_type"]:
+            labels = dict(self.form.fields[name].choices)
+            for value in data.get(name) or []:
+                chips.append(self._chip(labels[value], name, value=value))
+        year_min, year_max = data.get("year_min"), data.get("year_max")
+        if year_min is not None or year_max is not None:
+            if year_max is None:
+                text = _("Year: from %(min)s")
+            elif year_min is None:
+                text = _("Year: up to %(max)s")
+            else:
+                text = _("Year: %(min)s–%(max)s")
+            label = text % {"min": _plain(year_min), "max": _plain(year_max)}
+            chips.append(self._chip(label, "year_min", "year_max"))
         if data.get("stock"):
             label = dict(BookQuerySet.STOCK_STATUS_CHOICES)[data["stock"]]
             chips.append(self._chip(label, "stock"))

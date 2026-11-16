@@ -160,7 +160,19 @@ class BookListView(ElidedPaginationMixin, ListView):
         # Timeout of the {% cache %} fragments of the book cards
         context["cache_timeout"] = settings.BOOK_CACHE_TIMEOUT
         context["price_range"] = self.price_range()
+        context["year_range"] = self.year_range()
         return context
+
+    def year_range(self):
+        """The oldest and the newest edition of the catalog: the hints of the year block.
+
+        Of the whole catalog, like the price slider. None when no book has a
+        year: then the block is not shown (unless a year is in the URL).
+        """
+        years = Book.objects.aggregate(low=Min("publication_year"), high=Max("publication_year"))
+        if years["low"] is None:
+            return None
+        return {"min": years["low"], "max": years["high"]}
 
     def price_range(self):
         """The ends of the price slider: the cheapest and the dearest book.

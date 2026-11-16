@@ -444,3 +444,165 @@ def test_seed_books_fills_only_the_empty_details_of_existing_books():
     again = StringIO()
     call_command("seed_books", stdout=again)
     assert "+ details" not in again.getvalue()
+
+
+# ---------------------------------------------------------------------------
+# The catalog: filters of the details, the panel, the chips (stage 3)
+# ---------------------------------------------------------------------------
+
+
+def _catalog(client, params=None, language="uk"):
+    client.cookies[settings.LANGUAGE_COOKIE_NAME] = language
+    return client.get(reverse("books:list"), params or {})
+
+
+def _titles(response):
+    return [book.title for book in response.context["books"]]
+
+
+@pytest.fixture
+def editions():
+    """Four books with different details, one without any."""
+    folio, ranok = Publisher.objects.get(name="Фоліо"), Publisher.objects.get(name="Ранок")
+    return {
+        "A": BookFactory(
+            title="A",
+            publisher=folio,
+            language="uk",
+            cover_type="hard",
+            publication_year=2010,
+        ),
+        "B": BookFactory(title="B", publisher=ranok, language="en", publication_year=2018),
+        "C": BookFactory(
+            title="C", publisher=folio, language="en", book_type="ebook", publication_year=2022
+        ),
+        "D": BookFactory(title="D"),
+    }
+
+
+# Generated with AI
+@pytest.mark.parametrize(
+    "params, expected",
+    [
+        ({"publisher": "folio"}, ["A", "C"]),
+        ({"language": "en"}, ["B", "C"]),
+        ({"language": ["uk", "en"]}, ["A", "B", "C"]),  # OR inside a filter
+        ({"book_type": "ebook"}, ["C"]),
+        ({"cover_type": "hard"}, ["A"]),
+        ({"year_min": "2015"}, ["B", "C"]),
+        ({"year_max": "2018"}, ["A", "B"]),
+        ({"year_min": "2011", "year_max": "2020"}, ["B"]),
+        ({"publisher": "folio", "language": "en"}, ["C"]),  # AND between filters
+    ],
+)
+def test_catalog_filters_by_the_details(client, editions, params, expected):
+    folio = Publisher.objects.get(name="Фоліо")
+    if params.get("publisher") == "folio":
+        params = {**params, "publisher": folio.pk}
+
+    assert _titles(_catalog(client, params)) == expected
+
+
+# Generated with AI
+def test_catalog_panel_offers_only_the_values_books_have(client, editions):
+    form = _catalog(client).context["filter_form"]
+
+    publishers = [publisher.name for publisher in form.fields["publisher"].queryset]
+    assert publishers == ["Ранок", "Фоліо"]  # not all 32 of the migration
+    assert [value for value, _label in form.fields["language"].choices] == ["uk", "en"]
+    assert [value for value, _label in form.fields["book_type"].choices] == ["paper", "ebook"]
+    assert [value for value, _label in form.fields["cover_type"].choices] == ["hard"]
+
+
+# Generated with AI
+def test_catalog_panel_has_the_blocks_in_the_language_of_the_site(client, editions):
+    content = _catalog(client).content.decode()
+
+    for text in ["Видавництво", "Мова", "Тип книги", "Обкладинка", "Рік видання", "Тверда"]:
+        assert text in content, text
+    # The year block: the oldest and the newest edition as hints
+    assert 'placeholder="2010"' in content and 'placeholder="2022"' in content
+
+
+# Generated with AI
+def test_catalog_panel_hides_the_blocks_without_values(client):
+    BookFactory()  # no details at all, only the type "paper"
+
+    content = _catalog(client, language="en").content.decode()
+
+    assert 'id="filter-publisher"' not in content
+    assert 'id="filter-language"' not in content
+    assert 'id="filter-cover_type"' not in content
+    assert 'id="filter-year"' not in content
+    # The type is always known
+    assert 'id="filter-book_type"' in content
+
+
+# Generated with AI
+def test_catalog_chips_of_the_details(client, editions):
+    folio = Publisher.objects.get(name="Фоліо")
+
+    response = _catalog(
+        client,
+        {
+            "publisher": folio.pk,
+            "language": ["uk", "en"],
+            "cover_type": "hard",
+            "year_min": "2005",
+            "year_max": "2020",
+        },
+    )
+    chips = {chip["label"]: chip["url"] for chip in response.context["filter_chips"]}
+
+    assert list(chips) == [
+        "Фоліо",
+        "Українська",
+        "Англійська",
+        "Тверда",
+        "Рік: 2005–2020",
+    ]
+    assert chips["Англійська"] == (
+        f"?publisher={folio.pk}&language=uk&cover_type=hard&year_min=2005&year_max=2020"
+    )
+    assert (
+        chips["Рік: 2005–2020"] == f"?publisher={folio.pk}&language=uk&language=en&cover_type=hard"
+    )
+
+
+# Generated with AI
+@pytest.mark.parametrize(
+    "params, label",
+    [({"year_min": "2015"}, "Рік: від 2015"), ({"year_max": "2015"}, "Рік: до 2015")],
+)
+def test_catalog_chip_of_one_end_of_the_year_range(client, editions, params, label):
+    chips = [chip["label"] for chip in _catalog(client, params).context["filter_chips"]]
+
+    assert chips == [label]
+
+
+# Generated with AI
+def test_catalog_skips_a_wrong_year_range_and_shows_why(client, editions):
+    response = _catalog(client, {"year_min": "2020", "year_max": "2010", "language": "en"})
+
+    # The other filters still work, the range is ignored
+    assert _titles(response) == ["B", "C"]
+    assert "«Рік від» не може бути більшим за «Рік до»." in response.content.decode()
+
+
+# Generated with AI
+def test_catalog_shows_an_error_for_a_publisher_without_books(client, editions):
+    lonely = Publisher.objects.get(name="Vivat")  # no book has it
+
+    response = _catalog(client, {"publisher": lonely.pk})
+
+    assert "publisher" in response.context["filter_form"].errors
+    assert response.context["filter_chips"] == []
+
+
+# Generated with AI
+def test_book_page_links_the_publisher_to_the_filtered_catalog(client, editions):
+    book = editions["A"]
+
+    content = _page(client, book)
+
+    assert f'href="{reverse("books:list")}?publisher={book.publisher.pk}"' in content

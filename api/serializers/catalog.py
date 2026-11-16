@@ -21,7 +21,7 @@ from django.utils.translation import gettext_lazy as _
 from rest_framework import serializers
 from rest_framework.exceptions import PermissionDenied
 
-from books.models import Author, Book, Category
+from books.models import Author, Book, Category, Publisher
 from currencies.models import BASE_CURRENCY, Currency
 from currencies.services import RateUnavailable, convert
 from inventory.services import set_stock
@@ -60,6 +60,22 @@ class AuthorSerializer(BooksCountMixin, serializers.ModelSerializer):
         fields = ["id", "name", "bio", "books_count"]
 
 
+class PublisherSerializer(BooksCountMixin, serializers.ModelSerializer):
+    """/api/publishers/: a publisher with the number of its books."""
+
+    class Meta:
+        model = Publisher
+        fields = ["id", "name", "books_count"]
+
+
+class PublisherShortSerializer(serializers.ModelSerializer):
+    """The publisher inside a book."""
+
+    class Meta:
+        model = Publisher
+        fields = ["id", "name"]
+
+
 class AuthorShortSerializer(serializers.ModelSerializer):
     """The author inside a book: only what a list of books needs."""
 
@@ -91,6 +107,8 @@ class BookSerializer(serializers.ModelSerializer):
     # Reading: nested objects (read_only: they are never parsed from a request)
     author = AuthorShortSerializer(read_only=True)
     categories = CategoryShortSerializer(many=True, read_only=True)
+    # null for a book without a publisher
+    publisher = PublisherShortSerializer(read_only=True)
 
     # Writing: ids. source= points to the model field; the serializer finds
     # the objects itself and answers 400 for an unknown id:
@@ -104,6 +122,14 @@ class BookSerializer(serializers.ModelSerializer):
         many=True,
         write_only=True,
         required=False,
+    )
+    # null: the publisher is not known (or is removed by PATCH)
+    publisher_id = serializers.PrimaryKeyRelatedField(
+        source="publisher",
+        queryset=Publisher.objects.all(),
+        write_only=True,
+        required=False,
+        allow_null=True,
     )
 
     # The currency of "price": a code ("UAH", "USD"). Not required: a new
@@ -140,6 +166,15 @@ class BookSerializer(serializers.ModelSerializer):
             "display_price",
             "display_currency",
             "description",
+            # The details of the edition; book_type, cover_type and language
+            # are codes ("ebook", "hard", "uk"), the API documentation lists them
+            "publisher",
+            "publisher_id",
+            "book_type",
+            "cover_type",
+            "language",
+            "publication_year",
+            "pages",
             "stock",
             "in_stock",
             "cover",
@@ -192,6 +227,26 @@ class BookSerializer(serializers.ModelSerializer):
                 _("The currency %(code)s is turned off.") % {"code": value.code}
             )
         return value
+
+    def validate(self, attrs):
+        """A cover type only for a paper book, like Book.clean() on the site.
+
+        A ModelSerializer doesn't call the model's clean(). PATCH may send
+        only one of the two fields: the other one is the book's current value.
+        """
+        attrs = super().validate(attrs)
+
+        def value(name, default):
+            if name in attrs:
+                return attrs[name]
+            return getattr(self.instance, name) if self.instance else default
+
+        cover_type = value("cover_type", "")
+        if cover_type and value("book_type", Book.BookType.PAPER) != Book.BookType.PAPER:
+            raise serializers.ValidationError(
+                {"cover_type": [_("Only a paper book has a cover type.")]}
+            )
+        return attrs
 
     def validate_stock(self, value):
         """Only users with inventory.change_stock may CHANGE the stock.

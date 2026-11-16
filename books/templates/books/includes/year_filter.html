@@ -1,0 +1,28 @@
+{% load i18n %}
+{% comment %}
+"Year from" and "Year to" of the catalog filter on one row, like the price
+(price_filter.html), without a slider: a year is typed, not dragged.
+
+year_min, year_max: the bound fields of CatalogFilter's form.
+year_range: {"min": 1937, "max": 2022} from BookListView.year_range(),
+the oldest and the newest edition: shown as the placeholders of the fields
+and as their limits for the browser's arrows.
+
+"Apply" sends the form: like the price, the year waits for a button.
+{% endcomment %}
+<div>
+  <div class="d-flex align-items-center gap-2">
+    <label class="visually-hidden" for="{{ year_min.id_for_label }}">{{ year_min.label }}</label>
+    <input type="number" class="form-control" name="{{ year_min.html_name }}" id="{{ year_min.id_for_label }}"
+           value="{{ year_min.value|default_if_none:'' }}" step="1"
+           {% if year_range %}min="{{ year_range.min }}" max="{{ year_range.max }}" placeholder="{{ year_range.min }}"{% endif %}>
+    <span class="text-body-secondary">–</span>
+    <label class="visually-hidden" for="{{ year_max.id_for_label }}">{{ year_max.label }}</label>
+    <input type="number" class="form-control" name="{{ year_max.html_name }}" id="{{ year_max.id_for_label }}"
+           value="{{ year_max.value|default_if_none:'' }}" step="1"
+           {% if year_range %}min="{{ year_range.min }}" max="{{ year_range.max }}" placeholder="{{ year_range.max }}"{% endif %}>
+  </div>
+  <button class="btn btn-sm btn-outline-primary w-100 mt-3" type="submit">{% translate "Apply" %}</button>
+  {% for error in year_min.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+  {% for error in year_max.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+</div>

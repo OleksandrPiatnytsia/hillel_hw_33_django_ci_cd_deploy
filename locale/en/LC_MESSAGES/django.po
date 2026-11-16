@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Bookstore\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-16 18:46+0000\n"
+"POT-Creation-Date: 2026-11-16 19:02+0000\n"
 "PO-Revision-Date: 2026-11-10 16:00+0200\n"
 "Last-Translator: Bookstore\n"
 "Language-Team: English\n"
@@ -27,20 +27,20 @@ msgid ""
 "for a new order."
 msgstr ""
 
-#: api/filters.py:33 books/filters.py:115
-msgid "“Price from” can't be greater than “Price to”."
-msgstr ""
-
-#: api/serializers/catalog.py:192
+#: api/serializers/catalog.py:227
 #, python-format
 msgid "The currency %(code)s is turned off."
 msgstr ""
 
-#: api/serializers/catalog.py:210
+#: api/serializers/catalog.py:247 books/models.py:292
+msgid "Only a paper book has a cover type."
+msgstr ""
+
+#: api/serializers/catalog.py:265
 msgid "Only users with the “manage stock” permission can change it."
 msgstr ""
 
-#: api/serializers/orders.py:191 api/views/catalog.py:149
+#: api/serializers/orders.py:191 api/views/catalog.py:157
 #, python-format
 msgid "“%(code)s” is not offered. Choose one of: %(offered)s."
 msgstr ""
@@ -49,15 +49,19 @@ msgstr ""
 msgid "Every book may be in the list only once; use quantity."
 msgstr ""
 
-#: api/views/catalog.py:131
+#: api/views/catalog.py:139
 msgid "The book is in orders and can't be deleted."
 msgstr ""
 
-#: api/views/catalog.py:215
+#: api/views/catalog.py:223
 msgid "The author has books and can't be deleted."
 msgstr ""
 
-#: api/views/catalog.py:228
+#: api/views/catalog.py:236
+msgid "The publisher has books and can't be deleted."
+msgstr ""
+
+#: api/views/catalog.py:249
 msgid "The category has books and can't be deleted."
 msgstr ""
 
@@ -98,7 +102,8 @@ msgstr ""
 msgid "Details"
 msgstr ""
 
-#: books/admin.py:187 books/templates/books/includes/book_details.html:20
+#: books/admin.py:187 books/filters.py:74
+#: books/templates/books/includes/book_details.html:23
 msgid "Cover"
 msgstr ""
 
@@ -126,83 +131,128 @@ msgstr ""
 msgid "Books"
 msgstr ""
 
-#: books/filters.py:41
+#: books/filters.py:42
 msgid "Category"
 msgstr ""
 
-#: books/filters.py:47
+#: books/filters.py:48
 msgid "Author"
 msgstr ""
 
-#: books/filters.py:55
+#: books/filters.py:54 books/templates/books/includes/book_details.html:14
+msgid "Publisher"
+msgstr ""
+
+#: books/filters.py:62 books/templates/books/includes/book_details.html:27
+#: templates/includes/navbar.html:78 users/admin.py:21
+#: users/templates/users/profile.html:43
+msgid "Language"
+msgstr ""
+
+#: books/filters.py:68 books/templates/books/includes/book_details.html:20
+msgid "Book type"
+msgstr ""
+
+#: books/filters.py:82
+msgid "Year from"
+msgstr ""
+
+#: books/filters.py:89
+msgid "Year to"
+msgstr ""
+
+#: books/filters.py:97
 msgid "Availability"
 msgstr ""
 
-#: books/filters.py:56
+#: books/filters.py:98
 msgid "Any"
 msgstr ""
 
-#: books/filters.py:63
+#: books/filters.py:105
 msgid "Price from"
 msgstr ""
 
-#: books/filters.py:70
+#: books/filters.py:112
 msgid "Price to"
 msgstr ""
 
-#: books/filters.py:128
+#: books/filters.py:166
+msgid "“Price from” can't be greater than “Price to”."
+msgstr ""
+
+#: books/filters.py:167
+msgid "“Year from” can't be greater than “Year to”."
+msgstr ""
+
+#: books/filters.py:208
 msgid "Title A→Z"
 msgstr ""
 
-#: books/filters.py:129
+#: books/filters.py:209
 msgid "Title Z→A"
 msgstr ""
 
-#: books/filters.py:130
+#: books/filters.py:210
 msgid "Author A→Z"
 msgstr ""
 
-#: books/filters.py:131
+#: books/filters.py:211
 msgid "Price: low to high"
 msgstr ""
 
-#: books/filters.py:132
+#: books/filters.py:212
 msgid "Price: high to low"
 msgstr ""
 
-#: books/filters.py:133
+#: books/filters.py:213
 msgid "Newest first"
 msgstr ""
 
-#: books/filters.py:135
+#: books/filters.py:215
 msgid "Most popular"
 msgstr ""
 
-#: books/filters.py:140 books/templates/books/includes/filter_section.html:31
+#: books/filters.py:220 books/templates/books/includes/filter_section.html:31
 #: templates/includes/navbar.html:48 templates/includes/navbar.html:50
 msgid "Search"
 msgstr ""
 
-#: books/filters.py:142 templates/includes/navbar.html:47
+#: books/filters.py:222 templates/includes/navbar.html:47
 msgid "Title or author"
 msgstr ""
 
-#: books/filters.py:171
+#: books/filters.py:271
 #, python-format
 msgid "Search: “%(text)s”"
 msgstr ""
 
-#: books/filters.py:182
+#: books/filters.py:285
+#, python-format
+msgid "Year: from %(min)s"
+msgstr ""
+
+#: books/filters.py:287
+#, python-format
+msgid "Year: up to %(max)s"
+msgstr ""
+
+#: books/filters.py:289
+#, python-format
+msgid "Year: %(min)s–%(max)s"
+msgstr ""
+
+#: books/filters.py:298
 #, python-format
 msgid "Price: from %(min)s %(symbol)s"
 msgstr ""
 
-#: books/filters.py:184
+#: books/filters.py:300
 #, python-format
 msgid "Price: up to %(max)s %(symbol)s"
 msgstr ""
 
-#: books/filters.py:186
+#: books/filters.py:302
 #, python-format
 msgid "Price: %(min)s–%(max)s %(symbol)s"
 msgstr ""
@@ -374,10 +424,6 @@ msgstr ""
 msgid "updated at"
 msgstr ""
 
-#: books/models.py:292
-msgid "Only a paper book has a cover type."
-msgstr ""
-
 #: books/models.py:355
 msgid "book category"
 msgstr ""
@@ -500,7 +546,7 @@ msgid "Quantity"
 msgstr ""
 
 #: books/templates/books/book_detail.html:61
-#: books/templates/books/book_list.html:254
+#: books/templates/books/book_list.html:264
 msgid "Add to cart"
 msgstr ""
 
@@ -560,7 +606,7 @@ msgstr ""
 
 #: books/templates/books/book_list.html:31
 #: books/templates/books/book_list.html:39
-#: books/templates/books/book_list.html:150
+#: books/templates/books/book_list.html:160
 msgid "Filters"
 msgstr ""
 
@@ -568,7 +614,12 @@ msgstr ""
 msgid "Close"
 msgstr ""
 
-#: books/templates/books/book_list.html:72
+#: books/templates/books/book_list.html:78
+#: books/templates/books/includes/book_details.html:31
+msgid "Publication year"
+msgstr ""
+
+#: books/templates/books/book_list.html:82
 #: cart/templates/cart/cart_detail.html:17
 #: orders/templates/orders/emails/order_cancelled.html:27
 #: orders/templates/orders/emails/order_created.html:31
@@ -576,82 +627,65 @@ msgstr ""
 msgid "Price"
 msgstr ""
 
-#: books/templates/books/book_list.html:81
+#: books/templates/books/book_list.html:91
 #: books/templates/books/includes/price_filter.html:39
+#: books/templates/books/includes/year_filter.html:25
 msgid "Apply"
 msgstr ""
 
-#: books/templates/books/book_list.html:91
+#: books/templates/books/book_list.html:101
 #, python-format
 msgid "Show %(count)s book"
 msgid_plural "Show %(count)s books"
 msgstr[0] ""
 msgstr[1] ""
 
-#: books/templates/books/book_list.html:118
+#: books/templates/books/book_list.html:128
 msgid "Remove the filter"
 msgstr ""
 
-#: books/templates/books/book_list.html:122
+#: books/templates/books/book_list.html:132
 msgid "Clear all"
 msgstr ""
 
-#: books/templates/books/book_list.html:129
+#: books/templates/books/book_list.html:139
 #, python-format
 msgid "Found: %(count)s book"
 msgid_plural "Found: %(count)s books"
 msgstr[0] ""
 msgstr[1] ""
 
-#: books/templates/books/book_list.html:135
+#: books/templates/books/book_list.html:145
 #, python-format
 msgid "· page %(number)s of %(pages)s"
 msgstr ""
 
-#: books/templates/books/book_list.html:160
+#: books/templates/books/book_list.html:170
 msgid "Sort by"
 msgstr ""
 
-#: books/templates/books/book_list.html:178
+#: books/templates/books/book_list.html:188
 msgid "Out of stock last"
 msgstr ""
 
-#: books/templates/books/book_list.html:194
+#: books/templates/books/book_list.html:204
 msgid "Per page"
 msgstr ""
 
-#: books/templates/books/book_list.html:202
+#: books/templates/books/book_list.html:212
 #: orders/templates/orders/checkout.html:101
 msgid "Show"
 msgstr ""
 
-#: books/templates/books/book_list.html:262
+#: books/templates/books/book_list.html:272
 msgid "No books match these filters."
 msgstr ""
 
-#: books/templates/books/book_list.html:263
+#: books/templates/books/book_list.html:273
 msgid "Show all books"
 msgstr ""
 
-#: books/templates/books/includes/book_details.html:14
-msgid "Publisher"
-msgstr ""
-
-#: books/templates/books/includes/book_details.html:17
-msgid "Book type"
-msgstr ""
-
-#: books/templates/books/includes/book_details.html:24
-#: templates/includes/navbar.html:78 users/admin.py:21
-#: users/templates/users/profile.html:43
-msgid "Language"
-msgstr ""
-
-#: books/templates/books/includes/book_details.html:28
-msgid "Publication year"
-msgstr ""
-
-#: books/templates/books/includes/book_details.html:32
+#: books/templates/books/includes/book_details.html:35
 #: templates/includes/pagination.html:11
 msgid "Pages"
 msgstr ""
@@ -699,24 +733,24 @@ msgstr ""
 msgid "Upload a new one to replace it:"
 msgstr ""
 
-#: books/views.py:228
+#: books/views.py:240
 #, python-format
 msgid "Book “%(title)s” was created."
 msgstr ""
 
-#: books/views.py:248
+#: books/views.py:260
 #, python-format
 msgid "Book “%(title)s” was updated."
 msgstr ""
 
-#: books/views.py:310
+#: books/views.py:322
 #, python-format
 msgid ""
 "“%(title)s” is in orders and can't be deleted. Set its stock to 0 to stop "
 "selling it."
 msgstr ""
 
-#: books/views.py:326
+#: books/views.py:338
 #, python-format
 msgid "Book “%(title)s” was deleted."
 msgstr ""

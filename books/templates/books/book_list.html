@@ -64,10 +64,20 @@
         </div>
 
         {# The blocks in the order of the filters (books/filters.py): a new #}
-        {# checkbox filter there appears here by itself #}
+        {# checkbox filter there appears here by itself. field|length: the #}
+        {# number of its options; a block without any (no book has a #}
+        {# publisher yet) is not shown #}
         {% for field in filter_form %}
           {% if field.widget_type == "checkboxselectmultiple" or field.widget_type == "radioselect" %}
-            {% include "books/includes/filter_section.html" with name=field.name label=field.label field=field %}
+            {% if field|length %}
+              {% include "books/includes/filter_section.html" with name=field.name label=field.label field=field %}
+            {% endif %}
+          {% elif field.name == "year_min" %}
+            {# Only when some book has a year (or the range is in the URL) #}
+            {% if year_range or field.value or filter_form.year_max.value %}
+              {% translate "Publication year" as year_label %}
+              {% include "books/includes/filter_section.html" with name="year" label=year_label body="books/includes/year_filter.html" field=None year_min=field year_max=filter_form.year_max %}
+            {% endif %}
           {% elif field.name == "price_min" %}
             {% translate "Price" as price_word %}
             {% with price_label=price_word|add:", "|add:display_currency.symbol %}

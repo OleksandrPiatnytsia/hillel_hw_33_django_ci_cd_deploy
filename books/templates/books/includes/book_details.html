@@ -12,7 +12,10 @@ get_..._display: the label of the choice in the current language
 <dl class="row book-details mb-3">
   {% if book.publisher %}
     <dt class="col-sm-4 col-lg-3">{% translate "Publisher" %}</dt>
-    <dd class="col-sm-8 col-lg-9">{{ book.publisher.name }}</dd>
+    {# The catalog filtered by the publisher, like the categories above #}
+    <dd class="col-sm-8 col-lg-9">
+      <a class="link-secondary" href="{% url 'books:list' %}?publisher={{ book.publisher.pk }}">{{ book.publisher.name }}</a>
+    </dd>
   {% endif %}
   <dt class="col-sm-4 col-lg-3">{% translate "Book type" %}</dt>
   <dd class="col-sm-8 col-lg-9">{{ book.get_book_type_display }}</dd>

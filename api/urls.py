@@ -11,6 +11,7 @@
     /api/books/             books: list, create; ?filters, ?search, ?ordering
     /api/books/<pk>/        one book: read, update, delete
     /api/authors/[<pk>/]    authors, the same actions
+    /api/publishers/[<pk>/] publishers, the same actions
     /api/categories/[<pk>/] categories, the same actions
     /api/currencies/[<code>/] the currencies offered, with today's rate
     /api/orders/            my orders (staff: all); POST a new order with items
@@ -35,7 +36,7 @@ from .views.auth import (
     PublicAPIRootView,
     ThrottledTokenObtainPairView,
 )
-from .views.catalog import AuthorViewSet, BookViewSet, CategoryViewSet
+from .views.catalog import AuthorViewSet, BookViewSet, CategoryViewSet, PublisherViewSet
 from .views.currencies import CurrencyViewSet
 from .views.orders import OrderViewSet
 
@@ -52,6 +53,7 @@ router = Router()
 # "api:book-list" and "api:book-detail" (basename from the queryset model)
 router.register("books", BookViewSet)
 router.register("authors", AuthorViewSet)
+router.register("publishers", PublisherViewSet)
 router.register("categories", CategoryViewSet)
 # basename: a ViewSet without a queryset -> "api:currency-list"
 router.register("currencies", CurrencyViewSet, basename="currency")

@@ -16,7 +16,12 @@ from drf_spectacular.utils import (
     extend_schema_view,
 )
 
-from .serializers.catalog import AuthorSerializer, BookSerializer, CategorySerializer
+from .serializers.catalog import (
+    AuthorSerializer,
+    BookSerializer,
+    CategorySerializer,
+    PublisherSerializer,
+)
 from .serializers.currencies import CurrencySerializer
 from .serializers.orders import OrderSerializer
 
@@ -129,6 +134,13 @@ author_schema = catalog_schema(
     "authors",
     "Staff only (is_staff) with the model permission of the group, like in the admin.",
     protected="The author has books.",
+)
+publisher_schema = catalog_schema(
+    PublisherSerializer,
+    "publisher",
+    "publishers",
+    "Staff only (is_staff) with the model permission of the group, like in the admin.",
+    protected="The publisher has books.",
 )
 category_schema = catalog_schema(
     CategorySerializer,
