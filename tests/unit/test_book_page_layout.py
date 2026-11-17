@@ -122,3 +122,45 @@ def test_description_fragment_is_cached_and_cleared_when_the_book_changes(client
     html = page(client, book)
     assert "Новий опис." in html
     assert "Старий опис." not in html
+
+
+def with_cover(book):
+    """Save a small real PNG as the cover of the book (MEDIA_ROOT: a temp folder)."""
+    from io import BytesIO
+
+    from django.core.files.base import ContentFile
+    from PIL import Image
+
+    buffer = BytesIO()
+    Image.new("RGB", (20, 30), "red").save(buffer, "PNG")
+    book.cover.save("kobzar.png", ContentFile(buffer.getvalue()))
+    return book
+
+
+# Generated with AI
+def test_cover_opens_enlarged_in_a_modal(client):
+    book = with_cover(BookFactory(title="Kobzar"))
+
+    html = page(client, book)
+
+    url = book.cover.url
+    # The link: Bootstrap opens the modal, without JavaScript the image itself
+    link = re.search(r'<a class="book-cover-zoom"[^>]*>', html).group()
+    assert f'href="{url}"' in link
+    assert 'data-bs-toggle="modal"' in link and 'data-bs-target="#cover-modal"' in link
+    assert 'aria-label="Збільшити обкладинку"' in link
+    # The modal with the big image, loaded only when shown
+    modal = html[html.index('id="cover-modal"') :]
+    assert f'src="{url}"' in modal
+    assert 'loading="lazy"' in modal
+    assert 'alt="Обкладинка «Kobzar»"' in modal
+    assert 'aria-label="Закрити"' in modal
+
+
+# Generated with AI
+def test_placeholder_cover_is_not_enlarged(client):
+    html = page(client, BookFactory())
+
+    assert "no-cover" in html
+    assert "book-cover-zoom" not in html
+    assert "cover-modal" not in html

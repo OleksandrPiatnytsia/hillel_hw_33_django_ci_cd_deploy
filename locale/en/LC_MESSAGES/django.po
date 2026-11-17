@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Bookstore\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-17 09:00+0000\n"
+"POT-Creation-Date: 2026-11-17 09:22+0000\n"
 "PO-Revision-Date: 2026-11-10 16:00+0200\n"
 "Last-Translator: Bookstore\n"
 "Language-Team: English\n"
@@ -210,7 +210,7 @@ msgstr ""
 msgid "Language"
 msgstr ""
 
-#: books/filters.py:73 books/templates/books/book_detail.html:96
+#: books/filters.py:73 books/templates/books/book_detail.html:103
 #: cart/templates/cart/cart_detail.html:17
 #: orders/templates/orders/checkout.html:110
 #: orders/templates/orders/emails/order_cancelled.html:27
@@ -377,7 +377,7 @@ msgstr ""
 msgid "Low (≤ {threshold})"
 msgstr ""
 
-#: books/models.py:47 books/templates/books/book_detail.html:115
+#: books/models.py:47 books/templates/books/book_detail.html:122
 #: books/templates/books/includes/stock_badge.html:4
 msgid "Out of stock"
 msgstr ""
@@ -630,35 +630,39 @@ msgstr ""
 msgid "Catalog"
 msgstr ""
 
-#: books/templates/books/book_detail.html:29
+#: books/templates/books/book_detail.html:28
 #, python-format
 msgid "Cover of %(title)s"
 msgstr ""
 
-#: books/templates/books/book_detail.html:56
+#: books/templates/books/book_detail.html:33
+msgid "Enlarge the cover"
+msgstr ""
+
+#: books/templates/books/book_detail.html:63
 msgid "Description"
 msgstr ""
 
-#: books/templates/books/book_detail.html:67
-#: books/templates/books/book_detail.html:69
+#: books/templates/books/book_detail.html:74
+#: books/templates/books/book_detail.html:76
 msgid "Read more"
 msgstr ""
 
-#: books/templates/books/book_detail.html:68
+#: books/templates/books/book_detail.html:75
 #: books/templates/books/includes/filter_section.html:46
 msgid "Show less"
 msgstr ""
 
-#: books/templates/books/book_detail.html:77
+#: books/templates/books/book_detail.html:84
 msgid "No description yet."
 msgstr ""
 
-#: books/templates/books/book_detail.html:109
+#: books/templates/books/book_detail.html:116
 #, python-format
 msgid "%(original)s at the NBU rate of %(date)s"
 msgstr ""
 
-#: books/templates/books/book_detail.html:117
+#: books/templates/books/book_detail.html:124
 #: books/templates/books/includes/stock_badge.html:7
 #, python-format
 msgid "Only %(stock)s copy left"
@@ -666,42 +670,47 @@ msgid_plural "Only %(stock)s copies left"
 msgstr[0] ""
 msgstr[1] ""
 
-#: books/templates/books/book_detail.html:133
+#: books/templates/books/book_detail.html:140
 #: cart/templates/cart/cart_detail.html:19
 #: orders/templates/orders/order_detail.html:33
 msgid "Quantity"
 msgstr ""
 
-#: books/templates/books/book_detail.html:134
+#: books/templates/books/book_detail.html:141
 #: books/templates/books/includes/book_card.html:79
 #: books/templates/books/includes/book_card.html:81
 msgid "Add to cart"
 msgstr ""
 
-#: books/templates/books/book_detail.html:139
+#: books/templates/books/book_detail.html:146
 #: books/templates/books/includes/price_from.html:13
 msgid "Not on sale"
 msgstr ""
 
-#: books/templates/books/book_detail.html:146
+#: books/templates/books/book_detail.html:153
 #, python-format
 msgid "In your <a href=\"%(cart_url)s\">cart</a>:"
 msgstr ""
 
-#: books/templates/books/book_detail.html:163 templates/403.html:27
+#: books/templates/books/book_detail.html:177 templates/403.html:27
 #: templates/404.html:20 templates/500.html:42
 msgid "Back to catalog"
 msgstr ""
 
-#: books/templates/books/book_detail.html:167
+#: books/templates/books/book_detail.html:181
 #: books/templates/books/book_form.html:18
 #: users/templates/users/profile.html:60
 #: users/templates/users/profile_edit.html:12
 msgid "Edit"
 msgstr ""
 
-#: books/templates/books/book_detail.html:170
+#: books/templates/books/book_detail.html:184
 msgid "Delete"
+msgstr ""
+
+#: books/templates/books/book_detail.html:204
+#: books/templates/books/book_list.html:33 templates/includes/messages.html:8
+msgid "Close"
 msgstr ""
 
 #: books/templates/books/book_form.html:10
@@ -732,10 +741,6 @@ msgstr ""
 #: books/templates/books/book_list.html:39
 #: books/templates/books/book_list.html:160
 msgid "Filters"
-msgstr ""
-
-#: books/templates/books/book_list.html:33 templates/includes/messages.html:8
-msgid "Close"
 msgstr ""
 
 #: books/templates/books/book_list.html:78
