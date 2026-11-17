@@ -522,3 +522,56 @@ main {
 .rate-star:hover {
     transform: scale(1.15);
 }
+
+/* The cover of the book page opens enlarged (books/book_detail.html):
+   a zoom-in pointer and a slight lift on hover say that it is clickable */
+.book-cover-zoom {
+    display: block;
+    width: 100%;
+    max-width: 240px;
+    cursor: zoom-in;
+}
+
+.book-cover-zoom .book-cover {
+    display: block;
+    transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.book-cover-zoom:hover .book-cover,
+.book-cover-zoom:focus-visible .book-cover {
+    transform: translateY(-2px);
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.2);
+}
+
+/* The enlarged cover: as big as the window allows, the whole picture
+   (contain), never wider than its own size; the close button over its
+   top right corner */
+.cover-modal .modal-content {
+    align-items: center;
+}
+
+.cover-modal__frame {
+    position: relative;
+    max-width: 100%;
+}
+
+.cover-modal__image {
+    display: block;
+    max-width: 100%;
+    max-height: 90vh;
+    object-fit: contain;
+    border-radius: var(--bs-border-radius);
+    box-shadow: 0 1rem 3rem rgba(0, 0, 0, 0.5);
+    cursor: zoom-out;
+}
+
+.cover-modal__close {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    z-index: 1;
+    padding: 0.5rem;
+    border-radius: 50%;
+    background-color: rgba(0, 0, 0, 0.5);
+    opacity: 1;
+}
