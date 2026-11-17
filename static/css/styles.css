@@ -314,3 +314,76 @@ main {
     background-color: var(--bs-primary-bg-subtle);
     color: var(--bs-primary-text-emphasis);
 }
+
+/* Book page (books/book_detail.html): the column right of the cover with
+   the title, the reserved row for the rating and the wishlist, the
+   categories and the description. It takes the free width between the
+   cover and the format tiles; narrower than 20rem it wraps under the
+   cover. min-width: 0 lets a long word wrap instead of widening it. */
+.book-main {
+    flex: 1 1 20rem;
+    min-width: 0;
+}
+
+/* Reserved for the stars (left) and the heart (right): one line high even
+   while empty, so the description does not move down when they come. */
+.book-meta {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    min-height: 1.75rem;
+    margin-bottom: 0.5rem;
+}
+
+.book-meta .book-wishlist {
+    margin-left: auto;
+}
+
+/* The headings of the parts of the book page: "Опис", "Характеристики".
+   Small capitals in the secondary colour: they name a part and do not
+   compete with the title of the book. */
+.book-section-title {
+    margin-bottom: 0.5rem;
+    color: var(--bs-secondary-color);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.book-description > p:last-child {
+    margin-bottom: 0;
+}
+
+/* A long text cut to a few lines (static/js/collapsible_text.js adds
+   .is-collapsible only when the text is longer than the limit; without
+   JavaScript the whole text is shown). The last lines fade out, so it is
+   clear that the text goes on. */
+.is-collapsible {
+    position: relative;
+    max-height: 12rem; /* about 8 lines */
+    overflow: hidden;
+    -webkit-mask-image: linear-gradient(to bottom, #000 65%, transparent);
+    mask-image: linear-gradient(to bottom, #000 65%, transparent);
+}
+
+.is-collapsible.is-expanded {
+    max-height: none;
+    -webkit-mask-image: none;
+    mask-image: none;
+}
+
+.collapsible-toggle {
+    margin-top: 0.25rem;
+    text-decoration: none;
+}
+
+.collapsible-toggle__arrow {
+    margin-left: 0.25rem;
+    transition: transform 0.2s;
+}
+
+/* Expanded: the arrow points up ("Show less") */
+.collapsible-toggle[aria-expanded="true"] .collapsible-toggle__arrow {
+    transform: rotate(180deg);
+}

@@ -213,4 +213,4 @@ def test_cache_hits_misses_and_clearing_are_logged(client, book, caplog):
     messages = [record.getMessage() for record in caplog.records if record.name == "books.cache"]
     assert f"Book cache miss: id={book.pk}, cached for {settings.BOOK_CACHE_TIMEOUT} s" in messages
     assert f"Book cache hit: id={book.pk}" in messages
-    assert f"Book cache cleared: ids=[{book.pk}] (7 keys), reason: Book saved" in messages
+    assert f"Book cache cleared: ids=[{book.pk}] (9 keys), reason: Book saved" in messages

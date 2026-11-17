@@ -22,7 +22,7 @@ Logs (logger "books.cache", see LOGGING in settings):
 DEBUG is shown only with DEBUG=True (APP_LOG_LEVEL). The hits of the
 {% cache %} fragments are not logged: the template tag has no hook for it;
 the fragments of a book are deleted together with its object (the same
-"cleared" line, "7 keys" = 1 object + 3 fragments x 2 languages).
+"cleared" line, "9 keys" = 1 object + 4 fragments x 2 languages).
 """
 
 import logging
@@ -36,7 +36,12 @@ from .models import Book
 
 # Names of the {% cache %} blocks in the templates. A new block with a book
 # in its key must be added here, or it is never invalidated.
-FRAGMENTS = ["book_card", "book_detail_header", "book_detail_body"]
+FRAGMENTS = [
+    "book_card",
+    "book_detail_header",
+    "book_detail_description",
+    "book_detail_body",
+]
 
 logger = logging.getLogger(__name__)
 

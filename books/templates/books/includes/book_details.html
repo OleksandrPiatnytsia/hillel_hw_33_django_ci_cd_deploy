@@ -15,7 +15,7 @@ A value with a filter of the catalog is a chip like the categories:
 a click opens the catalog with that filter set (the same GET parameters
 as the filter panel, books/filters.py). The pages have no filter: text.
 {% endcomment %}
-<h2 class="h6 mt-4">{% translate "Details" %}</h2>
+<h2 class="book-section-title">{% translate "Details" %}</h2>
 {% url 'books:list' as catalog_url %}
 <dl class="row book-details mb-3">
   {% if book.publisher %}
