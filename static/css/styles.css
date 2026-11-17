@@ -102,7 +102,15 @@ main {
         min-height: 0;
     }
 
+    /* position: relative is needed with overflow: a scroll box clips only
+       the absolutely positioned elements it is the containing block of.
+       Without it the hidden labels of the fields (.visually-hidden,
+       position: absolute) stayed where they would be in the unclipped
+       panel, far below the window, and made the whole page that tall: a
+       short list (page 2 with one book) scrolled up with its footer into
+       an empty space. */
     .filters-sidebar .card-body {
+        position: relative;
         overflow-y: auto;
         min-height: 0;
     }
@@ -156,6 +164,7 @@ main {
 /* Without JavaScript every option is shown: a long list scrolls instead
    of making the panel endless (the script shows 5 and "Show all") */
 .filter-options {
+    position: relative; /* clips its absolute children too, see .filters-sidebar .card-body */
     max-height: 20rem;
     overflow-y: auto;
 }
