@@ -218,69 +218,7 @@
     <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-3">
       {% for book in books %}
         <div class="col">
-          <article class="card h-100 shadow-sm book-card">
-            <img class="card-img-top book-cover" src="{{ book.cover_url }}"
-                 alt="" loading="lazy">
-            <div class="card-body d-flex flex-column">
-              {# Cached: title, author, categories (the rules: see the top of #}
-              {# book_detail.html). The price, the stock and the form stay outside. #}
-              {% cache cache_timeout book_card book.pk LANGUAGE_CODE %}
-              <h2 class="h6 card-title mb-1">
-                {# get_absolute_url() -> {% url 'books:detail' book.pk %} #}
-                <a class="stretched-link text-decoration-none" href="{{ book.get_absolute_url }}">
-                  {{ book.title }}
-                </a>
-              </h2>
-              <p class="card-subtitle text-body-secondary small mb-2">{{ book.author.name }}</p>
-
-              <div class="mb-3">
-                {# categories come from prefetch_related — no extra query per book #}
-                {% for category in book.categories.all %}
-                  <span class="badge rounded-pill bg-body-secondary text-body border">{{ category.name }}</span>
-                {% endfor %}
-              </div>
-              {% endcache %}
-
-              {% with formats=book.active_formats %}
-              <div class="mt-auto d-flex justify-content-between align-items-center">
-                {# The price "from" of the cheapest format on sale; the formats #}
-                {# come from with_active_formats() of the view, no query per card #}
-                {% include "books/includes/price_from.html" with book=book %}
-                {# The copies only for a book sold just on paper: with an e-book #}
-                {# too, "Out of stock" next to the price would be wrong #}
-                {% if book.paper_format and formats|length == 1 %}{% include "books/includes/stock_badge.html" with book=book %}{% endif %}
-              </div>
-
-              {# The stretched-link above covers the whole card with a link #}
-              {# (::after, z-index 1); position-relative + z-2 put the button #}
-              {# above it, so the button gets the click, not the link #}
-              {% if formats|length > 1 %}
-                {# Several formats: the format and its price are chosen on the #}
-                {# book page (the tiles), not guessed here #}
-                <a class="btn btn-sm btn-outline-primary position-relative z-2 mt-2"
-                   href="{{ book.get_absolute_url }}">{% translate "Choose format" %}</a>
-              {% else %}
-                <form class="position-relative z-2 mt-2 d-grid" method="post"
-                      action="{% url 'cart:add' book.pk %}">
-                  {% csrf_token %}
-                  <input type="hidden" name="quantity" value="1">
-                  {% if formats %}<input type="hidden" name="format" value="{{ formats.0.pk }}">{% endif %}
-                  {# Back to this page with its filters and page number #}
-                  <input type="hidden" name="next" value="{{ request.get_full_path }}">
-                  {# Out of stock or not on sale: invisible (visibility: hidden) #}
-                  {# keeps the button's space, so price rows stay aligned across #}
-                  {# the cards in a row; the badge already explains why. disabled: #}
-                  {# the form can't be sent anyway (Cart.add() would refuse it too). #}
-                  {% if book.available %}
-                    <button class="btn btn-sm btn-outline-primary" type="submit">{% translate "Add to cart" %}</button>
-                  {% else %}
-                    <button class="btn btn-sm btn-outline-primary invisible" type="submit" disabled>{% translate "Add to cart" %}</button>
-                  {% endif %}
-                </form>
-              {% endif %}
-              {% endwith %}
-            </div>
-          </article>
+          {% include "books/includes/book_card.html" %}
         </div>
       {% empty %}
         <div class="col-12">

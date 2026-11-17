@@ -102,7 +102,15 @@ main {
         min-height: 0;
     }
 
+    /* position: relative is needed with overflow: a scroll box clips only
+       the absolutely positioned elements it is the containing block of.
+       Without it the hidden labels of the fields (.visually-hidden,
+       position: absolute) stayed where they would be in the unclipped
+       panel, far below the window, and made the whole page that tall: a
+       short list (page 2 with one book) scrolled up with its footer into
+       an empty space. */
     .filters-sidebar .card-body {
+        position: relative;
         overflow-y: auto;
         min-height: 0;
     }
@@ -156,6 +164,7 @@ main {
 /* Without JavaScript every option is shown: a long list scrolls instead
    of making the panel endless (the script shows 5 and "Show all") */
 .filter-options {
+    position: relative; /* clips its absolute children too, see .filters-sidebar .card-body */
     max-height: 20rem;
     overflow-y: auto;
 }
@@ -313,4 +322,137 @@ main {
     border-color: var(--bs-primary);
     background-color: var(--bs-primary-bg-subtle);
     color: var(--bs-primary-text-emphasis);
+}
+
+/* Book page (books/book_detail.html): the column right of the cover with
+   the title, the reserved row for the rating and the wishlist, the
+   categories and the description. It takes the free width between the
+   cover and the format tiles; narrower than 20rem it wraps under the
+   cover. min-width: 0 lets a long word wrap instead of widening it. */
+.book-main {
+    flex: 1 1 20rem;
+    min-width: 0;
+}
+
+/* Reserved for the stars (left) and the heart (right): one line high even
+   while empty, so the description does not move down when they come. */
+.book-meta {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    min-height: 1.75rem;
+    margin-bottom: 0.5rem;
+}
+
+.book-meta .book-wishlist {
+    margin-left: auto;
+}
+
+/* The headings of the parts of the book page: "Опис", "Характеристики".
+   Small capitals in the secondary colour: they name a part and do not
+   compete with the title of the book. */
+.book-section-title {
+    margin-bottom: 0.5rem;
+    color: var(--bs-secondary-color);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.book-description > p:last-child {
+    margin-bottom: 0;
+}
+
+/* A long text cut to a few lines (static/js/collapsible_text.js adds
+   .is-collapsible only when the text is longer than the limit; without
+   JavaScript the whole text is shown). The last lines fade out, so it is
+   clear that the text goes on. */
+.is-collapsible {
+    position: relative;
+    max-height: 12rem; /* about 8 lines */
+    overflow: hidden;
+    -webkit-mask-image: linear-gradient(to bottom, #000 65%, transparent);
+    mask-image: linear-gradient(to bottom, #000 65%, transparent);
+}
+
+.is-collapsible.is-expanded {
+    max-height: none;
+    -webkit-mask-image: none;
+    mask-image: none;
+}
+
+.collapsible-toggle {
+    margin-top: 0.25rem;
+    text-decoration: none;
+}
+
+.collapsible-toggle__arrow {
+    margin-left: 0.25rem;
+    transition: transform 0.2s;
+}
+
+/* Expanded: the arrow points up ("Show less") */
+.collapsible-toggle[aria-expanded="true"] .collapsible-toggle__arrow {
+    transform: rotate(180deg);
+}
+
+/* The heart of the wishlist (wishlist/includes/heart.html).
+   An outline; filled red when the book is saved (.is-saved). */
+.wishlist-heart {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    border: 1px solid var(--bs-border-color);
+    background-color: var(--bs-body-bg);
+    color: var(--bs-secondary-color);
+    text-decoration: none;
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s, transform 0.15s;
+}
+
+.wishlist-heart__icon path {
+    fill: transparent;
+    transition: fill 0.15s;
+}
+
+.wishlist-heart:hover,
+.wishlist-heart:focus-visible,
+.wishlist-heart.is-saved {
+    border-color: var(--bs-danger-border-subtle);
+    color: var(--bs-danger);
+}
+
+.wishlist-heart.is-saved .wishlist-heart__icon path {
+    fill: currentColor;
+}
+
+.wishlist-heart:active {
+    transform: scale(0.92);
+}
+
+/* On a card: a round button in the top right corner of the cover, above
+   the stretched-link of the title (z-index 2, the link's ::after is 1) */
+.wishlist-form--card {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    z-index: 2;
+}
+
+.wishlist-heart--card {
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    padding: 0;
+    border-radius: 50%;
+    box-shadow: 0 0.125rem 0.375rem rgba(0, 0, 0, 0.15);
+}
+
+/* On the book page: a button with the text, in the row of the rating */
+.wishlist-heart--page {
+    padding: 0.25rem 0.75rem;
+    border-radius: 50rem;
+    font-size: 0.875rem;
+    font-weight: 600;
 }

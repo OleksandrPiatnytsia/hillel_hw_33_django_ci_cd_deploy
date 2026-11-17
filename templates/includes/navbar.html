@@ -137,6 +137,7 @@
               <li><span class="dropdown-item-text small text-body-secondary">{{ user.email }}</span></li>
               <li><a class="dropdown-item" href="{% url 'users:profile' %}">{% translate "My profile" %}</a></li>
               <li><a class="dropdown-item" href="{% url 'orders:list' %}">{% translate "My orders" %}</a></li>
+              <li><a class="dropdown-item" href="{% url 'wishlist:detail' %}">{% translate "Wishlist" %}</a></li>
               <li><hr class="dropdown-divider"></li>
               <li>
                 {# Logout must be POST (Django 5+): a plain link could be #}

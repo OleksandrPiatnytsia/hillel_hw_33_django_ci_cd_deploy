@@ -31,7 +31,11 @@
 
   <footer class="border-top py-3 bg-body">
     <div class="container small text-body-secondary">
-      {% translate "Bookstore · Hillel Django homework" %}
+      {# "Bookstore" is a msgid of its own (the title of the page uses it too); #}
+      {# the homework is a link to the course page of Hillel #}
+      {% translate "Bookstore" %} ·
+      <a class="link-secondary" href="https://ithillel.ua/courses/python-pro"
+         target="_blank" rel="noopener">{% translate "Hillel Django homework" %}</a>
       {# The version and the deployed commit (config/version.py): after a #}
       {# deploy the commit changes, so the new code is visibly online #}
       {% if app_version %}
@@ -50,6 +54,9 @@
           crossorigin="anonymous"></script>
   {# defer: runs after the page is parsed, the navbar form already exists #}
   <script src="{% static 'js/book_search.js' %}" defer></script>
+  {# The hearts of the wishlist: the catalog, the book page, the wishlist #}
+  {# page; one listener for the whole document, so a small file for all #}
+  <script src="{% static 'js/wishlist.js' %}" defer></script>
   {% block scripts %}{% endblock %}
 </body>
 </html>

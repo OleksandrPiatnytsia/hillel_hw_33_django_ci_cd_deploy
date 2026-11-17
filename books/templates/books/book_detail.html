@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load i18n cache money %}
+{% load i18n cache money static %}
 {# Cached fragments ({% cache %}): parts that are the same for every visitor. #}
 {# The key: the fragment name + book.pk + the language (the texts around the #}
 {# data are translated). books/signals.py deletes them when the book, its #}
@@ -22,19 +22,61 @@
 
 <div class="card shadow-sm">
   <div class="card-body p-4">
-    <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
-      {% cache cache_timeout book_detail_header book.pk LANGUAGE_CODE %}
+    <div class="d-flex flex-wrap justify-content-between align-items-start gap-4">
+      {# Not cached: only the URL of the cover, the book itself is cached #}
+      {# (get_cached_book) #}
       <img class="book-cover book-cover--large" src="{{ book.cover_url }}"
            alt="{% blocktranslate with title=book.title %}Cover of {{ title }}{% endblocktranslate %}">
-      <div class="flex-grow-1">
+      {# The column right of the cover: title, author, rating + wishlist, #}
+      {# categories, description. Three parts: two cached fragments and #}
+      {# between them the row of the visitor's own things, never cached #}
+      <div class="book-main">
+        {% cache cache_timeout book_detail_header book.pk LANGUAGE_CODE %}
         <h1 class="h3 mb-1">{{ book.title }}</h1>
         <p class="mb-2"><a class="link-secondary" href="{{ book.author.get_absolute_url }}">{{ book.author.name }}</a></p>
+        {% endcache %}
+        {# The row of the rating and the wishlist (min-height in styles.css, #}
+        {# so the page does not jump when the rating comes): #}
+        {#   .book-rating   - the stars and the count of the ratings (later); #}
+        {#   .book-wishlist - the heart; per visitor, so outside the cache. #}
+        <div class="book-meta">
+          <div class="book-rating"></div>
+          <div class="book-wishlist">
+            {% include "wishlist/includes/heart.html" with book=book variant="page" %}
+          </div>
+        </div>
+        {% cache cache_timeout book_detail_description book.pk LANGUAGE_CODE %}
         {% for category in book.categories.all %}
           {# Click on a category -> catalog filtered by it #}
           <a class="filter-chip" href="{% url 'books:list' %}?category={{ category.slug }}">{{ category.name }}</a>
         {% endfor %}
+        <section class="book-description-section mt-3" aria-labelledby="book-description-title">
+          <h2 class="book-section-title" id="book-description-title">{% translate "Description" %}</h2>
+          {% if book.description %}
+            {# A long text is cut to a few lines with a fade and a button #}
+            {# "Read more" (static/js/collapsible_text.js). Without #}
+            {# JavaScript the whole text is shown: the cut is added by it #}
+            <div class="book-description" id="book-description" data-collapsible-text>
+              {# linebreaks: \n -> <br>, blank line -> new <p>; text is still auto-escaped #}
+              {{ book.description|linebreaks }}
+            </div>
+            <button class="btn btn-link btn-sm p-0 collapsible-toggle" type="button" hidden
+                    aria-controls="book-description" aria-expanded="false"
+                    data-label-more="{% translate 'Read more' %}"
+                    data-label-less="{% translate 'Show less' %}">
+              <span class="collapsible-toggle__label">{% translate "Read more" %}</span>
+              <svg class="collapsible-toggle__arrow" width="12" height="12" viewBox="0 0 16 16"
+                   aria-hidden="true" focusable="false">
+                <path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                      stroke-linejoin="round" d="M3 6l5 5 5-5"/>
+              </svg>
+            </button>
+          {% else %}
+            <p class="text-body-secondary fst-italic mb-0">{% translate "No description yet." %}</p>
+          {% endif %}
+        </section>
+        {% endcache %}
       </div>
-      {% endcache %}
       <div class="text-end">
         {# No price "from" here: every format is a tile with its own price, #}
         {# one format too, so the page looks the same for one or several #}
@@ -111,13 +153,6 @@
     <hr>
 
     {% cache cache_timeout book_detail_body book.pk LANGUAGE_CODE %}
-    {% if book.description %}
-      {# linebreaks: \n -> <br>, blank line -> new <p>; text is still auto-escaped #}
-      {{ book.description|linebreaks }}
-    {% else %}
-      <p class="text-body-secondary fst-italic">{% translate "No description yet." %}</p>
-    {% endif %}
-
     {% include "books/includes/book_details.html" %}
     {% endcache %}
   </div>
@@ -135,4 +170,8 @@
     </div>
   </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'js/collapsible_text.js' %}" defer></script>
 {% endblock %}

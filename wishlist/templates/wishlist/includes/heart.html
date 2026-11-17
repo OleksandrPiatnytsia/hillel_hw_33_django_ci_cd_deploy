@@ -1,0 +1,52 @@
+{% load i18n %}
+{% comment %}
+The heart of the wishlist: a book card (variant="card": a round button in
+the corner of the cover) and the book page (variant="page": a button with
+a text, in the .book-wishlist slot of book_detail.html).
+Usage: {% include "wishlist/includes/heart.html" with book=book variant="card" %}
+
+Per visitor, so never inside a {% cache %} fragment.
+- A logged-in user: a POST form to wishlist:add or wishlist:remove (the
+  one it does not have yet). static/js/wishlist.js sends it with fetch()
+  and swaps the state in place; without JavaScript it is a normal form
+  (a message and back to "next").
+- A guest: a link to the login page, back to this page after it.
+"wishlist": the context processor wishlist.context_processors.wishlist
+(one query for all the hearts of the page).
+The labels for both states are in data-*: the script switches them, the
+texts stay translated by Django.
+{% endcomment %}
+{% translate "Add to wishlist" as label_add %}
+{% translate "Remove from wishlist" as label_remove %}
+{% if user.is_authenticated %}
+  {% if book.pk in wishlist %}
+    <form class="wishlist-form wishlist-form--{{ variant }}" method="post"
+          action="{% url 'wishlist:remove' book.pk %}" data-wishlist-form>
+  {% else %}
+    <form class="wishlist-form wishlist-form--{{ variant }}" method="post"
+          action="{% url 'wishlist:add' book.pk %}" data-wishlist-form>
+  {% endif %}
+    {% csrf_token %}
+    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+    <button class="wishlist-heart wishlist-heart--{{ variant }}{% if book.pk in wishlist %} is-saved{% endif %}"
+            type="submit"
+            aria-pressed="{% if book.pk in wishlist %}true{% else %}false{% endif %}"
+            title="{% if book.pk in wishlist %}{{ label_remove }}{% else %}{{ label_add }}{% endif %}"
+            aria-label="{% if book.pk in wishlist %}{{ label_remove }}{% else %}{{ label_add }}{% endif %}"
+            data-label-add="{{ label_add }}" data-label-remove="{{ label_remove }}"
+            {% if variant == "page" %}data-text-add="{% translate 'To wishlist' %}" data-text-saved="{% translate 'In wishlist' %}"{% endif %}>
+      {% include "wishlist/includes/heart_icon.html" %}
+      {% if variant == "page" %}
+        <span class="wishlist-heart__text">{% if book.pk in wishlist %}{% translate "In wishlist" %}{% else %}{% translate "To wishlist" %}{% endif %}</span>
+      {% endif %}
+    </button>
+  </form>
+{% else %}
+  {% translate "Log in to save books to your wishlist" as label_login %}
+  <a class="wishlist-heart wishlist-heart--{{ variant }}{% if variant == 'card' %} wishlist-form--card{% endif %}"
+     href="{% url 'users:login' %}?next={{ request.get_full_path|urlencode }}"
+     title="{{ label_login }}" aria-label="{{ label_login }}">
+    {% include "wishlist/includes/heart_icon.html" %}
+    {% if variant == "page" %}<span class="wishlist-heart__text">{% translate "To wishlist" %}</span>{% endif %}
+  </a>
+{% endif %}

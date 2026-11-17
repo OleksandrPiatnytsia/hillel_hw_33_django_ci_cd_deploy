@@ -81,6 +81,7 @@ INSTALLED_APPS = [
     # Warehouses and the stock of books (was the column Book.stock)
     "inventory",
     "cart",
+    "wishlist",
     "orders",
     "payments",
     # Currencies and the history of their exchange rates (NBU)
@@ -149,6 +150,9 @@ TEMPLATES = [
                 "django.contrib.messages.context_processors.messages",
                 # "cart" in every template: navbar counter, cart page
                 "cart.context_processors.cart",
+                # "wishlist": the hearts and the count of the profile (one
+                # query per page, only for a logged-in user, only if asked)
+                "wishlist.context_processors.wishlist",
                 # "display_currency" and "currency_choices": the currency
                 # switcher in the navbar
                 "currencies.context_processors.currency",

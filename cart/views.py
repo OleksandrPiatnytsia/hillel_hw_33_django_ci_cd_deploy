@@ -107,6 +107,10 @@ def cart_change_format(request, format_id):
     when it changes, or by its button without JavaScript). The new format
     must be of the same book, otherwise 404. Not on sale or out of stock:
     the line stays as it was, with a message.
+
+    No "added to the cart" message: nothing was added, the user sees the
+    new format in the line. A message only when something went not as
+    asked: refused (the line stays) or cut to the stock of the paper book.
     """
     book_format = get_object_or_404(_formats(), pk=format_id)
     form = CartFormatForm(request.POST)
@@ -119,8 +123,12 @@ def cart_change_format(request, format_id):
     cart = Cart(request)
     if not cart.quantity_of(book_format) or new_format.pk == book_format.pk:
         return _redirect_back(request)
+    # The quantity the line should get: its own + the copies of new_format
+    # already in the cart (the two lines become one)
+    wanted = cart.quantity_of(book_format) + cart.quantity_of(new_format)
     quantity = cart.change_format(book_format, new_format)
-    _report(request, new_format, quantity)
+    if quantity < wanted:
+        _report(request, new_format, quantity)
     return _redirect_back(request)
 
 

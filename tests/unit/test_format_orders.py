@@ -199,8 +199,40 @@ def test_change_format_in_the_cart(client):
 
     response = client.post(reverse("cart:change_format", args=[paper.pk]), {"format": ebook.pk})
 
-    assert message_levels(response)[-1] == "success"
+    # No second "added to the cart" message: only the one of the add
+    assert message_levels(response) == ["success"]
     assert client.session[CART_SESSION_KEY] == {str(ebook.pk): {"quantity": 2}}
+
+
+# Generated with AI
+def test_change_format_merging_two_lines_shows_no_message(client):
+    book, paper, ebook = _two_formats()
+    url = reverse("cart:add", args=[book.pk])
+    client.post(url, {"quantity": 2, "format": paper.pk})
+    client.post(url, {"quantity": 1, "format": ebook.pk})
+    client.get(reverse("cart:detail"))  # the messages of the adds are shown and gone
+
+    response = client.post(
+        reverse("cart:change_format", args=[ebook.pk]), {"format": paper.pk}, follow=True
+    )
+
+    assert list(response.context["messages"]) == []
+    assert client.session[CART_SESSION_KEY] == {str(paper.pk): {"quantity": 3}}
+
+
+# Generated with AI
+def test_change_format_cut_to_the_stock_warns(client):
+    book, paper, ebook = _two_formats(stock=2)
+    client.post(reverse("cart:add", args=[book.pk]), {"quantity": 5, "format": ebook.pk})
+    client.get(reverse("cart:detail"))
+
+    response = client.post(
+        reverse("cart:change_format", args=[ebook.pk]), {"format": paper.pk}, follow=True
+    )
+
+    messages = [(m.level_tag, str(m)) for m in response.context["messages"]]
+    assert messages == [("warning", "«Тигролови (Паперова)»: у кошику 2, це все, що є на складі.")]
+    assert client.session[CART_SESSION_KEY] == {str(paper.pk): {"quantity": 2}}
 
 
 # Generated with AI
