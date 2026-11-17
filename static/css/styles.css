@@ -387,3 +387,63 @@ main {
 .collapsible-toggle[aria-expanded="true"] .collapsible-toggle__arrow {
     transform: rotate(180deg);
 }
+
+/* The heart of the wishlist (wishlist/includes/heart.html).
+   An outline; filled red when the book is saved (.is-saved). */
+.wishlist-heart {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    border: 1px solid var(--bs-border-color);
+    background-color: var(--bs-body-bg);
+    color: var(--bs-secondary-color);
+    text-decoration: none;
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s, transform 0.15s;
+}
+
+.wishlist-heart__icon path {
+    fill: transparent;
+    transition: fill 0.15s;
+}
+
+.wishlist-heart:hover,
+.wishlist-heart:focus-visible,
+.wishlist-heart.is-saved {
+    border-color: var(--bs-danger-border-subtle);
+    color: var(--bs-danger);
+}
+
+.wishlist-heart.is-saved .wishlist-heart__icon path {
+    fill: currentColor;
+}
+
+.wishlist-heart:active {
+    transform: scale(0.92);
+}
+
+/* On a card: a round button in the top right corner of the cover, above
+   the stretched-link of the title (z-index 2, the link's ::after is 1) */
+.wishlist-form--card {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    z-index: 2;
+}
+
+.wishlist-heart--card {
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    padding: 0;
+    border-radius: 50%;
+    box-shadow: 0 0.125rem 0.375rem rgba(0, 0, 0, 0.15);
+}
+
+/* On the book page: a button with the text, in the row of the rating */
+.wishlist-heart--page {
+    padding: 0.25rem 0.75rem;
+    border-radius: 50rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+}

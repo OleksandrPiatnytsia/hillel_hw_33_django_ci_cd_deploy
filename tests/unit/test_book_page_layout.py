@@ -103,7 +103,8 @@ def test_reserved_row_for_rating_and_wishlist_is_between_author_and_categories(c
     meta = column.index('<div class="book-meta">')
     assert column.index(book.author.name) < meta < column.index("Поезія")
     assert '<div class="book-rating"></div>' in column
-    assert '<div class="book-wishlist"></div>' in column
+    # The heart is in its slot (tests/unit/test_wishlist.py), the rating comes later
+    assert column.index('<div class="book-wishlist">') < column.index("wishlist-heart--page")
 
 
 # Generated with AI

@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Bookstore\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-17 08:06+0000\n"
+"POT-Creation-Date: 2026-11-17 08:28+0000\n"
 "PO-Revision-Date: 2026-11-10 16:00+0200\n"
 "Last-Translator: Bookstore\n"
 "Language-Team: English\n"
@@ -130,7 +130,7 @@ msgid "categories"
 msgstr ""
 
 #: books/admin.py:42 books/models.py:321 books/models.py:511
-#: books/models.py:655 orders/models.py:239
+#: books/models.py:655 orders/models.py:239 wishlist/models.py:27
 msgid "book"
 msgstr ""
 
@@ -209,7 +209,7 @@ msgstr ""
 msgid "Language"
 msgstr ""
 
-#: books/filters.py:73 books/templates/books/book_detail.html:92
+#: books/filters.py:73 books/templates/books/book_detail.html:94
 #: cart/templates/cart/cart_detail.html:17
 #: orders/templates/orders/checkout.html:110
 #: orders/templates/orders/emails/order_cancelled.html:27
@@ -372,7 +372,7 @@ msgstr ""
 msgid "Low (≤ {threshold})"
 msgstr ""
 
-#: books/models.py:34 books/templates/books/book_detail.html:111
+#: books/models.py:34 books/templates/books/book_detail.html:113
 #: books/templates/books/includes/stock_badge.html:4
 msgid "Out of stock"
 msgstr ""
@@ -411,11 +411,11 @@ msgstr ""
 msgid "publishers"
 msgstr ""
 
-#: books/models.py:266 config/settings/base.py:387
+#: books/models.py:266 config/settings/base.py:391
 msgid "Ukrainian"
 msgstr ""
 
-#: books/models.py:267 config/settings/base.py:388
+#: books/models.py:267 config/settings/base.py:392
 msgid "English"
 msgstr ""
 
@@ -564,6 +564,8 @@ msgid "Add author (admin)"
 msgstr ""
 
 #: books/templates/books/author_list.html:23
+#: users/templates/users/profile.html:48
+#: wishlist/templates/wishlist/wishlist.html:13
 #, python-format
 msgid "%(count)s book"
 msgid_plural "%(count)s books"
@@ -628,30 +630,30 @@ msgstr ""
 msgid "Cover of %(title)s"
 msgstr ""
 
-#: books/templates/books/book_detail.html:52
+#: books/templates/books/book_detail.html:54
 msgid "Description"
 msgstr ""
 
-#: books/templates/books/book_detail.html:63
 #: books/templates/books/book_detail.html:65
+#: books/templates/books/book_detail.html:67
 msgid "Read more"
 msgstr ""
 
-#: books/templates/books/book_detail.html:64
+#: books/templates/books/book_detail.html:66
 #: books/templates/books/includes/filter_section.html:46
 msgid "Show less"
 msgstr ""
 
-#: books/templates/books/book_detail.html:73
+#: books/templates/books/book_detail.html:75
 msgid "No description yet."
 msgstr ""
 
-#: books/templates/books/book_detail.html:105
+#: books/templates/books/book_detail.html:107
 #, python-format
 msgid "%(original)s at the NBU rate of %(date)s"
 msgstr ""
 
-#: books/templates/books/book_detail.html:113
+#: books/templates/books/book_detail.html:115
 #: books/templates/books/includes/stock_badge.html:7
 #, python-format
 msgid "Only %(stock)s copy left"
@@ -659,41 +661,41 @@ msgid_plural "Only %(stock)s copies left"
 msgstr[0] ""
 msgstr[1] ""
 
-#: books/templates/books/book_detail.html:129
+#: books/templates/books/book_detail.html:131
 #: cart/templates/cart/cart_detail.html:19
 #: orders/templates/orders/order_detail.html:33
 msgid "Quantity"
 msgstr ""
 
-#: books/templates/books/book_detail.html:130
-#: books/templates/books/book_list.html:275
-#: books/templates/books/book_list.html:277
+#: books/templates/books/book_detail.html:132
+#: books/templates/books/includes/book_card.html:68
+#: books/templates/books/includes/book_card.html:70
 msgid "Add to cart"
 msgstr ""
 
-#: books/templates/books/book_detail.html:135
+#: books/templates/books/book_detail.html:137
 #: books/templates/books/includes/price_from.html:13
 msgid "Not on sale"
 msgstr ""
 
-#: books/templates/books/book_detail.html:142
+#: books/templates/books/book_detail.html:144
 #, python-format
 msgid "In your <a href=\"%(cart_url)s\">cart</a>:"
 msgstr ""
 
-#: books/templates/books/book_detail.html:159 templates/403.html:27
+#: books/templates/books/book_detail.html:161 templates/403.html:27
 #: templates/404.html:20 templates/500.html:42
 msgid "Back to catalog"
 msgstr ""
 
-#: books/templates/books/book_detail.html:163
+#: books/templates/books/book_detail.html:165
 #: books/templates/books/book_form.html:18
-#: users/templates/users/profile.html:51
+#: users/templates/users/profile.html:60
 #: users/templates/users/profile_edit.html:12
 msgid "Edit"
 msgstr ""
 
-#: books/templates/books/book_detail.html:166
+#: books/templates/books/book_detail.html:168
 msgid "Delete"
 msgstr ""
 
@@ -794,16 +796,16 @@ msgstr ""
 msgid "Show"
 msgstr ""
 
-#: books/templates/books/book_list.html:261
-msgid "Choose format"
-msgstr ""
-
-#: books/templates/books/book_list.html:288
+#: books/templates/books/book_list.html:226
 msgid "No books match these filters."
 msgstr ""
 
-#: books/templates/books/book_list.html:289
+#: books/templates/books/book_list.html:227
 msgid "Show all books"
+msgstr ""
+
+#: books/templates/books/includes/book_card.html:54
+msgid "Choose format"
 msgstr ""
 
 #: books/templates/books/includes/book_details.html:28
@@ -892,7 +894,7 @@ msgstr ""
 
 #: cart/apps.py:8 cart/templates/cart/cart_detail.html:4
 #: cart/templates/cart/cart_detail.html:7
-#: orders/templates/orders/checkout.html:9 templates/includes/navbar.html:122
+#: orders/templates/orders/checkout.html:9 templates/includes/navbar.html:136
 msgid "Cart"
 msgstr ""
 
@@ -984,6 +986,7 @@ msgstr ""
 #: cart/templates/cart/cart_detail.html:128
 #: orders/templates/orders/emails/order_cancelled.html:51
 #: orders/templates/orders/order_list.html:45
+#: wishlist/templates/wishlist/wishlist.html:32
 msgid "Go to the catalog"
 msgstr ""
 
@@ -1006,12 +1009,12 @@ msgstr ""
 msgid "Quantity must be a whole number, 1 or more."
 msgstr ""
 
-#: cart/views.py:139
+#: cart/views.py:147
 #, python-format
 msgid "“%(title)s” removed from the cart."
 msgstr ""
 
-#: cart/views.py:152
+#: cart/views.py:160
 msgid "The cart is empty now."
 msgstr ""
 
@@ -1367,7 +1370,7 @@ msgstr ""
 msgid "Paid"
 msgstr ""
 
-#: orders/models.py:43
+#: orders/models.py:43 wishlist/models.py:21
 msgid "user"
 msgstr ""
 
@@ -1682,7 +1685,7 @@ msgstr ""
 
 #: orders/templates/orders/order_detail.html:9
 #: orders/templates/orders/order_list.html:4
-#: orders/templates/orders/order_list.html:7 templates/includes/navbar.html:139
+#: orders/templates/orders/order_list.html:7 templates/includes/navbar.html:153
 msgid "My orders"
 msgstr ""
 
@@ -2061,21 +2064,28 @@ msgstr ""
 msgid "System"
 msgstr ""
 
-#: templates/includes/navbar.html:138 users/templates/users/profile.html:4
+#: templates/includes/navbar.html:122 templates/includes/navbar.html:123
+#: templates/includes/navbar.html:154 users/templates/users/profile.html:46
+#: wishlist/apps.py:8 wishlist/templates/wishlist/wishlist.html:4
+#: wishlist/templates/wishlist/wishlist.html:10
+msgid "Wishlist"
+msgstr ""
+
+#: templates/includes/navbar.html:152 users/templates/users/profile.html:4
 #: users/templates/users/profile_edit.html:11
 msgid "My profile"
 msgstr ""
 
-#: templates/includes/navbar.html:146
+#: templates/includes/navbar.html:161
 msgid "Log out"
 msgstr ""
 
-#: templates/includes/navbar.html:155 users/templates/users/auth_form.html:54
+#: templates/includes/navbar.html:170 users/templates/users/auth_form.html:54
 #: users/views.py:41
 msgid "Log in"
 msgstr ""
 
-#: templates/includes/navbar.html:159 users/templates/users/auth_form.html:52
+#: templates/includes/navbar.html:174 users/templates/users/auth_form.html:52
 #: users/views.py:73
 msgid "Sign up"
 msgstr ""
@@ -2088,7 +2098,7 @@ msgstr ""
 msgid "Next"
 msgstr ""
 
-#: users/admin.py:20 users/templates/users/profile.html:50
+#: users/admin.py:20 users/templates/users/profile.html:59
 #: users/templates/users/profile_edit.html:18
 msgid "Delivery details"
 msgstr ""
@@ -2153,60 +2163,60 @@ msgstr ""
 msgid "Groups"
 msgstr ""
 
-#: users/templates/users/profile.html:38 users/templates/users/profile.html:117
+#: users/templates/users/profile.html:38 users/templates/users/profile.html:126
 msgid "none"
 msgstr ""
 
-#: users/templates/users/profile.html:55
+#: users/templates/users/profile.html:64
 msgid "Name"
 msgstr ""
 
-#: users/templates/users/profile.html:58
+#: users/templates/users/profile.html:67
 msgid "Phone"
 msgstr ""
 
-#: users/templates/users/profile.html:61
+#: users/templates/users/profile.html:70
 msgid "Address"
 msgstr ""
 
-#: users/templates/users/profile.html:68
+#: users/templates/users/profile.html:77
 msgid "What you can do in the catalog"
 msgstr ""
 
-#: users/templates/users/profile.html:71
+#: users/templates/users/profile.html:80
 msgid "add books"
 msgstr ""
 
-#: users/templates/users/profile.html:72
+#: users/templates/users/profile.html:81
 msgid "edit books"
 msgstr ""
 
-#: users/templates/users/profile.html:73
+#: users/templates/users/profile.html:82
 msgid "change stock"
 msgstr ""
 
-#: users/templates/users/profile.html:74
+#: users/templates/users/profile.html:83
 msgid "delete books"
 msgstr ""
 
-#: users/templates/users/profile.html:79
+#: users/templates/users/profile.html:88
 msgid "Exchange rates"
 msgstr ""
 
-#: users/templates/users/profile.html:81
+#: users/templates/users/profile.html:90
 msgid "Load the NBU rates"
 msgstr ""
 
-#: users/templates/users/profile.html:83
+#: users/templates/users/profile.html:92
 msgid ""
 "See the numbers of the NBU, correct them if needed and save with a button"
 msgstr ""
 
-#: users/templates/users/profile.html:91
+#: users/templates/users/profile.html:100
 msgid "Tools"
 msgstr ""
 
-#: users/templates/users/profile.html:112
+#: users/templates/users/profile.html:121
 #, python-format
 msgid "All permissions (%(count)s)"
 msgstr ""
@@ -2319,4 +2329,53 @@ msgstr ""
 
 #: users/views.py:156
 msgid "Your profile is saved."
+msgstr ""
+
+#: wishlist/models.py:30
+msgid "added"
+msgstr ""
+
+#: wishlist/models.py:33
+msgid "wishlist item"
+msgstr ""
+
+#: wishlist/models.py:34
+msgid "wishlist items"
+msgstr ""
+
+#: wishlist/templates/wishlist/includes/heart.html:19
+msgid "Add to wishlist"
+msgstr ""
+
+#: wishlist/templates/wishlist/includes/heart.html:20
+msgid "Remove from wishlist"
+msgstr ""
+
+#: wishlist/templates/wishlist/includes/heart.html:37
+#: wishlist/templates/wishlist/includes/heart.html:40
+#: wishlist/templates/wishlist/includes/heart.html:50
+msgid "To wishlist"
+msgstr ""
+
+#: wishlist/templates/wishlist/includes/heart.html:37
+#: wishlist/templates/wishlist/includes/heart.html:40
+msgid "In wishlist"
+msgstr ""
+
+#: wishlist/templates/wishlist/includes/heart.html:45
+msgid "Log in to save books to your wishlist"
+msgstr ""
+
+#: wishlist/templates/wishlist/wishlist.html:31
+msgid "Your wishlist is empty. Tap the heart on a book to save it here."
+msgstr ""
+
+#: wishlist/views.py:90
+#, python-format
+msgid "“%(title)s” is in your wishlist."
+msgstr ""
+
+#: wishlist/views.py:101
+#, python-format
+msgid "“%(title)s” is removed from your wishlist."
 msgstr ""

@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% translate "Wishlist" %}{% endblock %}
+
+{% block content %}
+{# Inside the block: in a template with {% extends %} code outside blocks never runs #}
+{% get_current_language as LANGUAGE_CODE %}
+<div class="d-flex flex-wrap align-items-baseline justify-content-between gap-2 mb-3">
+  <h1 class="h3 mb-0">{% translate "Wishlist" %}</h1>
+  {% if paginator.count %}
+    {# count: 1 книга, 2 книги, 5 книг #}
+    <span class="text-body-secondary">{% blocktranslate trimmed count count=paginator.count %}
+      {{ count }} book
+    {% plural %}
+      {{ count }} books
+    {% endblocktranslate %}</span>
+  {% endif %}
+</div>
+
+{# data-wishlist-page: static/js/wishlist.js removes the card of a book #}
+{# taken out with its heart (and reloads when the page gets empty) #}
+<div class="row row-cols-1 row-cols-md-2 row-cols-xl-4 g-3" data-wishlist-page>
+  {% for book in books %}
+    <div class="col" data-wishlist-card>
+      {% include "books/includes/book_card.html" %}
+    </div>
+  {% empty %}
+    <div class="col-12">
+      <div class="alert alert-info mb-0">
+        {% translate "Your wishlist is empty. Tap the heart on a book to save it here." %}
+        <a href="{% url 'books:list' %}" class="alert-link">{% translate "Go to the catalog" %}</a>
+      </div>
+    </div>
+  {% endfor %}
+</div>
+
+{% include "includes/pagination.html" %}
+{% endblock %}

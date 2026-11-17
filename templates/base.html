@@ -50,6 +50,9 @@
           crossorigin="anonymous"></script>
   {# defer: runs after the page is parsed, the navbar form already exists #}
   <script src="{% static 'js/book_search.js' %}" defer></script>
+  {# The hearts of the wishlist: the catalog, the book page, the wishlist #}
+  {# page; one listener for the whole document, so a small file for all #}
+  <script src="{% static 'js/wishlist.js' %}" defer></script>
   {% block scripts %}{% endblock %}
 </body>
 </html>
