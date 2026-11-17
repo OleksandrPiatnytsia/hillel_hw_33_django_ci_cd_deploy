@@ -724,13 +724,24 @@ def test_staff_profile_links_to_the_admin(manager_client, customer_client):
     ("url_name", "active_link"),
     [("books:list", "books:list"), ("books:author_list", "books:author_list")],
 )
-def test_navbar_brand_menu_highlights_the_current_page(client, url_name, active_link):
+def test_navbar_catalog_menu_highlights_the_current_page(client, url_name, active_link):
     html = client.get(reverse(url_name)).content.decode()
 
-    assert 'class="navbar-brand fw-semibold dropdown-toggle"' in html
+    button = r'class="btn btn-outline-light fw-semibold px-3 dropdown-toggle"[^>]*>Каталог<'
+    assert re.search(button, html)
     # Whitespace between the attributes doesn't matter, only their order
     active = rf'class="dropdown-item active"\s+aria-current="page"\s+href="{reverse(active_link)}"'
     assert re.search(active, html)
+
+
+# Generated with AI
+def test_navbar_brand_is_a_link_to_the_book_list(client):
+    html = client.get(reverse("books:author_list")).content.decode()
+
+    brand = f'<a class="navbar-brand fs-4 fw-semibold me-0" href="{reverse("books:list")}">'
+    assert brand + "📚 Книгарня</a>" in html
+    # Not a dropdown any more: the menu is the "Catalog" button next to it
+    assert "navbar-brand fw-semibold dropdown-toggle" not in html
 
 
 def test_navbar_has_no_admin_link_even_for_superuser(superuser_client):

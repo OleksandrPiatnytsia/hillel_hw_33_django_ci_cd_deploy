@@ -3,7 +3,8 @@
 A book card of a list: the catalog (books/book_list.html) and the wishlist
 page (wishlist/wishlist.html).
 Needs in the context: book (with select_related("author"),
-prefetch_related("categories"), with_availability(), with_active_formats()),
+prefetch_related("categories"), with_availability(), with_active_formats(),
+with_rating()),
 cache_timeout and LANGUAGE_CODE ({% get_current_language %}) for the cached
 fragment, request (the "next" of the form) and wishlist (the heart, the
 context processor wishlist.context_processors.wishlist).
@@ -33,6 +34,16 @@ context processor wishlist.context_processors.wishlist).
       {% endfor %}
     </div>
     {% endcache %}
+
+    {# The stars: outside the cache, a new score shows at once. #}
+    {# rating_avg / rating_count: BookQuerySet.with_rating() of the view #}
+    {% if book.rating_count %}
+      <div class="book-card-rating small mb-2">
+        {% include "ratings/includes/stars.html" with avg=book.rating_avg %}
+        <span class="fw-semibold">{{ book.rating_avg|floatformat:1 }}</span>
+        <span class="text-body-secondary">({{ book.rating_count }})</span>
+      </div>
+    {% endif %}
 
     {% with formats=book.active_formats %}
     <div class="mt-auto d-flex justify-content-between align-items-center">

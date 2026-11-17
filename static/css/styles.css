@@ -338,14 +338,17 @@ main {
    while empty, so the description does not move down when they come. */
 .book-meta {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    gap: 1rem;
+    gap: 0.5rem 1rem;
     min-height: 1.75rem;
     margin-bottom: 0.5rem;
 }
 
-.book-meta .book-wishlist {
-    margin-left: auto;
+.book-meta .book-rating {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
 }
 
 /* The headings of the parts of the book page: "Опис", "Характеристики".
@@ -455,4 +458,120 @@ main {
     border-radius: 50rem;
     font-size: 0.875rem;
     font-weight: 600;
+}
+
+/* The average of the customers' stars (ratings/includes/stars.html): five
+   grey stars, on top of them five gold ones cut to the share of the
+   average (width set in the template, 4.3 of 5 -> 86%). */
+.rating-stars {
+    position: relative;
+    display: inline-block;
+    line-height: 1;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+}
+
+.rating-stars__base {
+    color: var(--bs-border-color);
+}
+
+.rating-stars__fill {
+    position: absolute;
+    top: 0;
+    left: 0;
+    overflow: hidden;
+    color: #f5b301;
+}
+
+/* The stars to click (ratings/includes/book_rating.html). The buttons are
+   in the markup 5..1, row-reverse shows them 1..5: so "a hovered star and
+   every star after it in the markup" (~) are the hovered star and the
+   ones left of it on the screen. While the pointer is over the stars only
+   the hover lights them; else the own score (.is-on). */
+.rate-stars {
+    display: inline-flex;
+    flex-direction: row-reverse;
+}
+
+.rate-star {
+    padding: 0 0.1rem;
+    border: 0;
+    background: none;
+    color: var(--bs-border-color);
+    font-size: 1.25rem;
+    line-height: 1;
+    cursor: pointer;
+    transition: color 0.1s, transform 0.1s;
+}
+
+.rate-star.is-on {
+    color: #f5b301;
+}
+
+.rate-stars:hover .rate-star {
+    color: var(--bs-border-color);
+}
+
+.rate-stars .rate-star:hover,
+.rate-stars .rate-star:hover ~ .rate-star,
+.rate-stars .rate-star:focus-visible,
+.rate-stars .rate-star:focus-visible ~ .rate-star {
+    color: #f5b301;
+}
+
+.rate-star:hover {
+    transform: scale(1.15);
+}
+
+/* The cover of the book page opens enlarged (books/book_detail.html):
+   a zoom-in pointer and a slight lift on hover say that it is clickable */
+.book-cover-zoom {
+    display: block;
+    width: 100%;
+    max-width: 240px;
+    cursor: zoom-in;
+}
+
+.book-cover-zoom .book-cover {
+    display: block;
+    transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.book-cover-zoom:hover .book-cover,
+.book-cover-zoom:focus-visible .book-cover {
+    transform: translateY(-2px);
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.2);
+}
+
+/* The enlarged cover: as big as the window allows, the whole picture
+   (contain), never wider than its own size; the close button over its
+   top right corner */
+.cover-modal .modal-content {
+    align-items: center;
+}
+
+.cover-modal__frame {
+    position: relative;
+    max-width: 100%;
+}
+
+.cover-modal__image {
+    display: block;
+    max-width: 100%;
+    max-height: 90vh;
+    object-fit: contain;
+    border-radius: var(--bs-border-radius);
+    box-shadow: 0 1rem 3rem rgba(0, 0, 0, 0.5);
+    cursor: zoom-out;
+}
+
+.cover-modal__close {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    z-index: 1;
+    padding: 0.5rem;
+    border-radius: 50%;
+    background-color: rgba(0, 0, 0, 0.5);
+    opacity: 1;
 }

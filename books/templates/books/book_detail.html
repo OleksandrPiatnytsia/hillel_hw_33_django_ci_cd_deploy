@@ -25,9 +25,21 @@
     <div class="d-flex flex-wrap justify-content-between align-items-start gap-4">
       {# Not cached: only the URL of the cover, the book itself is cached #}
       {# (get_cached_book) #}
-      <img class="book-cover book-cover--large" src="{{ book.cover_url }}"
-           alt="{% blocktranslate with title=book.title %}Cover of {{ title }}{% endblocktranslate %}">
-      {# The column right of the cover: title, author, rating + wishlist, #}
+      {% blocktranslate with title=book.title asvar cover_alt %}Cover of {{ title }}{% endblocktranslate %}
+      {% if book.cover %}
+        {# A click enlarges the cover: Bootstrap's modal #cover-modal below #}
+        {# (data-bs-toggle; for a link Bootstrap cancels the navigation). #}
+        {# Without JavaScript the link opens the image itself. #}
+        {% translate "Enlarge the cover" as enlarge_label %}
+        <a class="book-cover-zoom" href="{{ book.cover.url }}" data-bs-toggle="modal"
+           data-bs-target="#cover-modal" title="{{ enlarge_label }}" aria-label="{{ enlarge_label }}">
+          <img class="book-cover book-cover--large" src="{{ book.cover_url }}" alt="{{ cover_alt }}">
+        </a>
+      {% else %}
+        {# The placeholder "no cover": nothing to enlarge #}
+        <img class="book-cover book-cover--large" src="{{ book.cover_url }}" alt="{{ cover_alt }}">
+      {% endif %}
+      {# The column right of the cover: title, author, rating, #}
       {# categories, description. Three parts: two cached fragments and #}
       {# between them the row of the visitor's own things, never cached #}
       <div class="book-main">
@@ -35,14 +47,11 @@
         <h1 class="h3 mb-1">{{ book.title }}</h1>
         <p class="mb-2"><a class="link-secondary" href="{{ book.author.get_absolute_url }}">{{ book.author.name }}</a></p>
         {% endcache %}
-        {# The row of the rating and the wishlist (min-height in styles.css, #}
-        {# so the page does not jump when the rating comes): #}
-        {#   .book-rating   - the stars and the count of the ratings (later); #}
-        {#   .book-wishlist - the heart; per visitor, so outside the cache. #}
+        {# The rating: the average stars, the count, the own score. Fresh #}
+        {# and per visitor, so outside the cache #}
         <div class="book-meta">
-          <div class="book-rating"></div>
-          <div class="book-wishlist">
-            {% include "wishlist/includes/heart.html" with book=book variant="page" %}
+          <div class="book-rating">
+            {% include "ratings/includes/book_rating.html" %}
           </div>
         </div>
         {% cache cache_timeout book_detail_description book.pk LANGUAGE_CODE %}
@@ -147,6 +156,13 @@
             {% for book_format, quantity in in_cart %}{{ book_format.get_format_type_display }} — {{ quantity }}{% if not forloop.last %}, {% endif %}{% endfor %}
           </div>
         {% endif %}
+        {# The heart under the button: the block of the purchase always #}
+        {# stands at the right edge of the card, so the heart is at the #}
+        {# same place on every book (in the column of the description it #}
+        {# moved with the width of the format tiles and of the rating) #}
+        <div class="book-wishlist mt-2">
+          {% include "wishlist/includes/heart.html" with book=book variant="page" %}
+        </div>
       </div>
     </div>
 
@@ -170,6 +186,27 @@
     </div>
   </div>
 </div>
+
+{% if book.cover %}
+  {# The enlarged cover. The image has loading="lazy": the browser loads #}
+  {# it only when the modal is shown (display: none until then). A click #}
+  {# on the image, outside it, the close button or Esc closes it. #}
+  <div class="modal fade cover-modal" id="cover-modal" tabindex="-1"
+       aria-label="{{ cover_alt }}" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+      <div class="modal-content bg-transparent border-0">
+        {# The frame is as wide as the image: the close button sits on #}
+        {# the corner of the picture, not of the wider dialog #}
+        <div class="cover-modal__frame">
+          <img class="cover-modal__image" src="{{ book.cover.url }}" alt="{{ cover_alt }}"
+               loading="lazy" data-bs-dismiss="modal">
+          <button type="button" class="btn-close btn-close-white cover-modal__close"
+                  data-bs-dismiss="modal" aria-label="{% translate 'Close' %}"></button>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endif %}
 {% endblock %}
 
 {% block scripts %}

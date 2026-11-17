@@ -253,12 +253,14 @@ def test_cached_card_does_not_keep_the_heart_of_another_user(
 
 
 # Generated with AI
-def test_book_page_has_the_heart_with_a_text_in_the_reserved_row(customer_client, customer):
+def test_book_page_has_the_heart_with_a_text_under_the_cart_button(customer_client, customer):
     book = BookFactory()
     url = book.get_absolute_url()
 
     html = customer_client.get(url).content.decode()
-    row = html[html.index('<div class="book-wishlist">') :]
+    # Under the "Add to cart" button, in the block of the purchase
+    assert html.index(">У кошик</button>") < html.index('<div class="book-wishlist mt-2">')
+    row = html[html.index('<div class="book-wishlist mt-2">') :]
     assert "wishlist-heart--page" in row
     assert "До списку бажань" in row
 

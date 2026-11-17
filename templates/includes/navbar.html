@@ -4,26 +4,35 @@
 {# sticky-top: navbar stays at the top of the window while scrolling #}
 <nav class="navbar navbar-expand-lg bg-dark sticky-top" data-bs-theme="dark">
   <div class="container">
-    {# The brand is the site menu: a click opens Catalog / Authors. #}
-    {# Outside the collapsing part, so on a phone it works without the #}
-    {# hamburger button. The admin is not here: superusers have it in the #}
-    {# profile (Tools block), other staff in the profile "Status" line. #}
-    <div class="dropdown">
-      <a class="navbar-brand fw-semibold dropdown-toggle" href="#" role="button"
-         data-bs-toggle="dropdown" aria-expanded="false">📚 {% translate "Bookstore" %}</a>
-      <ul class="dropdown-menu">
-        <li>
-          <a class="dropdown-item {% if current == 'list' %}active{% endif %}"
-             {% if current == 'list' %}aria-current="page"{% endif %}
-             href="{% url 'books:list' %}">{% translate "Catalog" %}</a>
-        </li>
-        <li>
-          {# "author_list" and "author_detail" both highlight "Authors" #}
-          <a class="dropdown-item {% if current == 'author_list' or current == 'author_detail' %}active{% endif %}"
-             {% if current == 'author_list' %}aria-current="page"{% endif %}
-             href="{% url 'books:author_list' %}">{% translate "Authors" %}</a>
-        </li>
-      </ul>
+    {# Left: the brand and the "Catalog" menu, together in one group (the #}
+    {# navbar spreads its children apart: brand, menu and the hamburger #}
+    {# button would stand left, middle, right on a phone). Outside the #}
+    {# collapsing part, so on a phone both work without the hamburger. #}
+    {# The admin is not here: superusers have it in the profile (Tools #}
+    {# block), other staff in the profile "Status" line. #}
+    {# gap-4 (1.5rem): the button stands clearly apart from the brand #}
+    <div class="d-flex align-items-center gap-4">
+      {# The brand: the home page, the list of the books; fs-4: larger #}
+      {# than Bootstrap's brand (1.25rem -> 1.5rem) #}
+      <a class="navbar-brand fs-4 fw-semibold me-0" href="{% url 'books:list' %}">📚 {% translate "Bookstore" %}</a>
+      <div class="dropdown">
+        {# A normal-size button (not btn-sm), the text a bit bolder #}
+        <button class="btn btn-outline-light fw-semibold px-3 dropdown-toggle" type="button"
+                data-bs-toggle="dropdown" aria-expanded="false">{% translate "Catalog" %}</button>
+        <ul class="dropdown-menu">
+          <li>
+            <a class="dropdown-item {% if current == 'list' %}active{% endif %}"
+               {% if current == 'list' %}aria-current="page"{% endif %}
+               href="{% url 'books:list' %}">{% translate "Books" %}</a>
+          </li>
+          <li>
+            {# "author_list" and "author_detail" both highlight "Authors" #}
+            <a class="dropdown-item {% if current == 'author_list' or current == 'author_detail' %}active{% endif %}"
+               {% if current == 'author_list' %}aria-current="page"{% endif %}
+               href="{% url 'books:author_list' %}">{% translate "Authors" %}</a>
+          </li>
+        </ul>
+      </div>
     </div>
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse"

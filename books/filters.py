@@ -239,6 +239,8 @@ class CatalogFilter(BookFilter):
         ("-created_at", _("Newest first")),
         # Copies ordered, cancelled orders not counted (BookQuerySet.with_sold)
         ("-sold", _("Most popular")),
+        # The average of the customers' stars (BookQuerySet.with_rating)
+        ("-rating", _("Best rated")),
     ]
 
     q = django_filters.CharFilter(

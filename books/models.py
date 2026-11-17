@@ -3,7 +3,20 @@ from decimal import Decimal
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
-from django.db.models import Case, Exists, F, OuterRef, Prefetch, Q, Subquery, Sum, When
+from django.db.models import (
+    Avg,
+    Case,
+    Count,
+    Exists,
+    F,
+    FloatField,
+    OuterRef,
+    Prefetch,
+    Q,
+    Subquery,
+    Sum,
+    When,
+)
 from django.db.models.functions import Coalesce
 from django.templatetags.static import static
 from django.urls import reverse
@@ -122,6 +135,28 @@ class BookQuerySet(models.QuerySet):
             .values("total")
         )
         return self.annotate(sold=Coalesce(Subquery(sold), 0))
+
+    def with_rating(self):
+        """Add "rating_avg" (None without scores) and "rating_count" (0): the customers' stars.
+
+        Subqueries like with_sold(), not Avg("ratings__score"): a JOIN with
+        the scores next to the JOIN of a category filter could count rows
+        twice. The catalog cards, the wishlist page and the sort "Best rated".
+
+            (SELECT AVG(score) FROM ratings_rating WHERE book_id = book.id) AS rating_avg
+        """
+        if "rating_avg" in self.query.annotations:
+            return self
+        # Imported here: ratings.models has a ForeignKey to Book
+        from ratings.models import Rating
+
+        scores = Rating.objects.filter(book=OuterRef("pk")).values("book")  # GROUP BY book
+        return self.annotate(
+            rating_avg=Subquery(
+                scores.annotate(value=Avg("score")).values("value"), output_field=FloatField()
+            ),
+            rating_count=Coalesce(Subquery(scores.annotate(value=Count("pk")).values("value")), 0),
+        )
 
     def with_active_formats(self):
         """Load the formats on sale of every book in one extra query.

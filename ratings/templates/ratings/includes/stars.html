@@ -1,0 +1,14 @@
+{% load i18n %}
+{% comment %}
+The average of the customers' stars, drawn: five grey stars with five gold
+ones on top, cut to the share of the average (4.3 of 5 -> 86%).
+Usage: {% include "ratings/includes/stars.html" with avg=book.rating_avg %}
+avg: a number 1..5 (BookQuerySet.with_rating or ratings.services.rating_context).
+role="img" + aria-label: a screen reader says "Rating 4.3 of 5", not
+"star star star star star".
+{% endcomment %}
+<span class="rating-stars" role="img"
+      aria-label="{% blocktranslate with avg=avg|floatformat:1 %}Rating {{ avg }} of 5{% endblocktranslate %}">
+  <span class="rating-stars__base" aria-hidden="true">★★★★★</span>
+  <span class="rating-stars__fill" aria-hidden="true" style="width: {% widthratio avg 5 100 %}%">★★★★★</span>
+</span>
