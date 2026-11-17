@@ -27,7 +27,7 @@
       {# (get_cached_book) #}
       <img class="book-cover book-cover--large" src="{{ book.cover_url }}"
            alt="{% blocktranslate with title=book.title %}Cover of {{ title }}{% endblocktranslate %}">
-      {# The column right of the cover: title, author, rating + wishlist, #}
+      {# The column right of the cover: title, author, rating, #}
       {# categories, description. Three parts: two cached fragments and #}
       {# between them the row of the visitor's own things, never cached #}
       <div class="book-main">
@@ -35,16 +35,11 @@
         <h1 class="h3 mb-1">{{ book.title }}</h1>
         <p class="mb-2"><a class="link-secondary" href="{{ book.author.get_absolute_url }}">{{ book.author.name }}</a></p>
         {% endcache %}
-        {# The row of the rating and the wishlist, both per visitor or fresh, #}
-        {# so outside the cache: #}
-        {#   .book-rating   - the average stars, the count, the own score; #}
-        {#   .book-wishlist - the heart. #}
+        {# The rating: the average stars, the count, the own score. Fresh #}
+        {# and per visitor, so outside the cache #}
         <div class="book-meta">
           <div class="book-rating">
             {% include "ratings/includes/book_rating.html" %}
-          </div>
-          <div class="book-wishlist">
-            {% include "wishlist/includes/heart.html" with book=book variant="page" %}
           </div>
         </div>
         {% cache cache_timeout book_detail_description book.pk LANGUAGE_CODE %}
@@ -149,6 +144,13 @@
             {% for book_format, quantity in in_cart %}{{ book_format.get_format_type_display }} — {{ quantity }}{% if not forloop.last %}, {% endif %}{% endfor %}
           </div>
         {% endif %}
+        {# The heart under the button: the block of the purchase always #}
+        {# stands at the right edge of the card, so the heart is at the #}
+        {# same place on every book (in the column of the description it #}
+        {# moved with the width of the format tiles and of the rating) #}
+        <div class="book-wishlist mt-2">
+          {% include "wishlist/includes/heart.html" with book=book variant="page" %}
+        </div>
       </div>
     </div>
 

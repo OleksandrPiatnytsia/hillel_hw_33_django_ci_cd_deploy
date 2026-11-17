@@ -345,10 +345,6 @@ main {
     margin-bottom: 0.5rem;
 }
 
-.book-meta .book-wishlist {
-    margin-left: auto;
-}
-
 .book-meta .book-rating {
     display: flex;
     flex-direction: column;

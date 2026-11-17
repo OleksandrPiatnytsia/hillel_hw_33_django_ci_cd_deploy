@@ -104,7 +104,8 @@ def test_row_of_rating_and_wishlist_is_between_author_and_categories(client):
     assert column.index(book.author.name) < meta < column.index("Поезія")
     # The rating left, the heart right (tests/unit/test_ratings.py, test_wishlist.py)
     assert meta < column.index('<div class="book-rating">') < column.index("Ще немає оцінок")
-    assert column.index('<div class="book-wishlist">') < column.index("wishlist-heart--page")
+    # The heart is not here: under the button of the cart (test_wishlist.py)
+    assert "book-wishlist" not in column
 
 
 # Generated with AI
