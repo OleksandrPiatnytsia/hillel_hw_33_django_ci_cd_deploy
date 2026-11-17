@@ -128,6 +128,7 @@ class WishlistView(LoginRequiredMixin, ElidedPaginationMixin, ListView):
             .prefetch_related("categories")
             .with_availability()
             .with_active_formats()
+            .with_rating()
         )
 
     def get_context_data(self, **kwargs):

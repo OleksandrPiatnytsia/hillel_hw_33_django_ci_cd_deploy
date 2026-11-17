@@ -1,0 +1,49 @@
+{% load i18n %}
+{% comment %}
+The rating block of the book page (the .book-rating slot of
+books/book_detail.html), never cached: the scores change and the form is
+per visitor.
+Context: book, rating_avg, rating_count, my_score, can_rate
+(ratings.services.rating_context, added by BookDetailView).
+
+- The average: the stars, "4,3" and "12 оцінок", or "No ratings yet".
+- A customer who bought the book (can_rate): five star buttons. A POST
+  form: a click on the 4th star sends score=4 to ratings:rate, the page
+  comes back with the new average. The own score is lit; hovering a star
+  lights it and the ones before it (styles.css, .rate-stars).
+- A logged-in user who has not bought it: a hint who may rate.
+{% endcomment %}
+<div class="d-flex flex-wrap align-items-center gap-2">
+  {% if rating_count %}
+    {% include "ratings/includes/stars.html" with avg=rating_avg %}
+    <span class="fw-semibold">{{ rating_avg|floatformat:1 }}</span>
+    <span class="text-body-secondary small">{% blocktranslate trimmed count count=rating_count %}
+      {{ count }} rating
+    {% plural %}
+      {{ count }} ratings
+    {% endblocktranslate %}</span>
+  {% else %}
+    <span class="text-body-secondary small">{% translate "No ratings yet" %}</span>
+  {% endif %}
+</div>
+{% if can_rate %}
+  <form class="rate-form d-flex align-items-center gap-2 small" method="post"
+        action="{% url 'ratings:rate' book.pk %}">
+    {% csrf_token %}
+    <span class="text-body-secondary">{% if my_score %}{% translate "Your rating:" %}{% else %}{% translate "Rate the book:" %}{% endif %}</span>
+    {# The buttons go 5..1 and row-reverse shows them 1..5: CSS can light #}
+    {# a hovered star and the ones AFTER it in the markup (~), which are #}
+    {# the ones before it on the screen #}
+    <span class="rate-stars">
+      {% for score in "54321" %}
+        <button class="rate-star{% if my_score and my_score >= score|add:0 %} is-on{% endif %}"
+                type="submit" name="score" value="{{ score }}"
+                aria-label="{% blocktranslate %}Rate {{ score }} of 5{% endblocktranslate %}"
+                title="{% blocktranslate %}Rate {{ score }} of 5{% endblocktranslate %}"
+                {% if my_score == score|add:0 %}aria-pressed="true"{% endif %}>★</button>
+      {% endfor %}
+    </span>
+  </form>
+{% elif user.is_authenticated %}
+  <span class="text-body-secondary small">{% translate "Customers who bought the book can rate it" %}</span>
+{% endif %}

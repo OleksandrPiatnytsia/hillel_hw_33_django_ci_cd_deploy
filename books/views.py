@@ -23,6 +23,7 @@ from django.views.generic import (
 )
 
 from cart.cart import Cart
+from ratings.services import rating_context
 from currencies.display import display_currency, price_from, request_rates
 
 from .cache import get_cached_book
@@ -89,6 +90,8 @@ class BookListView(ElidedPaginationMixin, ListView):
             # The formats on sale of all books on the page in one extra
             # query: the price "from" and the button of the card
             .with_active_formats()
+            # The stars of the card and the sort "Best rated" (subqueries)
+            .with_rating()
         )
 
         # A book is sold in formats with own prices in different currencies
@@ -132,6 +135,14 @@ class BookListView(ElidedPaginationMixin, ListView):
             # equally popular books (0 sold too) follow by title
             queryset = queryset.with_sold()
             ordering = [F("sold").desc(), "title"]
+        elif self.sort == "-rating":
+            # The best average first; books without scores at the end; of
+            # two equal averages the one with more scores is surer
+            ordering = [
+                F("rating_avg").desc(nulls_last=True),
+                F("rating_count").desc(),
+                "title",
+            ]
         else:
             ordering = [ordering]
         # "Out of stock last" (the checkbox of the "Sort by" menu, on by
@@ -230,6 +241,7 @@ class BookDetailView(DetailView):
         # "In your cart: Paper — 2" under the button. Templates can't call
         # a method with an argument (cart.lines_of(book)), so it's done here.
         context["in_cart"] = Cart(self.request).lines_of(book)
+        context.update(rating_context(self.request.user, book))
         return context
 
 
