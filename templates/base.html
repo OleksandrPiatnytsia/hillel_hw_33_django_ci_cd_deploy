@@ -31,7 +31,11 @@
 
   <footer class="border-top py-3 bg-body">
     <div class="container small text-body-secondary">
-      {% translate "Bookstore · Hillel Django homework" %}
+      {# "Bookstore" is a msgid of its own (the title of the page uses it too); #}
+      {# the homework is a link to the course page of Hillel #}
+      {% translate "Bookstore" %} ·
+      <a class="link-secondary" href="https://ithillel.ua/courses/python-pro"
+         target="_blank" rel="noopener">{% translate "Hillel Django homework" %}</a>
       {# The version and the deployed commit (config/version.py): after a #}
       {# deploy the commit changes, so the new code is visibly online #}
       {% if app_version %}

@@ -75,3 +75,17 @@ def test_footer_without_a_commit_shows_only_the_version(client, settings):
 
     assert "v1.2.3" in html
     assert "/commit/" not in html
+
+
+# Generated with AI
+@pytest.mark.django_db
+def test_footer_homework_text_links_to_the_course(client):
+    html = client.get(reverse("books:list")).content.decode()
+    footer = html[html.index("<footer") :]
+
+    link = re.search(
+        r'<a [^>]*href="https://ithillel.ua/courses/python-pro"[^>]*>(.*?)</a>', footer
+    )
+    assert link.group(1) == "домашнє завдання Hillel з Django"
+    assert 'target="_blank" rel="noopener"' in link.group(0)
+    assert "Книгарня ·" in footer

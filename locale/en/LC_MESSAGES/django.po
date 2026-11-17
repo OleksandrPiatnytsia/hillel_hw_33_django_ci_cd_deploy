@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Bookstore\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-17 08:28+0000\n"
+"POT-Creation-Date: 2026-11-17 08:43+0000\n"
 "PO-Revision-Date: 2026-11-10 16:00+0200\n"
 "Last-Translator: Bookstore\n"
 "Language-Team: English\n"
@@ -894,7 +894,7 @@ msgstr ""
 
 #: cart/apps.py:8 cart/templates/cart/cart_detail.html:4
 #: cart/templates/cart/cart_detail.html:7
-#: orders/templates/orders/checkout.html:9 templates/includes/navbar.html:136
+#: orders/templates/orders/checkout.html:9 templates/includes/navbar.html:122
 msgid "Cart"
 msgstr ""
 
@@ -1566,7 +1566,8 @@ msgstr ""
 #: payments/templates/payments/emails/payment_received.html:16
 #: payments/templates/payments/emails/payment_received.html:60
 #: payments/templates/payments/emails/payment_received.txt:12
-#: templates/base.html:9 templates/includes/navbar.html:13
+#: templates/base.html:9 templates/base.html:36
+#: templates/includes/navbar.html:13
 msgid "Bookstore"
 msgstr ""
 
@@ -1685,7 +1686,7 @@ msgstr ""
 
 #: orders/templates/orders/order_detail.html:9
 #: orders/templates/orders/order_list.html:4
-#: orders/templates/orders/order_list.html:7 templates/includes/navbar.html:153
+#: orders/templates/orders/order_list.html:7 templates/includes/navbar.html:139
 msgid "My orders"
 msgstr ""
 
@@ -2028,15 +2029,15 @@ msgstr ""
 msgid "We already know about it. Please try again in a few minutes."
 msgstr ""
 
-#: templates/base.html:34
-msgid "Bookstore · Hillel Django homework"
+#: templates/base.html:38
+msgid "Hillel Django homework"
 msgstr ""
 
-#: templates/base.html:38
+#: templates/base.html:42
 msgid "Version of the site"
 msgstr ""
 
-#: templates/base.html:40
+#: templates/base.html:44
 msgid "Deployed commit"
 msgstr ""
 
@@ -2064,28 +2065,27 @@ msgstr ""
 msgid "System"
 msgstr ""
 
-#: templates/includes/navbar.html:122 templates/includes/navbar.html:123
-#: templates/includes/navbar.html:154 users/templates/users/profile.html:46
+#: templates/includes/navbar.html:138 users/templates/users/profile.html:4
+#: users/templates/users/profile_edit.html:11
+msgid "My profile"
+msgstr ""
+
+#: templates/includes/navbar.html:140 users/templates/users/profile.html:46
 #: wishlist/apps.py:8 wishlist/templates/wishlist/wishlist.html:4
 #: wishlist/templates/wishlist/wishlist.html:10
 msgid "Wishlist"
 msgstr ""
 
-#: templates/includes/navbar.html:152 users/templates/users/profile.html:4
-#: users/templates/users/profile_edit.html:11
-msgid "My profile"
-msgstr ""
-
-#: templates/includes/navbar.html:161
+#: templates/includes/navbar.html:147
 msgid "Log out"
 msgstr ""
 
-#: templates/includes/navbar.html:170 users/templates/users/auth_form.html:54
+#: templates/includes/navbar.html:156 users/templates/users/auth_form.html:54
 #: users/views.py:41
 msgid "Log in"
 msgstr ""
 
-#: templates/includes/navbar.html:174 users/templates/users/auth_form.html:52
+#: templates/includes/navbar.html:160 users/templates/users/auth_form.html:52
 #: users/views.py:73
 msgid "Sign up"
 msgstr ""
@@ -2375,7 +2375,7 @@ msgstr ""
 msgid "“%(title)s” is in your wishlist."
 msgstr ""
 
-#: wishlist/views.py:101
+#: wishlist/views.py:105
 #, python-format
 msgid "“%(title)s” is removed from your wishlist."
 msgstr ""
