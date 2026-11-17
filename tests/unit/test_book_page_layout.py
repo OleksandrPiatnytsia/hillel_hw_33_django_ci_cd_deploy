@@ -95,15 +95,15 @@ def test_book_without_description_says_so_and_has_no_button(client):
 
 
 # Generated with AI
-def test_reserved_row_for_rating_and_wishlist_is_between_author_and_categories(client):
+def test_row_of_rating_and_wishlist_is_between_author_and_categories(client):
     book = BookFactory(categories=[CategoryFactory(name="Поезія", slug="poetry")])
 
     column = main_column(page(client, book))
 
     meta = column.index('<div class="book-meta">')
     assert column.index(book.author.name) < meta < column.index("Поезія")
-    assert '<div class="book-rating"></div>' in column
-    # The heart is in its slot (tests/unit/test_wishlist.py), the rating comes later
+    # The rating left, the heart right (tests/unit/test_ratings.py, test_wishlist.py)
+    assert meta < column.index('<div class="book-rating">') < column.index("Ще немає оцінок")
     assert column.index('<div class="book-wishlist">') < column.index("wishlist-heart--page")
 
 

@@ -82,6 +82,7 @@ INSTALLED_APPS = [
     "inventory",
     "cart",
     "wishlist",
+    "ratings",
     "orders",
     "payments",
     # Currencies and the history of their exchange rates (NBU)

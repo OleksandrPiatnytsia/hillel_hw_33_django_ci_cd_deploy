@@ -35,12 +35,14 @@
         <h1 class="h3 mb-1">{{ book.title }}</h1>
         <p class="mb-2"><a class="link-secondary" href="{{ book.author.get_absolute_url }}">{{ book.author.name }}</a></p>
         {% endcache %}
-        {# The row of the rating and the wishlist (min-height in styles.css, #}
-        {# so the page does not jump when the rating comes): #}
-        {#   .book-rating   - the stars and the count of the ratings (later); #}
-        {#   .book-wishlist - the heart; per visitor, so outside the cache. #}
+        {# The row of the rating and the wishlist, both per visitor or fresh, #}
+        {# so outside the cache: #}
+        {#   .book-rating   - the average stars, the count, the own score; #}
+        {#   .book-wishlist - the heart. #}
         <div class="book-meta">
-          <div class="book-rating"></div>
+          <div class="book-rating">
+            {% include "ratings/includes/book_rating.html" %}
+          </div>
           <div class="book-wishlist">
             {% include "wishlist/includes/heart.html" with book=book variant="page" %}
           </div>
