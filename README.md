@@ -667,7 +667,7 @@ Dockerfile                   # образ: python:3.13-slim, користува�
 .dockerignore                # що не потрапляє в образ (.env, .venv, бази, media)
 gunicorn.conf.py             # порт з $PORT, воркери з WEB_CONCURRENCY, воркер uvicorn
 docker-entrypoint.sh         # root на Railway -> chown media і далі як app; migrate + collectstatic (не для celery); exec команди
-docker-compose.yml           # nginx + web + db + redis + celery + celery-beat + flower + stripe-cli
+docker-compose.yml           # nginx + web + db + redis + celery + celery-beat + flower + stripe-cli + rabbitmq
 .gitattributes               # *.sh завжди з LF
 ```
 
@@ -1961,7 +1961,7 @@ docker volume create hillel_bookstore_postgres_data && docker volume create hill
 
 docker compose run --rm --no-deps stripe-cli listen --print-secret   # whsec_... -> STRIPE_WEBHOOK_SECRET у .env
 docker compose up --build -d                                   # зібрати образ і запустити
-docker compose ps                                              # db, redis, web, nginx, celery, flower healthy
+docker compose ps                                              # db, redis, rabbitmq, web, nginx, celery, flower healthy
 docker compose exec web python manage.py createsuperuser
 docker compose exec web python manage.py seed_books            # якщо база порожня
 ```
@@ -1971,6 +1971,7 @@ docker compose exec web python manage.py seed_books            # якщо баз
 - API: http://localhost:8000/api/, документація: http://localhost:8000/api/docs/
 - Стан: http://localhost:8000/health/
 - Flower: http://localhost:5555/ (логін і пароль з `FLOWER_BASIC_AUTH`)
+- RabbitMQ: http://localhost:15672/ (логін і пароль з `RABBITMQ_USER` / `RABBITMQ_PASSWORD`)
 - Логи: `docker compose logs -f web celery`, запити: `docker compose logs -f nginx`,
   події Stripe: `docker compose logs -f stripe-cli`
 
@@ -1987,7 +1988,8 @@ docker compose up
   │                                     ▼ healthy (celery inspect ping)
   ├─ flower       :5555 → панель задач
   ├─ celery-beat  celery beat: кладе періодичні задачі в чергу за розкладом
-  └─ stripe-cli   stripe listen --forward-to nginx/payments/webhook/stripe/ (після nginx healthy)
+  ├─ stripe-cli   stripe listen --forward-to nginx/payments/webhook/stripe/ (після nginx healthy)
+  └─ rabbitmq     rabbitmq:4.4.1-management-alpine: події для сервісу Аналітики, :15672 → вебпанель
 ```
 
 | Сервіс | Порт на Mac | Volume | Healthcheck |
@@ -2000,9 +2002,17 @@ docker compose up
 | `celery-beat` | немає | немає (файл розкладу в `/tmp`) | немає |
 | `flower` | `127.0.0.1:5555` (лише цей Mac) | немає | `GET /healthcheck` |
 | `stripe-cli` | немає | немає | немає: від нього ніхто не залежить, стан видно в `logs` |
+| `rabbitmq` | `127.0.0.1:5672` (AMQP), `127.0.0.1:15672` (вебпанель) | `hillel_bookstore_rabbitmq_data` → `/var/lib/rabbitmq` | `rabbitmq-diagnostics ping` |
 
 `web`, `celery`, `celery-beat` і `flower` — один образ `hillel-bookstore-django`
 з однаковими налаштуваннями (якір `x-django` у `docker-compose.yml`), різні лише команди.
+
+**RabbitMQ і мережа `bookstore_net`.** RabbitMQ возить події замовлень у сервіс Аналітики
+([hillel_hw_34_django_analytics](https://github.com/OleksandrPiatnytsia/hillel_hw_34_django_analytics));
+черга Celery лишається в Redis. Мережа цього compose має фіксовану назву `bookstore_net`
+(`networks: default: name:`): compose Аналітики приєднується до неї як до зовнішньої й бачить
+`rabbitmq:5672`. Тому спершу `docker compose up` тут, потім в Аналітиці. `hostname: rabbitmq`
+потрібен, щоб черги не губилися: RabbitMQ зберігає дані в папці з іменем вузла, а ім'я береться з hostname.
 
 Корисні команди:
 
@@ -2146,6 +2156,7 @@ docker compose exec -u root web chown -R app:app /app/media
 | `POSTGRES_PORT` | порт | `5432` |
 | `REDIS_URL` | сервер Redis: кеш і сесії в базі 0, черга Celery в базі 1; у Docker compose — `redis://redis:6379` | `redis://localhost:6379` |
 | `CELERY_BROKER_URL` | лише щоб винести чергу на інший сервер; порожня — `REDIS_URL`, база 1 | |
+| `RABBITMQ_USER` / `RABBITMQ_PASSWORD` | користувач RabbitMQ, створюється при першому старті контейнера; той самий логін — у `.env` Аналітики; **обов'язкові** для `docker compose` | `bookstore` / `'change-me'` |
 | `FLOWER_BASIC_AUTH` | логін і пароль Flower `user:password`, без коми; **обов'язкова** для `docker compose` | `'admin:change-me'` |
 | `FLOWER_URL` | адреса Flower для посилання в профілі | `http://localhost:5555` |
 | `SENTRY_DSN` | адреса проєкту Sentry; порожня — Sentry вимкнено | `https://...@o....ingest.sentry.io/...` |
