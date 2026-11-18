@@ -70,6 +70,13 @@ JavaScript). Languages: uk (default) and en.
 ## Final project: what is done in THIS repository
 
 Stages of the shared plan that belong to the bookstore:
+- **Stage 2 (A's part, done 2026-11-18)**: service `rabbitmq` (rabbitmq:4.4.1-management-alpine,
+  hostname rabbitmq, volume hillel_bookstore_rabbitmq_data, ports 127.0.0.1:5672 / 15672,
+  login RABBITMQ_USER / RABBITMQ_PASSWORD from .env) and the compose network named
+  `bookstore_net`, which Analytics' compose joins as external. Nothing publishes yet.
+  At stage 3 add with the publisher code: `rabbitmq_url()` in config/env.py (RABBITMQ_URL or
+  RABBITMQ_HOST / PORT / USER / PASSWORD, like Analytics), RABBITMQ_HOST=localhost and
+  RABBITMQ_PORT=5672 in .env.example, `RABBITMQ_HOST: rabbitmq` in x-django of the compose.
 - **Stage 3**: `OutboxEvent` table written in the same transaction as the order change; a Celery
   task publishes to RabbitMQ (topic exchange `bookstore.events`, publisher confirms, retries);
   events `order.created`, `order.paid`, `order.cancelled` with `event_id` (UUID), `type`,

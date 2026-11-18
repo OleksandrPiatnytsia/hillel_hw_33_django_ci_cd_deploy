@@ -3,6 +3,8 @@
 # + Celery worker (celery) and scheduler (celery-beat)
 # + Flower (flower): the dashboard of the Celery tasks, http://localhost:5555
 # + Stripe CLI (stripe-cli), which forwards Stripe webhooks to nginx -> web.
+# + RabbitMQ (rabbitmq): the bookstore events for the Analytics service
+#   (../hillel_hw_34_django_analytics), http://localhost:15672 = its web UI.
 #
 #   docker compose up --build -d   build the web image and start everything
 #   docker compose ps              state and health of the services
@@ -121,6 +123,49 @@ services:
       timeout: 5s
       retries: 5
       start_period: 5s
+
+  rabbitmq:
+    # The message broker of the events "order created / paid / cancelled"
+    # for the Analytics service (final project). NOT the Celery broker:
+    # Celery keeps using Redis. It lives here, not in Analytics' compose,
+    # because the bookstore publishes the events and must run without
+    # Analytics; Analytics joins this compose's network (bookstore_net,
+    # see "networks:" at the end) and reads the queue as rabbitmq:5672.
+    # The publisher (outbox + a Celery task) comes at stage 3; for now
+    # nothing here talks to RabbitMQ.
+    # A fixed version, like the other images; "management" = with the web
+    # UI (queues, messages, connections), "alpine" = the smaller image.
+    image: rabbitmq:4.4.1-management-alpine
+    # RabbitMQ keeps its data in a folder named after the node, and the
+    # node name comes from the host name. Without a fixed one every new
+    # container gets a random host name and starts with empty data:
+    # the durable queues and the messages in them would be lost.
+    hostname: rabbitmq
+    environment:
+      # The user created on the FIRST start (empty volume); the same login
+      # goes into Analytics' .env. Later starts ignore these two: change the
+      # password in the web UI (Admin -> Users) or delete the volume.
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:?set RABBITMQ_USER in .env}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?set RABBITMQ_PASSWORD in .env}
+    volumes:
+      # Queues, messages, users survive `docker compose down` and updates
+      - rabbitmq_data:/var/lib/rabbitmq
+    ports:
+      # 127.0.0.1: only this Mac, not the other devices of the Wi-Fi.
+      # 5672 = AMQP, for Analytics run on the Mac (runserver, tests,
+      # manage.py consume_events); Analytics' containers use rabbitmq:5672.
+      - "127.0.0.1:5672:5672"
+      # 15672 = the web UI: http://localhost:15672 (the login from .env)
+      - "127.0.0.1:15672:15672"
+    healthcheck:
+      # "Is the node running?" (exit code 0 = yes). A light check: no
+      # queues or connections are touched.
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      # The first start (creating the database of the node) takes ~10-20 s
+      start_period: 30s
 
   web:
     # image, env_file, environment: from x-django above
@@ -310,6 +355,14 @@ services:
 #               docker volume create hillel_bookstore_postgres_data && docker volume create hillel_bookstore_media_data
 #
 # static_data stays per project: collectstatic fills it on every start.
+# The network of this compose under a fixed name. By default compose names
+# it <folder>_default, and the folder changes with every homework copy.
+# Analytics' docker-compose.yml joins it as an external network by this name
+# to reach "rabbitmq"; so start the bookstore first, then Analytics.
+networks:
+  default:
+    name: bookstore_net
+
 volumes:
   postgres_data:
     name: hillel_bookstore_postgres_data
@@ -318,3 +371,7 @@ volumes:
   media_data:
     name: hillel_bookstore_media_data
     external: true
+  # RabbitMQ data; not shared with other homework folders: a fixed name
+  # anyway, so the queues don't get lost if the folder is renamed
+  rabbitmq_data:
+    name: hillel_bookstore_rabbitmq_data
