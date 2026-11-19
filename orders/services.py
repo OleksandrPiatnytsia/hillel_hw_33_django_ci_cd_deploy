@@ -18,6 +18,8 @@ from currencies.models import BASE_CURRENCY
 from currencies.services import available_currencies, convert, cross_rate, current_rates
 from inventory.models import Stock, Warehouse
 from inventory.services import return_to_stock
+from outbox.models import OutboxEvent
+from outbox.services import record_event
 
 from .models import Order, OrderItem
 from .tasks import send_order_cancelled_email_task, send_order_created_email_task
@@ -211,6 +213,10 @@ def create_order(
         order.total = total
         order.save(update_fields=["total", "updated_at"])
 
+        # The event for Analytics, in this transaction: no order without its
+        # event, no event of a rolled back order (outbox/models.py)
+        record_event(order, OutboxEvent.Type.ORDER_CREATED)
+
         # The email is queued only AFTER COMMIT. Queued right here, inside
         # the transaction, it could promise an order that is then rolled back
         # (an error later in this block, a failed COMMIT), or the worker could
@@ -273,6 +279,7 @@ def cancel_order(order_id, *, user=None, only_unpaid=False, notify_customer=Fals
 
         order.status = Order.Status.CANCELLED
         order.save(update_fields=["status", "updated_at"])
+        record_event(order, OutboxEvent.Type.ORDER_CANCELLED)
 
         # An open Stripe page of this order could still be paid after the
         # cancellation: close it. After COMMIT: a request to Stripe is slow

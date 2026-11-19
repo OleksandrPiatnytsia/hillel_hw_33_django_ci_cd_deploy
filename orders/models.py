@@ -221,6 +221,16 @@ class Order(models.Model):
             return False
         self.payment_status = new_status
         self.save(update_fields=["payment_status", "updated_at"])
+        if new_status == self.PaymentStatus.PAID:
+            # The event for Analytics, in the caller's transaction (the
+            # payment services). Only "paid": the contract has no event for
+            # a part payment, the next snapshot carries payment_status anyway.
+            # Imported here: outbox reads the orders (snapshot), a top-level
+            # import both ways would be circular
+            from outbox.models import OutboxEvent
+            from outbox.services import record_event
+
+            record_event(self, OutboxEvent.Type.ORDER_PAID)
         return True
 
 

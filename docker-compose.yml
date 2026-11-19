@@ -48,6 +48,11 @@ x-django: &django
     # "localhost", which means nothing inside a container.
     REDIS_URL: redis://redis:6379
     CELERY_BROKER_URL: ""
+    # RabbitMQ of the events for Analytics (service "rabbitmq" below); the
+    # login comes from .env (RABBITMQ_USER / RABBITMQ_PASSWORD), the host
+    # "localhost" of .env means nothing inside a container
+    RABBITMQ_HOST: rabbitmq
+    RABBITMQ_PORT: "5672"
     # The production settings come from the image (Dockerfile:
     # DJANGO_SETTINGS_MODULE=config.settings.production): no debug pages,
     # no Debug Toolbar, hashed static files, the same code as on Railway.
@@ -131,8 +136,9 @@ services:
     # because the bookstore publishes the events and must run without
     # Analytics; Analytics joins this compose's network (bookstore_net,
     # see "networks:" at the end) and reads the queue as rabbitmq:5672.
-    # The publisher (outbox + a Celery task) comes at stage 3; for now
-    # nothing here talks to RabbitMQ.
+    # web, celery and celery-beat don't wait for it (no depends_on): the
+    # events are kept in the outbox table while RabbitMQ is starting or down
+    # and sent by the beat task within a minute (outbox/publisher.py).
     # A fixed version, like the other images; "management" = with the web
     # UI (queues, messages, connections), "alpine" = the smaller image.
     image: rabbitmq:4.4.1-management-alpine
