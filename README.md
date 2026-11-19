@@ -43,9 +43,12 @@ Redis, Celery, nginx). У цьому ДЗ:
 - **сторінка книги**: опис праворуч від обкладинки під заголовком «Опис», довгий
   текст розгортається стрілкою; обкладинка збільшується при натисканні (модальне
   вікно Bootstrap, без JavaScript посилання відкриває саме зображення);
+- **події для сервісу Аналітики** (фінальний проєкт): замовлення створено,
+  оплачено, скасовано — через таблицю outbox і RabbitMQ, без особистих даних
+  покупця (див. «Події для Аналітики»);
 - єдиний стиль коду: black + flake8 (`pyproject.toml`, `.flake8`), перевіряються
   ще до коміту хуком pre-commit (`.pre-commit-config.yaml`);
-- 856 тестів, покриття 98.9%.
+- 885 тестів, покриття 99%.
 
 ## Стек
 
@@ -602,6 +605,14 @@ orders/
 ├── migrations/0002_managers_order_permissions.py   # права групи Managers
 ├── management/commands/cancel_unpaid_orders.py
 └── templates/orders/        # checkout, order_detail, order_list, includes/, emails/
+outbox/                      # події для Аналітики, див. «Події для Аналітики»
+├── models.py                # OutboxEvent: подія + знімок, published_at, failed_attempts, last_error
+├── snapshot.py              # тіло повідомлення за контрактом, customer_key
+├── services.py              # record_event(): рядок у транзакції замовлення + задача після COMMIT
+├── publisher.py             # publish_pending(): kombu, publisher confirms, mandatory
+├── tasks.py                 # publish_pending_events, delete_old_events (Celery)
+├── admin.py                 # перегляд, фільтр «відправлено», дія «Відправити зараз»
+└── management/commands/publish_outbox.py
 payments/
 ├── models.py                # Payment
 ├── services.py              # ручні платежі, start_online_payment(), webhook-статуси
@@ -667,7 +678,7 @@ Dockerfile                   # образ: python:3.13-slim, користува�
 .dockerignore                # що не потрапляє в образ (.env, .venv, бази, media)
 gunicorn.conf.py             # порт з $PORT, воркери з WEB_CONCURRENCY, воркер uvicorn
 docker-entrypoint.sh         # root на Railway -> chown media і далі як app; migrate + collectstatic (не для celery); exec команди
-docker-compose.yml           # nginx + web + db + redis + celery + celery-beat + flower + stripe-cli
+docker-compose.yml           # nginx + web + db + redis + celery + celery-beat + flower + stripe-cli + rabbitmq
 .gitattributes               # *.sh завжди з LF
 ```
 
@@ -1516,6 +1527,77 @@ POST /orders/checkout/  (форма: full_name, phone, address + прихова�
 (`annotate(Sum("items__quantity"))`), сума, бейджі статусів. З `annotate` Django
 ігнорує `Meta.ordering`, тому сортування задано явно: `order_by("-created_at", "-pk")`.
 
+## Події для Аналітики
+
+Фінальний проєкт — два сервіси: ця книгарня й
+[Аналітика](https://github.com/OleksandrPiatnytsia/hillel_hw_34_django_analytics) (звіти й
+дашборди продажів). Книгарня повідомляє Аналітику про кожне замовлення через RabbitMQ.
+Контракт повідомлень (поля, версія, правила) — `docs/events.md` у репозиторії Аналітики.
+
+```
+create_order() / оплата / cancel_order()
+   │  у ТІЙ САМІЙ транзакції, що й зміна замовлення
+   ▼
+OutboxEvent (таблиця outbox: подія + знімок замовлення на цю мить)
+   │  після COMMIT — задача Celery; щохвилини — Beat (страховка)
+   ▼
+RabbitMQ: exchange bookstore.events (topic), routing key = тип події
+   │  publisher confirms: published_at ставиться лише після «збережено» від RabbitMQ
+   ▼
+черга analytics.events (її створює Аналітика) → consumer Аналітики
+```
+
+| Подія | Коли | Звідки |
+|---|---|---|
+| `order.created` | замовлення оформлено (сайт, API) | `orders.services.create_order()` |
+| `order.paid` | `payment_status` став `paid` (Stripe, ручний платіж) | `Order.refresh_payment_status()` |
+| `order.cancelled` | скасування (покупець, менеджер, API, автоскасування) | `orders.services.cancel_order()` |
+
+Часткова оплата й статуси `processing` / `shipped` / `completed` окремих подій не мають:
+наступний знімок усе одно містить поточні `status` і `payment_status`.
+
+**Чому outbox, а не повідомлення одразу.** Рядок події пишеться в одній транзакції із
+замовленням: відкотилося замовлення — немає й події; збережено — подія точно є, навіть якщо
+RabbitMQ, Redis чи воркер саме зараз недоступні. Вона чекає в таблиці й піде пізніше.
+
+**Знімок** (`outbox/snapshot.py`) — замовлення цілком на момент події: статуси, валюта, суми
+(рядками з двома знаками, а не float), суми в гривнях за курсом дня замовлення, позиції з
+книгою (назва, автор, видавництво, мова, категорії), формат (`audiobook` → `audio` контракту).
+**Без особистих даних**: імені, телефону, адреси, email і id користувача там немає. Покупець —
+`customer_key` = HMAC-SHA256(`CUSTOMER_KEY_SALT`, id користувача): Аналітика відрізняє нових і
+повторних покупців, але не може дізнатися, хто це.
+
+**Відправлення** (`outbox/publisher.py`):
+
+- рядки беруться від найстаріших з `SELECT ... FOR UPDATE SKIP LOCKED`: задача після COMMIT і
+  Beat в ту саму секунду беруть різні рядки, а не відправляють ті самі двічі;
+- `publisher confirms` + `delivery_mode=2` (персистентне): рядок позначається відправленим
+  лише після підтвердження RabbitMQ;
+- `mandatory=True`: якщо черги ще немає (Аналітика жодного разу не стартувала), RabbitMQ
+  повертає повідомлення, а не мовчки викидає його, і подія лишається в outbox;
+- помилка — `failed_attempts + 1` (рахуються лише **невдалі** спроби: у відправленої з першого разу події там 0), `last_error`, warning у лог, і запуск зупиняється: пізніша подія
+  замовлення не обганяє ранішу. Наступна спроба — Beat за хвилину;
+- «принаймні один раз»: якщо процес упаде між підтвердженням і `UPDATE`, подію буде
+  відправлено ще раз — Аналітика пропускає повторний `event_id`;
+- Redis недоступний після COMMIT — задача не ставиться, і покупець **не** чекає на RabbitMQ
+  (на відміну від листів); подію відправить Beat;
+- RabbitMQ не налаштовано (`RABBITMQ_URL` і `RABBITMQ_HOST` порожні, як на Railway до деплою
+  Аналітики) — події пишуться в outbox і чекають, помилок немає. Коли RabbitMQ з'явиться, піде
+  вся накопичена історія.
+
+**Адмінка** («Події для Аналітики»): лише перегляд, фільтр «відправлено / чекає», пошук за
+номером замовлення, дія «Відправити події, що чекають, зараз». Видалити рядок вручну не можна:
+невідправлена подія не дійшла б до Аналітики. Відправлені рядки старші за 30 днів видаляє
+Beat уночі (`OUTBOX_KEEP_DAYS`).
+
+```bash
+python manage.py publish_outbox          # відправити все, що чекає: "Sent: 3, still waiting: 0"
+```
+
+Перевірка наскрізь у Docker: оформити замовлення на http://localhost:8000 → у вебпанелі
+RabbitMQ (http://localhost:15672, Queues) черга `analytics.events` отримала повідомлення → у
+журналі подій Аналітики з'явилося `order.created`.
+
 ## Оплата
 
 ### Провайдери
@@ -1961,7 +2043,7 @@ docker volume create hillel_bookstore_postgres_data && docker volume create hill
 
 docker compose run --rm --no-deps stripe-cli listen --print-secret   # whsec_... -> STRIPE_WEBHOOK_SECRET у .env
 docker compose up --build -d                                   # зібрати образ і запустити
-docker compose ps                                              # db, redis, web, nginx, celery, flower healthy
+docker compose ps                                              # db, redis, rabbitmq, web, nginx, celery, flower healthy
 docker compose exec web python manage.py createsuperuser
 docker compose exec web python manage.py seed_books            # якщо база порожня
 ```
@@ -1971,6 +2053,7 @@ docker compose exec web python manage.py seed_books            # якщо баз
 - API: http://localhost:8000/api/, документація: http://localhost:8000/api/docs/
 - Стан: http://localhost:8000/health/
 - Flower: http://localhost:5555/ (логін і пароль з `FLOWER_BASIC_AUTH`)
+- RabbitMQ: http://localhost:15672/ (логін і пароль з `RABBITMQ_USER` / `RABBITMQ_PASSWORD`)
 - Логи: `docker compose logs -f web celery`, запити: `docker compose logs -f nginx`,
   події Stripe: `docker compose logs -f stripe-cli`
 
@@ -1987,7 +2070,8 @@ docker compose up
   │                                     ▼ healthy (celery inspect ping)
   ├─ flower       :5555 → панель задач
   ├─ celery-beat  celery beat: кладе періодичні задачі в чергу за розкладом
-  └─ stripe-cli   stripe listen --forward-to nginx/payments/webhook/stripe/ (після nginx healthy)
+  ├─ stripe-cli   stripe listen --forward-to nginx/payments/webhook/stripe/ (після nginx healthy)
+  └─ rabbitmq     rabbitmq:4.4.1-management-alpine: події для сервісу Аналітики, :15672 → вебпанель
 ```
 
 | Сервіс | Порт на Mac | Volume | Healthcheck |
@@ -2000,9 +2084,17 @@ docker compose up
 | `celery-beat` | немає | немає (файл розкладу в `/tmp`) | немає |
 | `flower` | `127.0.0.1:5555` (лише цей Mac) | немає | `GET /healthcheck` |
 | `stripe-cli` | немає | немає | немає: від нього ніхто не залежить, стан видно в `logs` |
+| `rabbitmq` | `127.0.0.1:5672` (AMQP), `127.0.0.1:15672` (вебпанель) | `hillel_bookstore_rabbitmq_data` → `/var/lib/rabbitmq` | `rabbitmq-diagnostics ping` |
 
 `web`, `celery`, `celery-beat` і `flower` — один образ `hillel-bookstore-django`
 з однаковими налаштуваннями (якір `x-django` у `docker-compose.yml`), різні лише команди.
+
+**RabbitMQ і мережа `bookstore_net`.** RabbitMQ возить події замовлень у сервіс Аналітики
+([hillel_hw_34_django_analytics](https://github.com/OleksandrPiatnytsia/hillel_hw_34_django_analytics));
+черга Celery лишається в Redis. Мережа цього compose має фіксовану назву `bookstore_net`
+(`networks: default: name:`): compose Аналітики приєднується до неї як до зовнішньої й бачить
+`rabbitmq:5672`. Тому спершу `docker compose up` тут, потім в Аналітиці. `hostname: rabbitmq`
+потрібен, щоб черги не губилися: RabbitMQ зберігає дані в папці з іменем вузла, а ім'я береться з hostname.
 
 Корисні команди:
 
@@ -2146,6 +2238,10 @@ docker compose exec -u root web chown -R app:app /app/media
 | `POSTGRES_PORT` | порт | `5432` |
 | `REDIS_URL` | сервер Redis: кеш і сесії в базі 0, черга Celery в базі 1; у Docker compose — `redis://redis:6379` | `redis://localhost:6379` |
 | `CELERY_BROKER_URL` | лише щоб винести чергу на інший сервер; порожня — `REDIS_URL`, база 1 | |
+| `RABBITMQ_USER` / `RABBITMQ_PASSWORD` | користувач RabbitMQ, створюється при першому старті контейнера; той самий логін — у `.env` Аналітики; **обов'язкові** для `docker compose` | `bookstore` / `'change-me'` |
+| `RABBITMQ_HOST` / `RABBITMQ_PORT` | RabbitMQ для подій Аналітики; `localhost` для runserver, у Docker compose ставить `rabbitmq`; порожній хост — події чекають в outbox | `localhost` / `5672` |
+| `RABBITMQ_URL` | RabbitMQ однією адресою (хостинг); якщо задана — `RABBITMQ_HOST` і решта не потрібні | `amqp://user:pass@host:5672//` |
+| `CUSTOMER_KEY_SALT` | сіль `customer_key` у подіях; **обов'язкова** для production (Docker, Railway); задається один раз і **ніколи не змінюється** | `python -c "import secrets; print(secrets.token_hex(32))"` |
 | `FLOWER_BASIC_AUTH` | логін і пароль Flower `user:password`, без коми; **обов'язкова** для `docker compose` | `'admin:change-me'` |
 | `FLOWER_URL` | адреса Flower для посилання в профілі | `http://localhost:5555` |
 | `SENTRY_DSN` | адреса проєкту Sentry; порожня — Sentry вимкнено | `https://...@o....ingest.sentry.io/...` |
@@ -2303,6 +2399,8 @@ Railway оголосив застарілими (нові сервіси вже 
 | `BREVO_API_KEY`, `EMAIL_FROM` | так | так (листи відправляє саме worker) |
 | `SENTRY_DSN`, `SENTRY_ENVIRONMENT=production` | так | так |
 | `SENTRY_ISSUES_URL` | посилання в профілі | — |
+| `CUSTOMER_KEY_SALT` | **обов'язкова**: без неї production-налаштування не стартують | та сама, що у web |
+| `RABBITMQ_URL` | поки не задається: події чекають в outbox до деплою Аналітики | — |
 
 Змінні `flower`:
 
@@ -2312,6 +2410,7 @@ Railway оголосив застарілими (нові сервіси вже 
 | `DATABASE_URL`, `REDIS_URL` | як у worker; Flower читає події задач з Redis |
 | `FLOWER_BASIC_AUTH` | `логін:пароль`, новий довгий пароль, без коми; **обов'язково**: з Flower можна зупиняти задачі й воркерів, а домен публічний |
 | `PORT` | `5555`: на цей порт Railway шле запити домену й перевірку здоров'я |
+| `CUSTOMER_KEY_SALT` | та сама, що у web (Flower теж завантажує production-налаштування) |
 
 Flower сам читає змінні `FLOWER_*` як свої параметри (`FLOWER_BASIC_AUTH` =
 `--basic-auth`), тому пароль не потрапляє в команду запуску. Команда Railway
@@ -2349,9 +2448,9 @@ python manage.py update_exchange_rates             # курси одразу, н
   завантаження варто очистити кеш (`cache.clear()`).
 
 **Версія у футері.** Внизу кожної сторінки:
-`Книгарня · домашнє завдання Hillel з Django · v1.4.0 (335de9f)`.
+`Книгарня · домашнє завдання Hillel з Django · v1.5.0 (335de9f)`.
 
-- `v1.4.0` — `__version__` у `config/version.py`, змінюється вручну раз на
+- `v1.5.0` — `__version__` у `config/version.py`, змінюється вручну раз на
   реліз (pull request у `main`): PATCH — виправлення, MINOR — нова можливість,
   MAJOR — зміна, що ламає старе (наприклад, API).
 - `(335de9f)` — перші 7 символів задеплоєного коміту, посилання на нього в
@@ -2462,6 +2561,8 @@ celery-beat ── за розкладом ────────────�
 | `clear_expired_sessions` | Beat, 03:00 UTC | `manage.py clearsessions` |
 | `send_daily_report` | Beat, 06:00 UTC | звіт за вчора менеджерам (група Managers), виручка в гривнях |
 | `update_exchange_rates` | Beat, 6:05 і 13:05–17:05 UTC щогодини | курси НБУ на сьогодні й завтра (див. «Валюти») |
+| `publish_pending_events` | після COMMIT події; Beat щохвилини | події outbox → RabbitMQ (див. «Події для Аналітики») |
+| `delete_old_events` | Beat, 03:30 UTC | відправлені події outbox старші за 30 днів |
 
 - **Після `COMMIT`.** `enqueue_on_commit()` (`config/celery.py`) ставить задачу
   лише після успішної транзакції: воркер не прочитає замовлення, якого ще немає

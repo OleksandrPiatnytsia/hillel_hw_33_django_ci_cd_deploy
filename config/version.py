@@ -5,7 +5,8 @@ Two parts:
   Raised once per release (a pull request to main), not per commit:
     PATCH (1.0.0 -> 1.0.1): a fix, nothing new for the user;
     MINOR (1.0.0 -> 1.1.0): a new feature (book formats; 1.1.0 -> 1.4.0:
-        the wishlist, the rating, the book page and the navbar);
+        the wishlist, the rating, the book page and the navbar; 1.5.0: the
+        events for Analytics);
     MAJOR (1.0.0 -> 2.0.0): a change that breaks the old (API clients).
 - the commit: comes by itself, nobody has to remember it. Railway gives
   every deploy from GitHub the variable RAILWAY_GIT_COMMIT_SHA; elsewhere
@@ -18,7 +19,7 @@ with every push to main, even when __version__ stays the same.
 
 import os
 
-__version__ = "1.4.0"
+__version__ = "1.5.0"
 
 
 def deployed_commit():

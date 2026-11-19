@@ -5,7 +5,7 @@ def version(request):
     """Adds the version of the site to every template: the footer of base.html.
 
     Registered in settings.TEMPLATES["OPTIONS"]["context_processors"].
-    app_version: "1.4.0"; app_commit: the full SHA or "" (config/version.py);
+    app_version: "1.5.0"; app_commit: the full SHA or "" (config/version.py);
     app_commit_url: the commit on GitHub, "" without a commit.
     """
     commit = settings.APP_COMMIT

@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Bookstore\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-17 09:22+0000\n"
+"POT-Creation-Date: 2026-11-19 07:38+0000\n"
 "PO-Revision-Date: 2026-11-10 16:00+0200\n"
 "Last-Translator: Bookstore\n"
 "Language-Team: English\n"
@@ -130,7 +130,7 @@ msgid "categories"
 msgstr ""
 
 #: books/admin.py:42 books/models.py:356 books/models.py:546
-#: books/models.py:690 orders/models.py:239 ratings/models.py:33
+#: books/models.py:690 orders/models.py:249 ratings/models.py:33
 #: wishlist/models.py:27
 msgid "book"
 msgstr ""
@@ -146,7 +146,7 @@ msgid "stock"
 msgstr ""
 
 #: books/admin.py:84 books/models.py:552 inventory/models.py:86
-#: orders/models.py:250
+#: orders/models.py:260
 msgid "format"
 msgstr ""
 
@@ -189,6 +189,7 @@ msgid "available"
 msgstr ""
 
 #: books/apps.py:8 orders/templates/orders/order_list.html:17
+#: templates/includes/navbar.html:26
 msgid "Books"
 msgstr ""
 
@@ -205,7 +206,7 @@ msgid "Publisher"
 msgstr ""
 
 #: books/filters.py:62 books/templates/books/includes/book_details.html:45
-#: templates/includes/navbar.html:78 users/admin.py:21
+#: templates/includes/navbar.html:87 users/admin.py:21
 #: users/templates/users/profile.html:43
 msgid "Language"
 msgstr ""
@@ -284,11 +285,11 @@ msgid "Best rated"
 msgstr ""
 
 #: books/filters.py:248 books/templates/books/includes/filter_section.html:31
-#: templates/includes/navbar.html:48 templates/includes/navbar.html:50
+#: templates/includes/navbar.html:57 templates/includes/navbar.html:59
 msgid "Search"
 msgstr ""
 
-#: books/filters.py:250 templates/includes/navbar.html:47
+#: books/filters.py:250 templates/includes/navbar.html:56
 msgid "Title or author"
 msgstr ""
 
@@ -416,11 +417,11 @@ msgstr ""
 msgid "publishers"
 msgstr ""
 
-#: books/models.py:301 config/settings/base.py:392
+#: books/models.py:301 config/settings/base.py:428
 msgid "Ukrainian"
 msgstr ""
 
-#: books/models.py:302 config/settings/base.py:393
+#: books/models.py:302 config/settings/base.py:429
 msgid "English"
 msgstr ""
 
@@ -440,7 +441,7 @@ msgstr ""
 msgid "Spanish"
 msgstr ""
 
-#: books/models.py:308 orders/models.py:265
+#: books/models.py:308 orders/models.py:275
 msgid "title"
 msgstr ""
 
@@ -456,7 +457,8 @@ msgstr ""
 msgid "publication year"
 msgstr ""
 
-#: books/models.py:349 orders/models.py:115 payments/models.py:77
+#: books/models.py:349 orders/models.py:115 outbox/models.py:43
+#: payments/models.py:77
 msgid "created at"
 msgstr ""
 
@@ -491,7 +493,7 @@ msgstr ""
 msgid "Dust jacket"
 msgstr ""
 
-#: books/models.py:554 orders/admin.py:50 orders/models.py:270
+#: books/models.py:554 orders/admin.py:50 orders/models.py:280
 msgid "price"
 msgstr ""
 
@@ -539,7 +541,7 @@ msgstr ""
 
 #: books/templates/books/author_detail.html:9
 #: books/templates/books/author_list.html:4
-#: books/templates/books/author_list.html:8 templates/includes/navbar.html:24
+#: books/templates/books/author_list.html:8 templates/includes/navbar.html:32
 msgid "Authors"
 msgstr ""
 
@@ -626,7 +628,7 @@ msgstr ""
 #: books/templates/books/book_detail.html:18
 #: books/templates/books/book_form.html:15
 #: books/templates/books/book_list.html:4
-#: books/templates/books/book_list.html:10 templates/includes/navbar.html:18
+#: books/templates/books/book_list.html:10 templates/includes/navbar.html:21
 msgid "Catalog"
 msgstr ""
 
@@ -904,7 +906,7 @@ msgstr ""
 
 #: cart/apps.py:8 cart/templates/cart/cart_detail.html:4
 #: cart/templates/cart/cart_detail.html:7
-#: orders/templates/orders/checkout.html:9 templates/includes/navbar.html:122
+#: orders/templates/orders/checkout.html:9 templates/includes/navbar.html:131
 msgid "Cart"
 msgstr ""
 
@@ -989,7 +991,7 @@ msgstr ""
 msgid "Checkout"
 msgstr ""
 
-#: cart/templates/cart/cart_detail.html:127 orders/services.py:87
+#: cart/templates/cart/cart_detail.html:127 orders/services.py:89
 msgid "The cart is empty."
 msgstr ""
 
@@ -1000,7 +1002,7 @@ msgstr ""
 msgid "Go to the catalog"
 msgstr ""
 
-#: cart/views.py:47 orders/services.py:147
+#: cart/views.py:47 orders/services.py:149
 #, python-format
 msgid "“%(title)s” is out of stock."
 msgstr ""
@@ -1127,7 +1129,7 @@ msgstr ""
 msgid "updated"
 msgstr ""
 
-#: currencies/models.py:99 orders/models.py:89 orders/models.py:295
+#: currencies/models.py:99 orders/models.py:89 orders/models.py:305
 msgid "exchange rate"
 msgstr ""
 
@@ -1162,7 +1164,7 @@ msgid "Rates for <strong>%(date)s</strong>, UAH for 1 unit"
 msgstr ""
 
 #: currencies/templates/currencies/rates.html:43
-#: orders/templates/orders/checkout.html:91 templates/includes/navbar.html:103
+#: orders/templates/orders/checkout.html:91 templates/includes/navbar.html:112
 msgid "Currency"
 msgstr ""
 
@@ -1239,7 +1241,7 @@ msgstr ""
 msgid "Another warehouse is already the default."
 msgstr ""
 
-#: inventory/models.py:103 orders/models.py:301
+#: inventory/models.py:103 orders/models.py:311
 msgid "quantity"
 msgstr ""
 
@@ -1247,7 +1249,7 @@ msgstr ""
 msgid "Only a paper format has copies in a warehouse."
 msgstr ""
 
-#: orders/admin.py:54 orders/models.py:279
+#: orders/admin.py:54 orders/models.py:289
 msgid "original price"
 msgstr ""
 
@@ -1412,7 +1414,8 @@ msgstr ""
 msgid "idempotency key"
 msgstr ""
 
-#: orders/models.py:120 orders/models.py:232 payments/models.py:36
+#: orders/models.py:120 orders/models.py:242 outbox/models.py:39
+#: payments/models.py:36
 msgid "order"
 msgstr ""
 
@@ -1425,42 +1428,42 @@ msgstr ""
 msgid "Order #%(number)s"
 msgstr ""
 
-#: orders/models.py:260
+#: orders/models.py:270
 msgid "format type"
 msgstr ""
 
-#: orders/models.py:286
+#: orders/models.py:296
 msgid "original currency"
 msgstr ""
 
-#: orders/models.py:307
+#: orders/models.py:317
 msgid "order item"
 msgstr ""
 
-#: orders/models.py:308
+#: orders/models.py:318
 msgid "order items"
 msgstr ""
 
-#: orders/services.py:92
+#: orders/services.py:94
 #, python-format
 msgid "Orders in %(currency)s are not accepted."
 msgstr ""
 
-#: orders/services.py:129
+#: orders/services.py:131
 msgid "A book from your cart is no longer sold."
 msgstr ""
 
-#: orders/services.py:134
+#: orders/services.py:136
 #, python-format
 msgid "“%(title)s” (%(format)s) is not on sale any more."
 msgstr ""
 
-#: orders/services.py:140
+#: orders/services.py:142
 #, python-format
 msgid "“%(title)s” can't be sold now: no exchange rate for %(currency)s."
 msgstr ""
 
-#: orders/services.py:154
+#: orders/services.py:156
 #, python-format
 msgid "“%(title)s”: only %(stock)s copy left, you ordered %(quantity)s."
 msgid_plural ""
@@ -1468,21 +1471,21 @@ msgid_plural ""
 msgstr[0] ""
 msgstr[1] ""
 
-#: orders/services.py:253 payments/services.py:207
+#: orders/services.py:259 payments/services.py:207
 msgid "Order not found."
 msgstr ""
 
-#: orders/services.py:255
+#: orders/services.py:261
 #, python-format
 msgid "%(order)s can't be cancelled any more."
 msgstr ""
 
-#: orders/services.py:257
+#: orders/services.py:263
 #, python-format
 msgid "%(order)s is already cancelled."
 msgstr ""
 
-#: orders/services.py:261
+#: orders/services.py:267
 #, python-format
 msgid "%(order)s is not a new unpaid order any more."
 msgstr ""
@@ -1577,7 +1580,7 @@ msgstr ""
 #: payments/templates/payments/emails/payment_received.html:60
 #: payments/templates/payments/emails/payment_received.txt:12
 #: templates/base.html:9 templates/base.html:36
-#: templates/includes/navbar.html:13
+#: templates/includes/navbar.html:17
 msgid "Bookstore"
 msgstr ""
 
@@ -1696,7 +1699,7 @@ msgstr ""
 
 #: orders/templates/orders/order_detail.html:9
 #: orders/templates/orders/order_list.html:4
-#: orders/templates/orders/order_list.html:7 templates/includes/navbar.html:139
+#: orders/templates/orders/order_list.html:7 templates/includes/navbar.html:148
 msgid "My orders"
 msgstr ""
 
@@ -1759,6 +1762,75 @@ msgstr ""
 #: orders/views.py:156
 #, python-format
 msgid "%(order)s is cancelled. The books are back in stock."
+msgstr ""
+
+#: outbox/admin.py:16 outbox/admin.py:58
+msgid "sent"
+msgstr ""
+
+#: outbox/admin.py:20
+msgid "Yes"
+msgstr ""
+
+#: outbox/admin.py:20
+msgid "No, waiting"
+msgstr ""
+
+#: outbox/admin.py:75
+msgid "Send the waiting events now"
+msgstr ""
+
+#: outbox/admin.py:84
+#, python-format
+msgid "Sent: %(sent)s, still waiting: %(waiting)s."
+msgstr ""
+
+#: outbox/apps.py:8
+msgid "Events for Analytics"
+msgstr ""
+
+#: outbox/models.py:27
+msgid "Order created"
+msgstr ""
+
+#: outbox/models.py:28
+msgid "Order paid"
+msgstr ""
+
+#: outbox/models.py:29
+msgid "Order cancelled"
+msgstr ""
+
+#: outbox/models.py:34
+msgid "event id"
+msgstr ""
+
+#: outbox/models.py:35
+msgid "type"
+msgstr ""
+
+#: outbox/models.py:42
+msgid "payload"
+msgstr ""
+
+#: outbox/models.py:45
+msgid "published at"
+msgstr ""
+
+#: outbox/models.py:49
+msgid "failed attempts"
+msgstr ""
+
+#: outbox/models.py:50
+msgid "last error"
+msgstr ""
+
+#: outbox/models.py:55
+msgid "outbox event"
+msgstr ""
+
+#: outbox/models.py:56
+msgid "outbox events"
 msgstr ""
 
 #: payments/admin.py:37 payments/models.py:85
@@ -2113,51 +2185,51 @@ msgstr ""
 msgid "Deployed commit"
 msgstr ""
 
-#: templates/includes/navbar.html:31
+#: templates/includes/navbar.html:40
 msgid "Toggle navigation"
 msgstr ""
 
-#: templates/includes/navbar.html:44
+#: templates/includes/navbar.html:53
 msgid "No books found"
 msgstr ""
 
-#: templates/includes/navbar.html:60
+#: templates/includes/navbar.html:69
 msgid "Theme"
 msgstr ""
 
-#: templates/includes/navbar.html:64
+#: templates/includes/navbar.html:73
 msgid "Light"
 msgstr ""
 
-#: templates/includes/navbar.html:65
+#: templates/includes/navbar.html:74
 msgid "Dark"
 msgstr ""
 
-#: templates/includes/navbar.html:66
+#: templates/includes/navbar.html:75
 msgid "System"
 msgstr ""
 
-#: templates/includes/navbar.html:138 users/templates/users/profile.html:4
+#: templates/includes/navbar.html:147 users/templates/users/profile.html:4
 #: users/templates/users/profile_edit.html:11
 msgid "My profile"
 msgstr ""
 
-#: templates/includes/navbar.html:140 users/templates/users/profile.html:46
+#: templates/includes/navbar.html:149 users/templates/users/profile.html:46
 #: wishlist/apps.py:8 wishlist/templates/wishlist/wishlist.html:4
 #: wishlist/templates/wishlist/wishlist.html:10
 msgid "Wishlist"
 msgstr ""
 
-#: templates/includes/navbar.html:147
+#: templates/includes/navbar.html:156
 msgid "Log out"
 msgstr ""
 
-#: templates/includes/navbar.html:156 users/templates/users/auth_form.html:54
+#: templates/includes/navbar.html:165 users/templates/users/auth_form.html:54
 #: users/views.py:41
 msgid "Log in"
 msgstr ""
 
-#: templates/includes/navbar.html:160 users/templates/users/auth_form.html:52
+#: templates/includes/navbar.html:169 users/templates/users/auth_form.html:52
 #: users/views.py:73
 msgid "Sign up"
 msgstr ""

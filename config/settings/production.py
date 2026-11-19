@@ -170,6 +170,16 @@ SERVE_MEDIA = env_bool("DJANGO_SERVE_MEDIA", False)
 # Brevo sends only from a sender confirmed in its account: without
 # EMAIL_FROM every email would be refused ("sender not valid") and the
 # tasks would fail one by one. Better to stop at start with a clear message.
+# customer_key of the events for Analytics (base.py): the default salt of
+# base.py is in git, so anybody could turn the keys back into user ids by
+# trying 1, 2, 3, ... And a salt changed later splits every customer in two.
+# A fixed secret value from the environment, no default.
+if not os.getenv("CUSTOMER_KEY_SALT"):
+    raise ImproperlyConfigured(
+        "CUSTOMER_KEY_SALT is empty: set a long random value once and never change it "
+        '(python -c "import secrets; print(secrets.token_hex(32))")'
+    )
+
 if BREVO_API_KEY and EMAIL_FROM == "noreply@localhost":
     raise ImproperlyConfigured(
         "BREVO_API_KEY is set, but EMAIL_FROM is empty: set the sender address "

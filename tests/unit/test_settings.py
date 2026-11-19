@@ -15,7 +15,7 @@ from pathlib import Path
 import pytest
 from django.core.exceptions import ImproperlyConfigured
 
-from config.env import database_settings, env_bool, env_list, redis_url
+from config.env import database_settings, env_bool, env_list, rabbitmq_url, redis_url
 
 BASE_DIR = Path(__file__).resolve().parents[2]  # the folder with manage.py
 
@@ -115,6 +115,32 @@ def test_redis_url(url, database, expected):
     assert redis_url(url, database) == expected
 
 
+def test_rabbitmq_url_from_its_parts(monkeypatch):
+    monkeypatch.delenv("RABBITMQ_URL", raising=False)
+    monkeypatch.setenv("RABBITMQ_HOST", "rabbitmq")
+    monkeypatch.setenv("RABBITMQ_PORT", "5672")
+    monkeypatch.setenv("RABBITMQ_USER", "bookstore")
+    # "@" and "/" in a password would break the address: %-encoded
+    monkeypatch.setenv("RABBITMQ_PASSWORD", "p@ss/word")
+
+    assert rabbitmq_url() == "amqp://bookstore:p%40ss%2Fword@rabbitmq:5672//"
+
+
+def test_rabbitmq_url_wins_when_set(monkeypatch):
+    monkeypatch.setenv("RABBITMQ_URL", "amqp://user:secret@host.internal:5672//")
+    monkeypatch.setenv("RABBITMQ_HOST", "ignored")
+
+    assert rabbitmq_url() == "amqp://user:secret@host.internal:5672//"
+
+
+def test_no_rabbitmq_without_a_host(monkeypatch):
+    """Railway before Analytics: no address -> the outbox is not sent."""
+    monkeypatch.delenv("RABBITMQ_URL", raising=False)
+    monkeypatch.delenv("RABBITMQ_HOST", raising=False)
+
+    assert rabbitmq_url() == ""
+
+
 # ---------------------------------------------------------------------------
 # config/settings/production.py (in a separate process)
 # ---------------------------------------------------------------------------
@@ -134,7 +160,8 @@ def run_with_production_settings(*args, **env):
       these tests cause on purpose;
     - a fake Gmail login: with it the settings choose the SMTP mailer, as
       on a server (without it: the console mailer, which check --deploy
-      reports as mail.E001). Nothing is sent: the commands send no email.
+      reports as mail.E001). Nothing is sent: the commands send no email;
+    - a CUSTOMER_KEY_SALT: production refuses to start without one.
     """
     # Without DJANGO_HTTPS of this process: the default (True) unless a test
     # sets it
@@ -151,6 +178,7 @@ def run_with_production_settings(*args, **env):
         # exists, so a Brevo key from the local .env can't sneak in
         "BREVO_API_KEY": "",
         "EMAIL_FROM": "",
+        "CUSTOMER_KEY_SALT": "test-only-customer-key-salt",
         **env,
     }
     return subprocess.run(
@@ -291,6 +319,16 @@ def test_brevo_wins_over_gmail():
 
     assert result.returncode == 0, result.stderr
     assert result.stdout.strip() == "anymail.backends.brevo.EmailBackend"
+
+
+def test_production_refuses_to_start_without_the_customer_key_salt():
+    """The default salt of base.py is in git: with it anybody could match the
+    customer keys of the events to user ids. Empty, not unset: load_dotenv()
+    must not take one from the local .env either."""
+    result = run_with_production_settings("check", CUSTOMER_KEY_SALT="")
+
+    assert result.returncode != 0
+    assert "CUSTOMER_KEY_SALT is empty" in result.stderr
 
 
 def test_brevo_without_a_sender_refuses_to_start():
