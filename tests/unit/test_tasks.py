@@ -62,8 +62,12 @@ def test_order_email_is_sent_by_the_task_after_commit(
     with django_capture_on_commit_callbacks(execute=True) as callbacks:
         order = create_order(customer, {format_id(book): 1}, **DELIVERY)
 
-    # The email task is queued only after COMMIT: nothing sent before it
-    assert [callback.__qualname__ for callback in callbacks] == ["enqueue_on_commit.<locals>.send"]
+    # The email task is queued only after COMMIT: nothing sent before it.
+    # The other callback: the outbox publisher for Analytics (outbox.services)
+    assert [callback.__qualname__ for callback in callbacks] == [
+        "_publish_soon",
+        "enqueue_on_commit.<locals>.send",
+    ]
     assert [message.to for message in mailoutbox] == [[customer.email]]
     assert f"#{order.pk}" in mailoutbox[0].subject
 

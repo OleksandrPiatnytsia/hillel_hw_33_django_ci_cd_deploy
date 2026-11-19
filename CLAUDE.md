@@ -74,15 +74,18 @@ Stages of the shared plan that belong to the bookstore:
   hostname rabbitmq, volume hillel_bookstore_rabbitmq_data, ports 127.0.0.1:5672 / 15672,
   login RABBITMQ_USER / RABBITMQ_PASSWORD from .env) and the compose network named
   `bookstore_net`, which Analytics' compose joins as external. Nothing publishes yet.
-  At stage 3 add with the publisher code: `rabbitmq_url()` in config/env.py (RABBITMQ_URL or
-  RABBITMQ_HOST / PORT / USER / PASSWORD, like Analytics), RABBITMQ_HOST=localhost and
-  RABBITMQ_PORT=5672 in .env.example, `RABBITMQ_HOST: rabbitmq` in x-django of the compose.
-- **Stage 3**: `OutboxEvent` table written in the same transaction as the order change; a Celery
-  task publishes to RabbitMQ (topic exchange `bookstore.events`, publisher confirms, retries);
-  events `order.created`, `order.paid`, `order.cancelled` with `event_id` (UUID), `type`,
-  `occurred_at` and an order snapshot **without personal data** (customer = hash of the user
-  id; amounts also in UAH). RabbitMQ is added to this repository's `docker-compose.yml`
-  (Analytics joins this Docker network). No REST fallback for events (the user's decision).
+- **Stage 3 (done 2026-11-18, v1.5.0)**: app `outbox` (README «Події для Аналітики»).
+  `record_event()` writes `OutboxEvent` (event_id, type, order_id, payload snapshot,
+  published_at, failed_attempts, last_error) in the order's transaction from `create_order()`,
+  `Order.refresh_payment_status()` (only when it becomes paid) and `cancel_order()`.
+  `publish_pending()`: FOR UPDATE SKIP LOCKED, oldest first, kombu `confirm_publish` +
+  `mandatory` (returned = not routed = stays unsent), stops at the first failure. Task after
+  COMMIT (no synchronous fallback) + beat every minute; nightly cleanup after 30 days.
+  `RABBITMQ_URL` empty -> events wait, nothing fails (Railway until stage 6).
+  `CUSTOMER_KEY_SALT` (HMAC-SHA256 of the user id) is required by production settings, so on
+  Railway web, worker AND flower need it. Format `audiobook` is sent as `audio` (contract).
+  The contract is owned by Analytics: `../hillel_hw_34_django_analytics/docs/events.md`.
+  No REST fallback for events (the user's decision).
 - **Stage 5**: an analytics page for managers that calls Analytics' REST reports with a JWT of a
   service account (Redis cache, a friendly message and logging when Analytics is down); an API
   for the backfill (Analytics pulls old orders once); integration tests.

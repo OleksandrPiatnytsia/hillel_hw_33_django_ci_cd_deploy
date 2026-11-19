@@ -29,7 +29,7 @@ from corsheaders.defaults import default_headers
 from django.utils.translation import gettext_lazy as _
 from dotenv import load_dotenv
 
-from config.env import database_settings, env_list, redis_url
+from config.env import database_settings, env_list, rabbitmq_url, redis_url
 from config.version import __version__, deployed_commit
 
 # The project folder (the one with manage.py): config/settings/base.py is
@@ -89,6 +89,8 @@ INSTALLED_APPS = [
     "currencies",
     # The whole REST API layer: serializers, ViewSets, permissions, URLs
     "api",
+    # Events of the orders for the Analytics service (RabbitMQ)
+    "outbox",
 ]
 
 # Custom user model (users.User instead of auth.User). Must be set before
@@ -344,9 +346,43 @@ CELERY_BEAT_SCHEDULE = {
         "task": "currencies.tasks.update_exchange_rates",
         "schedule": crontab(hour="6,13-17", minute=5),
     },
+    # Events of the outbox not sent yet (RabbitMQ or Redis was down, the
+    # worker restarted): every minute. Usually there is nothing: an event
+    # is sent right after its COMMIT (outbox.services.record_event)
+    "publish-outbox-events": {
+        "task": "outbox.tasks.publish_pending_events",
+        "schedule": crontab(),
+    },
+    # Sent events older than OUTBOX_KEEP_DAYS out of the outbox table
+    "clean-outbox": {
+        "task": "outbox.tasks.delete_old_events",
+        "schedule": crontab(hour=3, minute=30),
+    },
 }
 # Age of an unpaid order for the hourly cancel_unpaid_orders task
 ORDER_UNPAID_MAX_AGE_HOURS = int(os.getenv("ORDER_UNPAID_MAX_AGE_HOURS", 24))
+
+
+# Events for the Analytics service (app outbox, the final project).
+# The contract: docs/events.md of hillel_hw_34_django_analytics.
+#
+#   order saved + OutboxEvent row (one transaction)
+#     -> after COMMIT a Celery task, and every minute beat
+#     -> RabbitMQ exchange EVENTS_EXCHANGE (topic), routing key = event type
+#
+# RabbitMQ only carries these events; the Celery queue stays in Redis.
+# "" = no RabbitMQ (Railway until Analytics is deployed there): the events
+# are written to the outbox and wait, nothing is sent and nothing fails.
+RABBITMQ_URL = rabbitmq_url()
+EVENTS_EXCHANGE = "bookstore.events"
+# How long a SENT event stays in the table (admin, debugging); unsent ones
+# are never deleted
+OUTBOX_KEEP_DAYS = 30
+# The salt of customer_key: Analytics gets HMAC-SHA256(salt, user id), never
+# the user id, a name or an email. Known only to the bookstore. NEVER change
+# it: every customer would get a new key, Analytics would count them as new.
+# The production settings refuse to start without it (no default there).
+CUSTOMER_KEY_SALT = os.getenv("CUSTOMER_KEY_SALT", "development-only-customer-key-salt")
 
 
 # Password validation

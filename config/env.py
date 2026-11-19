@@ -11,7 +11,7 @@ separate POSTGRES_* variables, the ones the postgres Docker image reads too.
 """
 
 import os
-from urllib.parse import parse_qsl, unquote, urlsplit, urlunsplit
+from urllib.parse import parse_qsl, quote, unquote, urlsplit, urlunsplit
 
 from django.core.exceptions import ImproperlyConfigured
 
@@ -80,3 +80,27 @@ def redis_url(url, database):
     sessions (database 0) and the Celery queue (database 1).
     """
     return urlunsplit(urlsplit(url)._replace(path=f"/{database}"))
+
+
+def rabbitmq_url():
+    """The AMQP address of RabbitMQ (the events for Analytics), or "" when there is none.
+
+    RABBITMQ_URL if it is set (a hosting gives one address), otherwise built
+    from RABBITMQ_HOST / RABBITMQ_PORT / RABBITMQ_USER / RABBITMQ_PASSWORD
+    (.env, docker compose). The last "/" is the virtual host "/" (the default
+    one of RabbitMQ). The user and the password are %-encoded: a password
+    with "@" or "/" would break the address.
+
+    "" = no RabbitMQ here (Railway until Analytics is deployed): the events
+    are still written to the outbox, they are only not sent (outbox.publisher).
+    """
+    url = os.getenv("RABBITMQ_URL")
+    if url:
+        return url
+    host = os.getenv("RABBITMQ_HOST")
+    if not host:
+        return ""
+    user = quote(os.getenv("RABBITMQ_USER", "guest"), safe="")
+    password = quote(os.getenv("RABBITMQ_PASSWORD", "guest"), safe="")
+    port = os.getenv("RABBITMQ_PORT", "5672")
+    return f"amqp://{user}:{password}@{host}:{port}//"

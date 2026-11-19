@@ -13,7 +13,9 @@ and independent of the local .env:
   (tests/fakes.py), the webhook secret signs the test webhook requests;
 - no log file: test runs don't write to logs/app.log;
 - no STATIC_ROOT: collectstatic is not needed for the tests (base.py
-  keeps the plain static names, no manifest).
+  keeps the plain static names, no manifest);
+- RabbitMQ in memory (kombu's memory transport): the events of the outbox
+  are "sent" inside the test process, no RabbitMQ server is needed.
 
 The database stays PostgreSQL from .env (the Docker db container on
 localhost:5432) or DATABASE_URL (GitHub Actions): pytest-django creates a
@@ -71,3 +73,9 @@ DATABASES["default"]["OPTIONS"].pop("pool", None)
 # background task never reaches the user.
 CELERY_TASK_ALWAYS_EAGER = True
 CELERY_TASK_EAGER_PROPAGATES = False
+
+# The events for Analytics: kombu's in-memory transport instead of RabbitMQ
+# (the tests of outbox bind their own queue to read what was sent), and a
+# fixed salt, not the one from .env
+RABBITMQ_URL = "memory://"
+CUSTOMER_KEY_SALT = "test-customer-key-salt"
