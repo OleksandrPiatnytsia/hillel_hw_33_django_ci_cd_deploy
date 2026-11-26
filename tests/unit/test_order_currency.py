@@ -20,7 +20,6 @@ from currencies.models import Currency, ExchangeRate
 from currencies.services import clear_rates_cache
 from inventory.models import Stock
 from orders.models import Order
-from orders.reports import build_daily_report
 from orders.services import CROSS_RATE_PLACES, OrderError, create_order
 
 from ..factories import BookFactory, UserFactory
@@ -221,27 +220,6 @@ def test_order_email_is_in_the_order_currency(
 # ---------------------------------------------------------------------------
 # Reports, admin, commands
 # ---------------------------------------------------------------------------
-
-
-# Generated with AI
-def test_daily_report_adds_up_the_orders_in_hryvnias(books):
-    dollar_order = create_order(
-        UserFactory(), {format_id(books["dollar"]): 2}, currency="USD", **DELIVERY
-    )
-    hryvnia_order = create_order(UserFactory(), {format_id(books["hryvnia"]): 1}, **DELIVERY)
-
-    report = build_daily_report(timezone.localdate(dollar_order.created_at))
-
-    # 2 * 20 USD = 1817.10 UAH at the rate of the order + 650 UAH
-    assert report.revenue == Decimal("1817.10") + Decimal("650.00")
-    assert {book["title"]: book["revenue"] for book in report.top_books} == {
-        "Dollar book": Decimal("1817.10"),
-        "Hryvnia book": Decimal("650.00"),
-    }
-    orders_csv = report.csv_files()[0][1].decode("utf-8-sig")
-    assert orders_csv.splitlines()[0].endswith("payment_status,currency,total,total_uah")
-    assert f"{dollar_order.pk}," in orders_csv and ",USD,40.00,1817.10" in orders_csv
-    assert hryvnia_order.total_uah == Decimal("650.00")
 
 
 # Generated with AI

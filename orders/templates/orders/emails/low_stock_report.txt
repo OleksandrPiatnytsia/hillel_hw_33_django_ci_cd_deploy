@@ -1,0 +1,12 @@
+{% load i18n %}{% autoescape off %}{# Plain text: no HTML escaping #}{% blocktranslate count count=report.books|length %}Low stock: {{ count }} book.{% plural %}Low stock: {{ count }} books.{% endblocktranslate %}
+{% blocktranslate %}Paper books with {{ threshold }} copies or fewer in the warehouse:{% endblocktranslate %}
+
+{% for book in report.books %}- {% blocktranslate with title=book.title stock=book.stock %}{{ title }}: {{ stock }} left{% endblocktranslate %}
+{% endfor %}
+{% translate "The list is in the attached CSV file." %}
+{% if analytics_url %}
+{% translate "Sales reports are in Analytics:" %} {{ analytics_url }}/
+{% endif %}
+{% translate "Bookstore" %}
+{{ site_url }}
+{% endautoescape %}

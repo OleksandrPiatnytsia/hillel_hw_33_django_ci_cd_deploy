@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Bookstore\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-19 07:38+0000\n"
+"POT-Creation-Date: 2026-11-25 08:42+0000\n"
 "PO-Revision-Date: 2026-11-10 16:00+0200\n"
 "Last-Translator: Bookstore\n"
 "Language-Team: English\n"
@@ -17,6 +17,198 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
+#: analytics/apps.py:14 analytics/templates/analytics/sales.html:4
+#: analytics/templates/analytics/sales.html:8
+#: templates/includes/navbar.html:152 users/templates/users/profile.html:99
+msgid "Sales analytics"
+msgstr ""
+
+#: analytics/periods.py:59
+msgid "Choose both dates of the period."
+msgstr ""
+
+#: analytics/periods.py:63
+msgid "A date of the period is not a valid date."
+msgstr ""
+
+#: analytics/periods.py:65
+msgid "The start of the period is later than its end."
+msgstr ""
+
+#: analytics/periods.py:68
+#, python-format
+msgid "The period is longer than %(days)s days."
+msgstr ""
+
+#: analytics/periods.py:76
+msgid "Unknown period: choose 7, 30 or 90 days."
+msgstr ""
+
+#: analytics/templates/analytics/sales.html:11
+msgid "Open in Analytics"
+msgstr ""
+
+#: analytics/templates/analytics/sales.html:18
+msgid "Period"
+msgstr ""
+
+#: analytics/templates/analytics/sales.html:22
+#, python-format
+msgid "%(days)s day"
+msgid_plural "%(days)s days"
+msgstr[0] ""
+msgstr[1] ""
+
+#: analytics/templates/analytics/sales.html:28
+msgid "From"
+msgstr ""
+
+#: analytics/templates/analytics/sales.html:33
+msgid "To"
+msgstr ""
+
+#: analytics/templates/analytics/sales.html:37
+#: books/templates/books/book_list.html:212
+#: orders/templates/orders/checkout.html:101
+msgid "Show"
+msgstr ""
+
+#: analytics/templates/analytics/sales.html:42
+#, python-format
+msgid ""
+"%(first)s – %(last)s (%(days)s day, Kyiv time), compared with the same "
+"number of days before."
+msgid_plural ""
+"%(first)s – %(last)s (%(days)s days, Kyiv time), compared with the same "
+"number of days before."
+msgstr[0] ""
+msgstr[1] ""
+
+#: analytics/templates/analytics/sales.html:47
+msgid "Amounts in UAH."
+msgstr ""
+
+#: analytics/templates/analytics/sales.html:54
+msgid ""
+"Analytics is not connected to this shop yet: the reports will appear here "
+"after it is set up."
+msgstr ""
+
+#: analytics/templates/analytics/sales.html:59
+msgid ""
+"Analytics is temporarily unavailable. The shop works as usual; try again in "
+"a few minutes."
+msgstr ""
+
+#: analytics/templates/analytics/sales.html:61
+msgid ""
+"Analytics refused the request of the shop. The administrator has been "
+"notified."
+msgstr ""
+
+#: analytics/templates/analytics/sales.html:64
+#, python-format
+msgid "The numbers below are as of %(time)s (UTC)."
+msgstr ""
+
+#: analytics/templates/analytics/sales.html:83
+msgid "no data before"
+msgstr ""
+
+#: analytics/templates/analytics/sales.html:101
+#: analytics/templates/analytics/sales.html:106
+msgid "Revenue by day"
+msgstr ""
+
+#: analytics/templates/analytics/sales.html:109
+msgid "Table"
+msgstr ""
+
+#: analytics/templates/analytics/sales.html:114
+#: currencies/templates/currencies/rates.html:19
+msgid "Day"
+msgstr ""
+
+#: analytics/templates/analytics/sales.html:115 analytics/views.py:129
+#: analytics/views.py:178 orders/apps.py:8 users/tools.py:40
+msgid "Orders"
+msgstr ""
+
+#: analytics/templates/analytics/sales.html:116
+#: analytics/templates/analytics/sales.html:148 analytics/views.py:128
+msgid "Revenue"
+msgstr ""
+
+#: analytics/templates/analytics/sales.html:140
+msgid "Best sellers"
+msgstr ""
+
+#: analytics/templates/analytics/sales.html:146
+#: cart/templates/cart/cart_detail.html:16
+#: orders/templates/orders/checkout.html:109
+#: orders/templates/orders/emails/order_cancelled.html:26
+#: orders/templates/orders/emails/order_created.html:30
+#: orders/templates/orders/order_detail.html:30
+msgid "Book"
+msgstr ""
+
+#: analytics/templates/analytics/sales.html:147
+msgid "Copies"
+msgstr ""
+
+#: analytics/templates/analytics/sales.html:149
+msgid "In stock now"
+msgstr ""
+
+#: analytics/templates/analytics/sales.html:164
+msgid "Not in the catalog any more"
+msgstr ""
+
+#: analytics/templates/analytics/sales.html:173
+#: analytics/templates/analytics/sales.html:204
+msgid "No sales in this period."
+msgstr ""
+
+#: analytics/templates/analytics/sales.html:185
+#: books/templates/books/includes/book_details.html:28
+#: books/templates/books/includes/book_format_rows.html:12
+msgid "Formats"
+msgstr ""
+
+#: analytics/templates/analytics/sales.html:194
+#, python-format
+msgid "%(count)s copy"
+msgid_plural "%(count)s copies"
+msgstr[0] ""
+msgstr[1] ""
+
+#: analytics/templates/analytics/sales.html:214
+#, python-format
+msgid "Data of Analytics as of %(time)s (UTC), refreshed every few minutes."
+msgstr ""
+
+#: analytics/views.py:130
+msgid "Average order"
+msgstr ""
+
+#: analytics/views.py:131 orders/models.py:39
+#: orders/templates/orders/order_detail.html:88
+#: payments/templates/payments/emails/payment_received.html:29
+msgid "Paid"
+msgstr ""
+
+#: analytics/views.py:132 orders/models.py:34
+msgid "Cancelled"
+msgstr ""
+
+#: analytics/views.py:133
+msgid "New customers"
+msgstr ""
+
+#: analytics/views.py:177
+msgid "Revenue, UAH"
+msgstr ""
+
 #: api/exceptions.py:16
 msgid "The object is used by other objects and can't be deleted."
 msgstr ""
@@ -25,6 +217,10 @@ msgstr ""
 msgid ""
 "This Idempotency-Key was already used for a different order. Send a new key "
 "for a new order."
+msgstr ""
+
+#: api/serializers/analytics.py:36
+msgid "created_from is later than created_to."
 msgstr ""
 
 #: api/serializers/catalog.py:109
@@ -130,7 +326,7 @@ msgid "categories"
 msgstr ""
 
 #: books/admin.py:42 books/models.py:356 books/models.py:546
-#: books/models.py:690 orders/models.py:249 ratings/models.py:33
+#: books/models.py:690 orders/models.py:259 ratings/models.py:33
 #: wishlist/models.py:27
 msgid "book"
 msgstr ""
@@ -146,7 +342,7 @@ msgid "stock"
 msgstr ""
 
 #: books/admin.py:84 books/models.py:552 inventory/models.py:86
-#: orders/models.py:260
+#: orders/models.py:270
 msgid "format"
 msgstr ""
 
@@ -417,11 +613,11 @@ msgstr ""
 msgid "publishers"
 msgstr ""
 
-#: books/models.py:301 config/settings/base.py:428
+#: books/models.py:301 config/settings/base.py:457
 msgid "Ukrainian"
 msgstr ""
 
-#: books/models.py:302 config/settings/base.py:429
+#: books/models.py:302 config/settings/base.py:458
 msgid "English"
 msgstr ""
 
@@ -441,7 +637,7 @@ msgstr ""
 msgid "Spanish"
 msgstr ""
 
-#: books/models.py:308 orders/models.py:275
+#: books/models.py:308 orders/models.py:285
 msgid "title"
 msgstr ""
 
@@ -493,7 +689,7 @@ msgstr ""
 msgid "Dust jacket"
 msgstr ""
 
-#: books/models.py:554 orders/admin.py:50 orders/models.py:280
+#: books/models.py:554 orders/admin.py:50 orders/models.py:290
 msgid "price"
 msgstr ""
 
@@ -803,11 +999,6 @@ msgstr ""
 msgid "Per page"
 msgstr ""
 
-#: books/templates/books/book_list.html:212
-#: orders/templates/orders/checkout.html:101
-msgid "Show"
-msgstr ""
-
 #: books/templates/books/book_list.html:226
 msgid "No books match these filters."
 msgstr ""
@@ -818,11 +1009,6 @@ msgstr ""
 
 #: books/templates/books/includes/book_card.html:65
 msgid "Choose format"
-msgstr ""
-
-#: books/templates/books/includes/book_details.html:28
-#: books/templates/books/includes/book_format_rows.html:12
-msgid "Formats"
 msgstr ""
 
 #: books/templates/books/includes/book_details.html:58
@@ -908,14 +1094,6 @@ msgstr ""
 #: cart/templates/cart/cart_detail.html:7
 #: orders/templates/orders/checkout.html:9 templates/includes/navbar.html:131
 msgid "Cart"
-msgstr ""
-
-#: cart/templates/cart/cart_detail.html:16
-#: orders/templates/orders/checkout.html:109
-#: orders/templates/orders/emails/order_cancelled.html:26
-#: orders/templates/orders/emails/order_created.html:30
-#: orders/templates/orders/order_detail.html:30
-msgid "Book"
 msgstr ""
 
 #: cart/templates/cart/cart_detail.html:20
@@ -1129,7 +1307,7 @@ msgstr ""
 msgid "updated"
 msgstr ""
 
-#: currencies/models.py:99 orders/models.py:89 orders/models.py:305
+#: currencies/models.py:99 orders/models.py:89 orders/models.py:315
 msgid "exchange rate"
 msgstr ""
 
@@ -1144,10 +1322,6 @@ msgstr ""
 
 #: currencies/templates/currencies/rates.html:12
 msgid "History in the admin"
-msgstr ""
-
-#: currencies/templates/currencies/rates.html:19
-msgid "Day"
 msgstr ""
 
 #: currencies/templates/currencies/rates.html:23
@@ -1241,7 +1415,7 @@ msgstr ""
 msgid "Another warehouse is already the default."
 msgstr ""
 
-#: inventory/models.py:103 orders/models.py:311
+#: inventory/models.py:103 orders/models.py:321
 msgid "quantity"
 msgstr ""
 
@@ -1249,7 +1423,7 @@ msgstr ""
 msgid "Only a paper format has copies in a warehouse."
 msgstr ""
 
-#: orders/admin.py:54 orders/models.py:289
+#: orders/admin.py:54 orders/models.py:299
 msgid "original price"
 msgstr ""
 
@@ -1304,10 +1478,6 @@ msgstr ""
 
 #: orders/admin.py:272
 msgid "Cancel selected orders (books go back to stock)"
-msgstr ""
-
-#: orders/apps.py:8 users/tools.py:40
-msgid "Orders"
 msgstr ""
 
 #: orders/forms.py:30
@@ -1365,21 +1535,12 @@ msgstr ""
 msgid "Completed"
 msgstr ""
 
-#: orders/models.py:34
-msgid "Cancelled"
-msgstr ""
-
 #: orders/models.py:37
 msgid "Unpaid"
 msgstr ""
 
 #: orders/models.py:38
 msgid "Partially paid"
-msgstr ""
-
-#: orders/models.py:39 orders/templates/orders/order_detail.html:88
-#: payments/templates/payments/emails/payment_received.html:29
-msgid "Paid"
 msgstr ""
 
 #: orders/models.py:43 ratings/models.py:27 wishlist/models.py:21
@@ -1414,7 +1575,7 @@ msgstr ""
 msgid "idempotency key"
 msgstr ""
 
-#: orders/models.py:120 orders/models.py:242 outbox/models.py:39
+#: orders/models.py:120 orders/models.py:252 outbox/models.py:39
 #: payments/models.py:36
 msgid "order"
 msgstr ""
@@ -1423,24 +1584,32 @@ msgstr ""
 msgid "orders"
 msgstr ""
 
-#: orders/models.py:145
+#: orders/models.py:147
+msgid "Can export orders to Analytics"
+msgstr ""
+
+#: orders/models.py:149
+msgid "Can view the sales analytics"
+msgstr ""
+
+#: orders/models.py:155
 #, python-format
 msgid "Order #%(number)s"
 msgstr ""
 
-#: orders/models.py:270
+#: orders/models.py:280
 msgid "format type"
 msgstr ""
 
-#: orders/models.py:296
+#: orders/models.py:306
 msgid "original currency"
 msgstr ""
 
-#: orders/models.py:317
+#: orders/models.py:327
 msgid "order item"
 msgstr ""
 
-#: orders/models.py:318
+#: orders/models.py:328
 msgid "order items"
 msgstr ""
 
@@ -1525,51 +1694,32 @@ msgid ""
 "button on the order page."
 msgstr ""
 
-#: orders/templates/orders/emails/daily_report.txt:1
-#, python-format
-msgid "Sales report for %(day)s (UTC)."
-msgstr ""
-
-#: orders/templates/orders/emails/daily_report.txt:3
-#, python-format
-msgid "Orders: %(count)s (paid: %(paid)s, cancelled: %(cancelled)s)"
-msgstr ""
-
-#: orders/templates/orders/emails/daily_report.txt:4
-#, python-format
-msgid "Total of the orders: %(revenue)s UAH"
-msgstr ""
-
-#: orders/templates/orders/emails/daily_report.txt:6
-msgid "Best sellers:"
-msgstr ""
-
-#: orders/templates/orders/emails/daily_report.txt:7
-#, python-format
-msgid "%(title)s: %(copies)s pcs, %(revenue)s UAH"
-msgstr ""
-
-#: orders/templates/orders/emails/daily_report.txt:8
-msgid "No sales."
-msgstr ""
-
-#: orders/templates/orders/emails/daily_report.txt:10
+#: orders/templates/orders/emails/low_stock_report.txt:1
 #, python-format
 msgid "Low stock: %(count)s book."
 msgid_plural "Low stock: %(count)s books."
 msgstr[0] ""
 msgstr[1] ""
 
-#: orders/templates/orders/emails/daily_report.txt:11
+#: orders/templates/orders/emails/low_stock_report.txt:2
+#, python-format
+msgid "Paper books with %(threshold)s copies or fewer in the warehouse:"
+msgstr ""
+
+#: orders/templates/orders/emails/low_stock_report.txt:4
 #, python-format
 msgid "%(title)s: %(stock)s left"
 msgstr ""
 
-#: orders/templates/orders/emails/daily_report.txt:13
-msgid "Details are in the attached CSV files."
+#: orders/templates/orders/emails/low_stock_report.txt:6
+msgid "The list is in the attached CSV file."
 msgstr ""
 
-#: orders/templates/orders/emails/daily_report.txt:15
+#: orders/templates/orders/emails/low_stock_report.txt:8
+msgid "Sales reports are in Analytics:"
+msgstr ""
+
+#: orders/templates/orders/emails/low_stock_report.txt:10
 #: orders/templates/orders/emails/order_cancelled.html:14
 #: orders/templates/orders/emails/order_cancelled.html:58
 #: orders/templates/orders/emails/order_cancelled.txt:15
@@ -1584,10 +1734,10 @@ msgstr ""
 msgid "Bookstore"
 msgstr ""
 
-#: orders/templates/orders/emails/daily_report_subject.txt:2
+#: orders/templates/orders/emails/low_stock_report_subject.txt:2
 #, python-format
-msgid "Bookstore: report for %(day)s, %(count)s order"
-msgid_plural "Bookstore: report for %(day)s, %(count)s orders"
+msgid "Bookstore: low stock on %(day)s, %(count)s book"
+msgid_plural "Bookstore: low stock on %(day)s, %(count)s books"
 msgstr[0] ""
 msgstr[1] ""
 
@@ -2220,16 +2370,16 @@ msgstr ""
 msgid "Wishlist"
 msgstr ""
 
-#: templates/includes/navbar.html:156
+#: templates/includes/navbar.html:160
 msgid "Log out"
 msgstr ""
 
-#: templates/includes/navbar.html:165 users/templates/users/auth_form.html:54
+#: templates/includes/navbar.html:169 users/templates/users/auth_form.html:54
 #: users/views.py:41
 msgid "Log in"
 msgstr ""
 
-#: templates/includes/navbar.html:169 users/templates/users/auth_form.html:52
+#: templates/includes/navbar.html:173 users/templates/users/auth_form.html:52
 #: users/views.py:73
 msgid "Sign up"
 msgstr ""
@@ -2307,7 +2457,7 @@ msgstr ""
 msgid "Groups"
 msgstr ""
 
-#: users/templates/users/profile.html:38 users/templates/users/profile.html:126
+#: users/templates/users/profile.html:38 users/templates/users/profile.html:137
 msgid "none"
 msgstr ""
 
@@ -2356,11 +2506,19 @@ msgid ""
 "See the numbers of the NBU, correct them if needed and save with a button"
 msgstr ""
 
-#: users/templates/users/profile.html:100
+#: users/templates/users/profile.html:101
+msgid "Revenue, best sellers and formats"
+msgstr ""
+
+#: users/templates/users/profile.html:103
+msgid "The reports of the Analytics service for any period"
+msgstr ""
+
+#: users/templates/users/profile.html:111
 msgid "Tools"
 msgstr ""
 
-#: users/templates/users/profile.html:121
+#: users/templates/users/profile.html:132
 #, python-format
 msgid "All permissions (%(count)s)"
 msgstr ""

@@ -46,9 +46,14 @@ Redis, Celery, nginx). У цьому ДЗ:
 - **події для сервісу Аналітики** (фінальний проєкт): замовлення створено,
   оплачено, скасовано — через таблицю outbox і RabbitMQ, без особистих даних
   покупця (див. «Події для Аналітики»);
+- **аналітика продажів** (фінальний проєкт): сторінка `/analytics/` для менеджерів зі
+  звітами сервісу Аналітики через його REST API (JWT службового акаунта, кеш, останні
+  вдалі дані, коли Аналітика недоступна), графік виторгу; API `/api/analytics/orders/` для
+  завантаження старих замовлень в Аналітику; щоденний лист менеджерам — лише малий залишок
+  (див. «Аналітика продажів»);
 - єдиний стиль коду: black + flake8 (`pyproject.toml`, `.flake8`), перевіряються
   ще до коміту хуком pre-commit (`.pre-commit-config.yaml`);
-- 885 тестів, покриття 99%.
+- 972 тести, покриття 99%.
 
 ## Стек
 
@@ -196,6 +201,7 @@ ViewSets і права працюють з моделями `books` і `orders` 
 | `POST /api/orders/` | залогінені | нове замовлення одразу з позиціями; необов'язковий заголовок `Idempotency-Key` |
 | `GET /api/orders/<id>/` | власник або персонал | чуже для клієнта → 404 |
 | `POST /api/orders/<id>/cancel/` | лише власник | скасувати нове неоплачене; чуже замовлення для персоналу → 403, вже скасоване або оплачене → 409 |
+| `GET /api/analytics/orders/` | `orders.export_orders_for_analytics` (Services) | усі замовлення для backfill Аналітики: знімок як у подіях, сторінки курсором (див. «Аналітика продажів») |
 | `/api/auth/login/` | усі | вхід для browsable API (HTML-сторінки `/api/...` у браузері) |
 
 `PUT` / `PATCH` / `DELETE` замовлень немає (405): статус змінює менеджер в адмінці,
@@ -523,7 +529,10 @@ users/
 │   ├── 0003_create_groups.py      # групи Customers / Editors / Managers
 │   ├── 0004_user_address_user_phone.py
 │   ├── 0005_user_language.py      # мова користувача (листи, вхід з іншого пристрою)
-│   └── 0006_publisher_permissions.py  # права на видавництва для груп
+│   ├── 0006_publisher_permissions.py  # права на видавництва для груп
+│   ├── 0007_bookformat_permissions.py # права на формати книг
+│   └── 0008_services_group.py     # група Services, право Managers на аналітику
+├── management/commands/create_service_account.py  # акаунт іншого сервісу (група Services)
 └── templates/users/
     ├── auth_form.html       # спільний для входу й реєстрації
     ├── profile.html
@@ -599,8 +608,8 @@ orders/
 ├── forms.py                 # CheckoutForm
 ├── views.py                 # checkout, OrderListView, order_detail, order_cancel, order_status (async)
 ├── emails.py                # send_order_email(): лист мовою отримувача
-├── tasks.py                 # листи, cancel_unpaid_orders, send_daily_report (Celery)
-├── reports.py               # щоденний звіт: 3 CSV-файли менеджерам
+├── tasks.py                 # листи, cancel_unpaid_orders, send_low_stock_report (Celery)
+├── reports.py               # щоденний звіт «малий залишок»: CSV менеджерам
 ├── admin.py                 # OrderAdmin: inline позицій і платежів, скасування
 ├── migrations/0002_managers_order_permissions.py   # права групи Managers
 ├── management/commands/cancel_unpaid_orders.py
@@ -613,6 +622,12 @@ outbox/                      # події для Аналітики, див. «�
 ├── tasks.py                 # publish_pending_events, delete_old_events (Celery)
 ├── admin.py                 # перегляд, фільтр «відправлено», дія «Відправити зараз»
 └── management/commands/publish_outbox.py
+analytics/                   # сторінка звітів Аналітики, див. «Аналітика продажів»
+├── client.py                # AnalyticsClient: JWT (у кеші), помилки, запобіжник після збою
+├── reports.py               # fetch_report(): свіжа копія 5 хв + остання вдала 24 год
+├── periods.py               # ?period=7|30|90, ?from=&to= (дні за Києвом)
+├── views.py                 # AnalyticsBaseView -> SalesAnalyticsView
+└── templates/analytics/sales.html
 payments/
 ├── models.py                # Payment
 ├── services.py              # ручні платежі, start_online_payment(), webhook-статуси
@@ -632,12 +647,14 @@ api/                         # REST API (без моделей), див. «REST 
 │   ├── auth.py              # токени з throttling, публічний корінь /api/
 │   ├── catalog.py           # BookViewSet, AuthorViewSet, PublisherViewSet, CategoryViewSet (+ лог, 409, StaffWriteMixin, кеш)
 │   ├── currencies.py        # CurrencyViewSet: /api/currencies/
-│   └── orders.py            # OrderViewSet: list, retrieve, create, cancel
+│   ├── orders.py            # OrderViewSet: list, retrieve, create, cancel
+│   └── analytics.py         # AnalyticsOrderListView: /api/analytics/orders/ (backfill)
 ├── serializers/
 │   ├── catalog.py           # вкладені автор, видавництво й категорії, *_id для запису, характеристики, stock, currency, display_price
 │   ├── currencies.py        # валюта з курсом
-│   └── orders.py            # OrderSerializer, OrderCreateSerializer з позиціями
-├── permissions.py           # IsOwnerOrReadOnly
+│   ├── orders.py            # OrderSerializer, OrderCreateSerializer з позиціями
+│   └── analytics.py         # параметри й елемент backfill (знімок замовлення)
+├── permissions.py           # IsOwnerOrReadOnly, CanExportOrdersForAnalytics
 ├── filters.py               # BookFilter, StableOrderingFilter
 ├── exceptions.py            # Conflict (409)
 ├── cache.py                 # cache_api_response: cache_page з номером покоління
@@ -752,6 +769,11 @@ Permissions зазвичай створює сигнал `post_migrate`, тоб�
 Права на видавництва (`books.Publisher`) — як на авторів, міграція
 `users/0006_publisher_permissions.py`: Customers — `view_publisher`, Editors — ще
 `add/change_publisher`, Managers — ще `delete_publisher`.
+
+Сервіс Аналітики — міграція `users/0008_services_group.py`: нова група **Services**
+(`orders.export_orders_for_analytics`, лише читання замовлень для backfill; у ній службовий
+акаунт `analytics-service`), а Managers отримують `orders.view_sales_analytics` (сторінка
+`/analytics/`). Обидва права оголошені в `Order.Meta.permissions`.
 
 Права на замовлення додає окрема міграція `orders/0002_managers_order_permissions.py`
 (тим самим способом). Вона робить `group.permissions.add()`, а не `set()`, тому
@@ -1365,9 +1387,9 @@ python manage.py update_exchange_rates --date 2026-11-13  # один день (�
   іншій вкладці, не створить замовлення в сумі, якої покупець не бачив. На сторінці
   оформлення є свій перемикач валюти.
 - **Курси замовлення зберігаються**: замовлення не змінюється, коли змінюються курси.
-- **Звіти в гривнях**: щоденний звіт додає замовлення різних валют за курсом дня
-  кожного замовлення (`Order.total_uah = total × exchange_rate`); у CSV є колонки
-  `currency` і `total_uah`.
+- **Звіти в гривнях**: Аналітика отримує суми замовлень різних валют уже в гривнях за
+  курсом дня кожного замовлення (`Order.total_uah = total × exchange_rate`, поле
+  `total_uah` у подіях і в backfill).
 
 ### Оплата у валюті
 
@@ -1597,6 +1619,137 @@ python manage.py publish_outbox          # відправити все, що ч�
 Перевірка наскрізь у Docker: оформити замовлення на http://localhost:8000 → у вебпанелі
 RabbitMQ (http://localhost:15672, Queues) черга `analytics.events` отримала повідомлення → у
 журналі подій Аналітики з'явилося `order.created`.
+
+## Аналітика продажів
+
+Друга половина обміну з [Аналітикою](https://github.com/OleksandrPiatnytsia/hillel_hw_34_django_analytics):
+події йдуть туди через RabbitMQ (див. «Події для Аналітики»), а REST — у два боки:
+
+```
+книгарня  /analytics/ (менеджери) ── JWT bookstore-service ──> Аналітика /api/reports/{summary,daily,top-books,formats}/
+Аналітика backfill_orders ── JWT analytics-service ──> книгарня /api/analytics/orders/
+```
+
+Локально в Docker сервіси звертаються один до одного **через Mac**: книгарня — до
+`http://host.docker.internal:8010` (nginx Аналітики), Аналітика — до
+`http://host.docker.internal:8000` (наш nginx). Не через мережу `bookstore_net`: там `web` і
+`nginx` — імена сервісів книгарні. Тому в `docker-compose.yml` `host.docker.internal` є в
+`DJANGO_ALLOWED_HOSTS` і в `extra_hosts` (на Linux без цього рядка ім'я не працює).
+
+### Сторінка `/analytics/`
+
+Для групи Managers (право `orders.view_sales_analytics`); посилання — у меню користувача й у
+профілі. Анонім → сторінка входу, без права → 403.
+
+- **Період**: кнопки 7 / 30 / 90 днів або дві дати (`?period=7`, `?from=2026-11-01&to=2026-11-30`,
+  максимум 366 днів) — ті самі правила, що в Аналітиці. «Сьогодні» — день за Києвом, бо дні
+  звітів Аналітики київські. Аналітику завжди питають справжніми датами.
+- **Плитки**: виторг, замовлення, середній чек, частка оплачених і скасованих, нові клієнти;
+  під кожною зміна в % проти попереднього такого самого періоду (менше скасувань — зелена
+  стрілка вниз).
+- **Виторг по днях**: графік Chart.js 4.6.1 з CDN (`static/js/analytics.js`). Під графіком
+  таблиця днів: без JavaScript або без CDN звітом лишається вона.
+- **Найпопулярніші книги**: з Аналітики, з посиланнями на сторінки книг магазину й поточним
+  залишком (≤ 5 — жовта позначка: час дозамовити).
+- **Формати**: примірники, виторг і частка паперових, електронних книг та аудіокниг.
+
+Класи з наслідуванням (`analytics/views.py`):
+
+```python
+class AnalyticsBaseView(PermissionRequiredMixin, TemplateView):
+    permission_required = "orders.view_sales_analytics"
+    reports = {}            # назва звіту Аналітики -> додаткові параметри
+    # період, один клієнт на сторінку, кеші, повідомлення про збої, prepare()
+
+class SalesAnalyticsView(AnalyticsBaseView):
+    reports = {"summary": {}, "daily": {}, "top-books": {"limit": 10}, "formats": {}}
+    def prepare(self, data): ...   # плитки, графік, книги магазину, формати
+```
+
+### Клієнт і кеш
+
+`analytics/client.py` — `AnalyticsClient`:
+
+- **Токен**: `POST /api/token/` акаунтом `ANALYTICS_API_USERNAME` (`bookstore-service` у групі
+  Services Аналітики). Токен живе там 15 хвилин, у Redis — 14: усі процеси gunicorn беруть
+  один токен. На 401 — новий токен і ще одна спроба.
+- **Таймаути** 3 с на з'єднання і 10 с на відповідь; один повтор на 502 / 503 / 504.
+- **Помилки** (`AnalyticsError`):
+  - `AnalyticsNotConfigured` — `ANALYTICS_API_URL` або пароль порожні (Railway до деплою
+    Аналітики): сторінка пише «Аналітику ще не підключено», запитів немає;
+  - `AnalyticsUnavailable` — немає з'єднання, таймаут, 5xx, 429, не JSON: warning у лог;
+    після збою 60 с (`ANALYTICS_DOWN_TIMEOUT`) Аналітику не питають зовсім, щоб кожне
+    відкриття сторінки не чекало таймаутів;
+  - `AnalyticsRefused` — неправильний логін, немає прав (401 / 403 після нового токена), 400:
+    помилка налаштувань, а не «пізніше», тому error у лог (і в Sentry).
+
+  Пароль і токен у лог не потрапляють.
+
+`analytics/reports.py` — `fetch_report()` ніколи не кидає виняток, а тримає дві копії відповіді:
+
+| Копія | Скільки живе | Навіщо |
+|---|---|---|
+| свіжа | 5 хв (`ANALYTICS_CACHE_TIMEOUT`) | сторінка не ходить в Аналітику щоразу; Аналітика й так перераховує дні раз на 10 хв |
+| остання вдала | 24 год (`ANALYTICS_STALE_TIMEOUT`) | Аналітика лежить — показуються ці цифри з поміткою «станом на 14:05» |
+
+Ключ кешу містить справжні дати (`analytics:report:summary:from=2026-10-27&to=2026-11-25`): завтра
+«останні 30 днів» — інший період. Аналітика недоступна — сторінка все одно відповідає 200.
+
+### API для backfill: `GET /api/analytics/orders/`
+
+Замовлення, створені до появи подій, Аналітика забирає один раз своєю командою
+`backfill_orders`:
+
+```
+POST /api/token/  {"username": "analytics-service", "password": "..."}
+GET  /api/analytics/orders/?created_from=2026-01-01&created_to=2026-11-30&page_size=500
+{"next": "...?cursor=cD0xMjM%3D&page_size=500", "previous": null,
+ "results": [{"order": {...знімок як у подіях...},
+              "updated_at": "2026-11-18T10:20:00Z",
+              "paid_at": "2026-11-18T10:16:00Z",
+              "cancelled_at": null}]}
+```
+
+- Право `orders.export_orders_for_analytics` (група Services), а не `is_staff`: службовий
+  акаунт читає замовлення й більше нічого. Без токена — 401, інший акаунт (навіть менеджер) — 403.
+- `order` — та сама функція `order_snapshot()`, що й у подіях: без імені, телефону, адреси,
+  email і id користувача. Аналітика перевіряє його тим самим серіалізатором.
+- `paid_at` / `cancelled_at` — коли записано подію `order.paid` / `order.cancelled` в outbox;
+  для замовлень, старіших за outbox (до 1.5.0), — `null`, і Аналітика бере `updated_at`.
+- Сторінки — **курсором** за `id` від найстаріших (`page_size` 100, максимум 500): «після
+  id 123» не пропускає й не повторює замовлень, навіть коли нові з'являються під час читання.
+- `created_from` / `created_to` — дні створення (UTC) включно; неправильна дата → 400.
+- Замовлення без позицій пропускаються.
+- Позиції з книгами всієї сторінки — 3 запити (`items_prefetch()`), а не 4 на кожне замовлення;
+  тест перевіряє, що кількість запитів не росте з кількістю замовлень.
+- Кожна сторінка — рядок INFO у лозі (`api.views.analytics`); endpoint є в Swagger (тег `analytics`).
+
+### Налаштування
+
+| Змінна | Де | Що |
+|---|---|---|
+| `ANALYTICS_API_URL` | `.env`; у Docker `http://host.docker.internal:8010` з compose | адреса API Аналітики; порожня — сторінка «не підключено» |
+| `ANALYTICS_API_USERNAME`, `ANALYTICS_API_PASSWORD` | `.env` | акаунт `bookstore-service` в Аналітиці |
+| `ANALYTICS_PUBLIC_URL` | `.env` | Аналітика в браузері: посилання на сторінці й у листі |
+| `ANALYTICS_SERVICE_PASSWORD` | `.env` | пароль **нашого** акаунта `analytics-service` для команди нижче; той самий — `BOOKSTORE_API_PASSWORD` в Аналітиці |
+
+```bash
+python manage.py create_service_account analytics-service
+# Created: analytics-service (group Services)
+```
+
+Команду можна запускати повторно: новий пароль, знову група Services, і жодних `is_staff` /
+`is_superuser`. Пароль перевіряється тими самими правилами, що й у людей. Email —
+`analytics-service@services.invalid` (домен `.invalid` зарезервований, листи туди не йдуть).
+
+Перевірка наскрізь у Docker (обидва compose запущені):
+
+1. Книгарня: `docker compose exec web python manage.py create_service_account analytics-service`.
+2. Аналітика: `docker compose exec consumer python manage.py backfill_orders` —
+   «Page 1: N order(s) applied».
+3. http://localhost:8000/analytics/ менеджером — плитки, графік, книги.
+4. Зупинити Аналітику (`docker compose stop web` у її папці) і через 5 хвилин відкрити сторінку
+   знову — жовте повідомлення й цифри «станом на …».
 
 ## Оплата
 
@@ -1964,8 +2117,10 @@ tests/
 │   ├── test_book_currency.py      # валюта книги: форма, адмінка, price_in(), seed_books
 │   ├── test_book_details.py       # характеристики: модель, міграції, адмінка, форма, сторінка, фільтри, плашки
 │   ├── test_display_currency.py   # перемикач, формат сум, каталог і кошик у валюті
-│   ├── test_order_currency.py     # замовлення у валюті: перерахування, курси, оформлення, звіти, адмінка
-│   ├── test_tasks.py              # задачі Celery: повтори листів, розклад, звіт, скасування
+│   ├── test_order_currency.py     # замовлення у валюті: перерахування, курси, оформлення, адмінка
+│   ├── test_tasks.py              # задачі Celery: повтори листів, розклад, звіт про залишок, скасування
+│   ├── test_analytics_client.py   # клієнт Аналітики (токен, 401, збої, запобіжник), періоди, кеші
+│   ├── test_service_account.py    # права груп Services і Managers, create_service_account
 │   ├── test_sentry.py             # що йде в Sentry (через справжній ASGI-застосунок)
 │   ├── test_deploy.py             # підроблений X-Forwarded-For, сторінка 500
 │   └── test_translation_catalog.py  # .po повний, .mo скомпільований
@@ -1976,7 +2131,8 @@ tests/
 │   ├── test_catalog.py            # книги, автори, категорії: права, фільтри, 409, мова помилок
 │   ├── test_book_details.py       # характеристики в API, їхні фільтри, /api/publishers/
 │   ├── test_currencies.py         # /api/currencies/, ?currency=, display_price, валюта замовлення
-│   └── test_orders.py             # свої / чужі замовлення, створення, скасування, 405, Idempotency-Key (і гонка двох потоків)
+│   ├── test_orders.py             # свої / чужі замовлення, створення, скасування, 405, Idempotency-Key (і гонка двох потоків)
+│   └── test_analytics_orders.py   # backfill: права, знімок, без особистих даних, курсор, дати, кількість запитів
 └── integration/
     ├── test_checkout_flow.py      # зокрема гонка: два покупці за останній примірник
     ├── test_payment_flow.py       # Stripe: сторінка, повернення, webhook, один лист
@@ -1985,7 +2141,8 @@ tests/
     ├── test_book_management.py    # менеджер і редактор: права на книги
     ├── test_cache.py              # кеш книги й фрагментів, очищення сигналами, логи
     ├── test_language_flow.py, test_translations.py  # сайт і листи двома мовами
-    └── test_async_flow.py         # опитування статусу до і після webhook
+    ├── test_async_flow.py         # опитування статусу до і після webhook
+    └── test_analytics_page.py     # /analytics/: права, звіти, кеш, Аналітика недоступна, обидві мови
 ```
 
 ### Фікстури й моки
@@ -2066,7 +2223,7 @@ docker compose up
   │                                     healthcheck: GET /health/
   │                                     ▼ healthy (міграції застосовано, статика зібрана)
   ├─ nginx        :8000 → /static/, /media/ з volumes; решта → web:8000
-  ├─ celery       celery worker (2 процеси): листи, звіт, скасування
+  ├─ celery       celery worker (2 процеси): листи, звіт про залишок, скасування
   │                                     ▼ healthy (celery inspect ping)
   ├─ flower       :5555 → панель задач
   ├─ celery-beat  celery beat: кладе періодичні задачі в чергу за розкладом
@@ -2448,9 +2605,9 @@ python manage.py update_exchange_rates             # курси одразу, н
   завантаження варто очистити кеш (`cache.clear()`).
 
 **Версія у футері.** Внизу кожної сторінки:
-`Книгарня · домашнє завдання Hillel з Django · v1.5.0 (335de9f)`.
+`Книгарня · домашнє завдання Hillel з Django · v1.6.0 (335de9f)`.
 
-- `v1.5.0` — `__version__` у `config/version.py`, змінюється вручну раз на
+- `v1.6.0` — `__version__` у `config/version.py`, змінюється вручну раз на
   реліз (pull request у `main`): PATCH — виправлення, MINOR — нова можливість,
   MAJOR — зміна, що ламає старе (наприклад, API).
 - `(335de9f)` — перші 7 символів задеплоєного коміту, посилання на нього в
@@ -2559,7 +2716,7 @@ celery-beat ── за розкладом ────────────�
 | `send_order_cancelled_email_task` | автоматичне скасування | лист «замовлення скасовано» (покупцю, який сам натиснув «Скасувати», не надсилається) |
 | `cancel_unpaid_orders` | Beat, щогодини о :00 | `new` + `unpaid` старші за `ORDER_UNPAID_MAX_AGE_HOURS` (24) → скасування, книги на склад |
 | `clear_expired_sessions` | Beat, 03:00 UTC | `manage.py clearsessions` |
-| `send_daily_report` | Beat, 06:00 UTC | звіт за вчора менеджерам (група Managers), виручка в гривнях |
+| `send_low_stock_report` | Beat, 06:00 UTC | паперові книги з залишком ≤ 5 менеджерам (група Managers); нічого не закінчується — листа немає. Продажі — у щоденному листі Аналітики |
 | `update_exchange_rates` | Beat, 6:05 і 13:05–17:05 UTC щогодини | курси НБУ на сьогодні й завтра (див. «Валюти») |
 | `publish_pending_events` | після COMMIT події; Beat щохвилини | події outbox → RabbitMQ (див. «Події для Аналітики») |
 | `delete_old_events` | Beat, 03:30 UTC | відправлені події outbox старші за 30 днів |
@@ -2574,13 +2731,13 @@ celery-beat ── за розкладом ────────────�
   останньої — помилка в лозі й у Sentry.
 - **Надійність:** `acks_late` (повідомлення видаляється з черги після виконання:
   перезапуск воркера задачу не губить), `prefetch 1`, ліміт часу 5 / 6 хвилин.
-- **Звіт** (`orders/reports.py`): 3 CSV у вкладенні (UTF-8 з BOM, відкриваються
-  в Excel): замовлення дня, топ книг, книги з залишком ≤ 5. Менеджери в `bcc`,
-  кожному — його мовою.
+- **Звіт** (`orders/reports.py`): CSV у вкладенні (UTF-8 з BOM, відкривається
+  в Excel) з паперовими книгами, яких на складі ≤ 5. Менеджери в `bcc`, кожному —
+  його мовою; у листі посилання на Аналітику (`ANALYTICS_PUBLIC_URL`).
 - Розклад — у `CELERY_BEAT_SCHEDULE` (`config/settings/base.py`), а не в адмінці
   (django-celery-beat): його видно й рев'юють у git. Час — UTC.
 - Ручний запуск задачі:
-  `docker compose exec web python manage.py shell -c "from orders.tasks import send_daily_report; send_daily_report.delay()"`.
+  `docker compose exec web python manage.py shell -c "from orders.tasks import send_low_stock_report; send_low_stock_report.delay()"`.
 
 ### Flower
 

@@ -1,18 +1,15 @@
-"""Celery tasks of orders: the email, the hourly cleanup, the daily report.
+"""Celery tasks of orders: the email, the hourly cleanup, the low stock report.
 
 Run by the worker (service "celery"); the periodic ones are put into the
 queue by Celery Beat (CELERY_BEAT_SCHEDULE in config/settings/base.py).
 """
 
-from datetime import date, timedelta
-
 from celery import shared_task
 from django.conf import settings
 from django.core.management import call_command
-from django.utils import timezone
 
 from .emails import send_order_cancelled_email, send_order_created_email
-from .reports import build_daily_report, send_daily_report_email
+from .reports import build_low_stock_report, send_low_stock_report_email
 
 # Retries of a failed email: only for errors that may pass by themselves.
 # OSError covers the network (ConnectionRefusedError, timeouts) and every
@@ -58,16 +55,11 @@ def cancel_unpaid_orders():
 
 
 @shared_task(**EMAIL_RETRY)
-def send_daily_report(day=None):
-    """Every morning: the report of yesterday to the "Managers" group.
+def send_low_stock_report():
+    """Every morning: the paper books running out, to the "Managers" group.
 
-    day: "2026-11-10" to send the report of another day by hand:
-        from orders.tasks import send_daily_report
-        send_daily_report.delay("2026-11-10")
-    (a string, not a date: task arguments go through the broker as JSON)
+    By hand: from orders.tasks import send_low_stock_report;
+    send_low_stock_report.delay(). No email when nothing runs out.
+    The sales are in the daily email of the Analytics service.
     """
-    if day is None:
-        report_day = timezone.localdate() - timedelta(days=1)
-    else:
-        report_day = date.fromisoformat(day)
-    return send_daily_report_email(build_daily_report(report_day))
+    return send_low_stock_report_email(build_low_stock_report())

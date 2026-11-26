@@ -91,6 +91,8 @@ INSTALLED_APPS = [
     "api",
     # Events of the orders for the Analytics service (RabbitMQ)
     "outbox",
+    # The page of the sales reports of the Analytics service (its REST API)
+    "analytics",
 ]
 
 # Custom user model (users.User instead of auth.User). Must be set before
@@ -332,9 +334,10 @@ CELERY_BEAT_SCHEDULE = {
         "task": "users.tasks.clear_expired_sessions",
         "schedule": crontab(hour=3, minute=0),
     },
-    # Yesterday's sales, top books, low stock -> email to "Managers"
-    "daily-sales-report": {
-        "task": "orders.tasks.send_daily_report",
+    # Paper books running out -> email to "Managers" (the sales are in the
+    # daily email of Analytics now)
+    "daily-low-stock-report": {
+        "task": "orders.tasks.send_low_stock_report",
         "schedule": crontab(hour=6, minute=0),
     },
     # NBU exchange rates. The NBU publishes the rates of the next day at
@@ -383,6 +386,32 @@ OUTBOX_KEEP_DAYS = 30
 # it: every customer would get a new key, Analytics would count them as new.
 # The production settings refuse to start without it (no default there).
 CUSTOMER_KEY_SALT = os.getenv("CUSTOMER_KEY_SALT", "development-only-customer-key-salt")
+
+# The reports of Analytics on the page /analytics/ (app analytics).
+#   the bookstore -- POST /api/token/, GET /api/reports/... --> Analytics
+# with the JWT of the account ANALYTICS_API_USERNAME (group Services there).
+# "" = not configured: the page says so, nothing is called (Railway until
+# Analytics is deployed there). Docker: http://host.docker.internal:8010
+# (Analytics' nginx through the Mac), runserver: http://localhost:8010.
+ANALYTICS_API_URL = os.getenv("ANALYTICS_API_URL", "").rstrip("/")
+ANALYTICS_API_USERNAME = os.getenv("ANALYTICS_API_USERNAME", "bookstore-service")
+ANALYTICS_API_PASSWORD = os.getenv("ANALYTICS_API_PASSWORD", "")
+# The address of Analytics for people ("Open in Analytics" link): in Docker
+# the API address above is not reachable from the browser. "" = no link.
+ANALYTICS_PUBLIC_URL = os.getenv("ANALYTICS_PUBLIC_URL", "").rstrip("/")
+# Seconds: to connect, to read the answer. Short: a manager waits for them
+ANALYTICS_API_TIMEOUT = (3, 10)
+# An answer of Analytics is kept this long (Analytics recalculates its
+# report days every 10 minutes, fresher numbers don't exist)
+ANALYTICS_CACHE_TIMEOUT = int(os.getenv("ANALYTICS_CACHE_TIMEOUT", 5 * 60))
+# The last good answer: shown with its time when Analytics is down
+ANALYTICS_STALE_TIMEOUT = 24 * 60 * 60
+# After a failure the page doesn't call Analytics for this long: every
+# page view would wait for the timeouts again otherwise
+ANALYTICS_DOWN_TIMEOUT = 60
+# The days of the reports of Analytics are days in Kyiv (its
+# REPORTS_TIME_ZONE): "the last 7 days" must end with the same day here
+ANALYTICS_TIME_ZONE = "Europe/Kyiv"
 
 
 # Password validation

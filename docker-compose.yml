@@ -34,6 +34,11 @@ x-django: &django
   # POSTGRES_*, ...). The .env file itself is not in the
   # image (.dockerignore).
   env_file: .env
+  # host.docker.internal = the Mac, for Analytics (ANALYTICS_API_URL below).
+  # Docker Desktop knows the name by itself; on Linux (a CI runner, a
+  # server) only this line makes it work, so it is written out
+  extra_hosts:
+    - "host.docker.internal:host-gateway"
   # &django-env: a name for this block, so flower can add one variable to
   # it (a service's "environment:" replaces the one of x-django, not merges)
   environment: &django-env
@@ -62,8 +67,15 @@ x-django: &django
     DJANGO_HTTPS: "False"
     # + "nginx": the stripe-cli service sends webhooks to http://nginx/...,
     # so the Host header is "nginx"; any host not in ALLOWED_HOSTS gets 400.
+    # + "host.docker.internal": the backfill of Analytics (its containers)
+    # comes through the Mac as http://host.docker.internal:8000.
     # Browsers come with "localhost:8000" (from .env; the port is ignored).
-    DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS},nginx
+    DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS},nginx,host.docker.internal
+    # The reports of Analytics: its nginx on the Mac (port 8010), not a name
+    # of the network bookstore_net (there "web" and "nginx" are OUR
+    # services). The login comes from .env (ANALYTICS_API_USERNAME /
+    # ANALYTICS_API_PASSWORD), the address for people too (ANALYTICS_PUBLIC_URL).
+    ANALYTICS_API_URL: http://host.docker.internal:8010
     # Errors from the containers are marked "docker" in Sentry, the ones of
     # runserver on the Mac "local" (.env). SENTRY_DSN itself comes from .env.
     SENTRY_ENVIRONMENT: docker

@@ -1,4 +1,4 @@
-"""Fakes of external services: Stripe without the network.
+"""Fakes of external services: Stripe and Analytics without the network.
 
 FakeStripeClient replaces stripe.StripeClient (StripeProvider._client(),
 the `fake_stripe` fixture in conftest.py). It has the same three calls the
@@ -29,7 +29,9 @@ import hmac
 import itertools
 import json
 import time
+from dataclasses import dataclass
 from types import SimpleNamespace
+from urllib.parse import urlsplit
 
 import stripe
 from django.conf import settings
@@ -182,3 +184,167 @@ def stripe_webhook_headers(payload, *, secret=None, timestamp=None):
     signed = f"{timestamp}.{payload}".encode()
     signature = hmac.new(secret.encode(), signed, hashlib.sha256).hexdigest()
     return {"Stripe-Signature": f"t={timestamp},v1={signature}"}
+
+
+# ---------------------------------------------------------------------------
+# Analytics without the network
+# ---------------------------------------------------------------------------
+
+
+class FakeAnalyticsResponse:
+    """The part of requests.Response that AnalyticsClient reads."""
+
+    def __init__(self, status_code=200, data=None, text=""):
+        self.status_code = status_code
+        self._data = data
+        self.text = text or (json.dumps(data) if data is not None else "")
+
+    def json(self):
+        if self._data is None:
+            raise ValueError("Expecting value: line 1 column 1")  # what requests raises
+        return self._data
+
+
+@dataclass
+class FakeAnalyticsCall:
+    method: str
+    path: str
+    params: dict | None
+    headers: dict | None
+    json: dict | None
+
+
+class FakeAnalyticsSession:
+    """A requests.Session for AnalyticsClient: answers by the path, keeps the calls.
+
+        session.answers["/api/reports/summary/"] = FakeAnalyticsResponse(200, {...})
+            the same answer every time; a list = one answer per call, in order
+        session.token_answers = [FakeAnalyticsResponse(401)]
+            answers of POST /api/token/ (then "token-1", "token-2", ...)
+        session.error = requests.ConnectionError("refused")
+            every next call raises it (Analytics is down)
+        session.calls          what the client sent (FakeAnalyticsCall)
+
+    Analytics' reports of a normal answer: analytics_answers() below.
+    """
+
+    def __init__(self, answers=None):
+        self.answers = dict(answers or {})
+        self.token_answers = []
+        self.error = None
+        self.calls = []
+        self._tokens = itertools.count(1)
+
+    def request(self, method, url, timeout=None, params=None, json=None, headers=None):
+        path = urlsplit(url).path
+        self.calls.append(FakeAnalyticsCall(method, path, params, headers, json))
+        if self.error is not None:
+            raise self.error
+        if path == "/api/token/":
+            if self.token_answers:
+                return self.token_answers.pop(0)
+            return FakeAnalyticsResponse(200, {"access": f"token-{next(self._tokens)}"})
+        answer = self.answers.get(path, FakeAnalyticsResponse(404, text="Not found"))
+        if isinstance(answer, list):
+            return answer.pop(0)
+        return answer
+
+    def report_calls(self):
+        return [call for call in self.calls if call.path != "/api/token/"]
+
+
+def _totals(orders, revenue, cancelled_share):
+    return {
+        "orders": orders,
+        "paid_orders": orders - 1,
+        "cancelled_orders": 1,
+        "revenue_uah": revenue,
+        "paid_revenue_uah": revenue,
+        "items_sold": orders * 2,
+        "average_order_uah": "700.00",
+        "paid_share": "83.3",
+        "cancelled_share": cancelled_share,
+        "new_customers": 5,
+        "returning_customers": 2,
+    }
+
+
+def analytics_answers(period=("2026-11-19", "2026-11-25"), books=()):
+    """The answers of Analytics' four reports, in the shape of its serializers
+    (reports/api.py of hillel_hw_34_django_analytics, the Swagger examples).
+
+    books: (source_id, title) of the top books.
+    """
+    first, last = period
+    period_json = {"from": first, "to": last, "days": 7}
+    previous = {"from": "2026-11-12", "to": "2026-11-18", "days": 7}
+    return {
+        "/api/reports/summary/": FakeAnalyticsResponse(
+            200,
+            {
+                "period": period_json,
+                "previous_period": previous,
+                "totals": _totals(12, "8400.00", "8.3"),
+                "previous_totals": _totals(10, "7000.00", "10.0"),
+                "changes": {
+                    "orders": "20.0",
+                    "paid_orders": "22.2",
+                    "cancelled_orders": "0.0",
+                    "revenue_uah": "20.0",
+                    "paid_revenue_uah": "20.0",
+                    "items_sold": "20.0",
+                    "average_order_uah": "0.0",
+                    "paid_share": "1.5",
+                    "cancelled_share": "-17.0",
+                    "new_customers": None,
+                    "returning_customers": "0.0",
+                },
+            },
+        ),
+        "/api/reports/daily/": FakeAnalyticsResponse(
+            200,
+            {
+                "period": period_json,
+                "days": [
+                    {"day": "2026-11-24", **_totals(5, "3500.00", "0.0")},
+                    {"day": "2026-11-25", **_totals(7, "4900.00", "14.3")},
+                ],
+            },
+        ),
+        "/api/reports/top-books/": FakeAnalyticsResponse(
+            200,
+            {
+                "period": period_json,
+                "books": [
+                    {
+                        "source_id": source_id,
+                        "title": title,
+                        "author": "Taras Shevchenko",
+                        "quantity": 5 - position,
+                        "revenue_uah": f"{1750 - position * 100}.00",
+                    }
+                    for position, (source_id, title) in enumerate(books)
+                ],
+            },
+        ),
+        "/api/reports/formats/": FakeAnalyticsResponse(
+            200,
+            {
+                "period": period_json,
+                "formats": [
+                    {
+                        "format_type": "paper",
+                        "quantity": 8,
+                        "revenue_uah": "5600.00",
+                        "revenue_share": "80.5",
+                    },
+                    {
+                        "format_type": "audio",
+                        "quantity": 2,
+                        "revenue_uah": "1360.00",
+                        "revenue_share": "19.5",
+                    },
+                ],
+            },
+        ),
+    }

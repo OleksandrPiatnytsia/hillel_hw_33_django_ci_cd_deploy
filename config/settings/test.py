@@ -79,3 +79,10 @@ CELERY_TASK_EAGER_PROPAGATES = False
 # fixed salt, not the one from .env
 RABBITMQ_URL = "memory://"
 CUSTOMER_KEY_SALT = "test-customer-key-salt"
+
+# Analytics: a fixed address and account (the tests replace the HTTP
+# session, nothing is sent), not the values from .env
+ANALYTICS_API_URL = "http://analytics.test"
+ANALYTICS_API_USERNAME = "bookstore-service"
+ANALYTICS_API_PASSWORD = "test-password"
+ANALYTICS_PUBLIC_URL = "http://analytics.example"
