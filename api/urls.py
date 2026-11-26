@@ -20,6 +20,8 @@
                             (by format_id; book_id for a book with one format)
     /api/orders/<pk>/       one order
     /api/orders/<pk>/cancel/  POST: cancel my new unpaid order
+    /api/analytics/orders/  every order for the backfill of Analytics (its
+                            service account, group Services); pages by a cursor
 
 One register() line of the router gives both URLs of a ViewSet, the list
 (/api/books/) and one object (/api/books/<pk>/).
@@ -33,6 +35,7 @@ from drf_spectacular.views import (
 )
 from rest_framework.routers import DefaultRouter
 
+from .views.analytics import AnalyticsOrderListView
 from .views.auth import (
     DocumentedTokenRefreshView,
     DocumentedTokenVerifyView,
@@ -81,6 +84,7 @@ urlpatterns = [
     # the namespace of this file
     path("docs/", SpectacularSwaggerView.as_view(url_name="api:schema"), name="docs"),
     path("redoc/", SpectacularRedocView.as_view(url_name="api:schema"), name="redoc"),
+    path("analytics/orders/", AnalyticsOrderListView.as_view(), name="analytics-orders"),
     # The router last: its root pattern is "^$" (/api/ itself)
     *router.urls,
 ]

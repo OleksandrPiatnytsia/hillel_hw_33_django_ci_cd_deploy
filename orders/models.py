@@ -138,6 +138,16 @@ class Order(models.Model):
                 name="orders_order_unique_idempotency_key_per_user",
             ),
         ]
+        # The two sides of the Analytics service (README «Аналітика продажів»).
+        # Rights of their own, not is_staff: the service account of Analytics
+        # must read the orders and nothing else, and seeing the sales charts
+        # is a decision of its own (group Managers); the groups get them in users/0008
+        permissions = [
+            # GET /api/analytics/orders/: the backfill (group Services)
+            ("export_orders_for_analytics", _("Can export orders to Analytics")),
+            # /analytics/: the sales page with the reports of Analytics
+            ("view_sales_analytics", _("Can view the sales analytics")),
+        ]
 
     def __str__(self):
         # gettext (not lazy): str(order) is built right now, in the active

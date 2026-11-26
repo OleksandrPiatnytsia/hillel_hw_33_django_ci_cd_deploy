@@ -147,6 +147,10 @@
               <li><a class="dropdown-item" href="{% url 'users:profile' %}">{% translate "My profile" %}</a></li>
               <li><a class="dropdown-item" href="{% url 'orders:list' %}">{% translate "My orders" %}</a></li>
               <li><a class="dropdown-item" href="{% url 'wishlist:detail' %}">{% translate "Wishlist" %}</a></li>
+              {# The sales reports of Analytics: group Managers (orders.view_sales_analytics) #}
+              {% if perms.orders.view_sales_analytics %}
+                <li><a class="dropdown-item" href="{% url 'analytics:sales' %}">📊 {% translate "Sales analytics" %}</a></li>
+              {% endif %}
               <li><hr class="dropdown-divider"></li>
               <li>
                 {# Logout must be POST (Django 5+): a plain link could be #}

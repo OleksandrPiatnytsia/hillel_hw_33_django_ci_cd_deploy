@@ -23,6 +23,7 @@ import hmac
 from decimal import Decimal
 
 from django.conf import settings
+from django.db.models import Prefetch
 
 from books.models import BookFormat
 
@@ -70,11 +71,37 @@ def book_snapshot(book):
     }
 
 
-def order_snapshot(order):
-    """The "order" part of the body. Reads the items with their books (4 queries)."""
-    items = order.items.select_related("book__author", "book__publisher").prefetch_related(
-        "book__categories"
+def items_prefetch():
+    """Prefetch("items", ...) for a list of orders: their items with the books.
+
+    Order.objects.prefetch_related(items_prefetch()): 3 queries for the whole
+    list instead of 4 per order (GET /api/analytics/orders/, the backfill).
+    A function, not a constant: the queryset needs the model of orders, and
+    orders imports this module.
+    """
+    from orders.models import OrderItem
+
+    return Prefetch(
+        "items",
+        queryset=OrderItem.objects.select_related("book__author", "book__publisher")
+        .prefetch_related("book__categories")
+        .order_by("pk"),
     )
+
+
+def order_items(order):
+    """The items of the order with their books, in the order they were added."""
+    if "items" in getattr(order, "_prefetched_objects_cache", {}):
+        # Loaded already by items_prefetch(): no query
+        return order.items.all()
+    # One order (an event): the same query, for this order only
+    return items_prefetch().queryset.filter(order=order)
+
+
+def order_snapshot(order):
+    """The "order" part of the body. Reads the items with their books (4 queries),
+    or takes them from items_prefetch() of a list of orders (no query)."""
+    items = order_items(order)
     return {
         "id": order.pk,
         "status": order.status,
@@ -94,7 +121,7 @@ def order_snapshot(order):
                 "price": money(item.price),
                 "amount_uah": money(item.cost * order.exchange_rate),
             }
-            for item in items.order_by("pk")
+            for item in items
         ],
     }
 
