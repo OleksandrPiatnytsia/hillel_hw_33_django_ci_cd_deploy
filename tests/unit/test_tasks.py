@@ -1,4 +1,4 @@
-"""Celery tasks: emails with retries, the periodic tasks, the daily report.
+"""Celery tasks: emails with retries, the periodic tasks, the low stock report.
 
 CELERY_TASK_ALWAYS_EAGER=True in config/settings/test.py: task.delay()
 runs the task here, at once, with its retries (without the pauses).
@@ -8,8 +8,7 @@ import csv
 import io
 import logging
 import smtplib
-from datetime import date, datetime, timedelta
-from decimal import Decimal
+from datetime import date, timedelta
 
 import pytest
 from django.contrib.sessions.models import Session
@@ -19,11 +18,11 @@ from kombu.exceptions import OperationalError
 
 from config.celery import app as celery_app
 from orders.models import Order
-from orders.reports import build_daily_report
+from orders.reports import build_low_stock_report
 from orders.services import cancel_order, create_order
 from orders.tasks import (
     cancel_unpaid_orders,
-    send_daily_report,
+    send_low_stock_report,
     send_order_created_email_task,
 )
 from users.tasks import clear_expired_sessions
@@ -212,32 +211,17 @@ def test_clear_expired_sessions_deletes_only_expired_ones():
 
 
 # ---------------------------------------------------------------------------
-# The daily report
+# The low stock report (the sales are in the daily email of Analytics)
 # ---------------------------------------------------------------------------
-
-DAY = date(2026, 11, 10)
-
-
-def make_order(items, status=Order.Status.NEW, when=None):
-    order = OrderFactory(items=items, status=status)
-    when = when or timezone.make_aware(datetime.combine(DAY, datetime.min.time())) + timedelta(
-        hours=12
-    )
-    Order.objects.filter(pk=order.pk).update(created_at=when)
-    return order
 
 
 @pytest.fixture
-def report_data():
-    kobzar = BookFactory(title="Kobzar", price=Decimal("200.00"), stock=3)
-    zakhar = BookFactory(title="Zakhar Berkut", price=Decimal("100.00"), stock=40)
-    make_order([(kobzar, 2), (zakhar, 1)])  # 500
-    make_order([(zakhar, 3)], status=Order.Status.PROCESSING)  # 300
-    make_order([(kobzar, 5)], status=Order.Status.CANCELLED)  # not counted
-    # The day before and the day after: not in the report
-    make_order([(kobzar, 1)], when=timezone.make_aware(datetime(2026, 11, 9, 23, 59)))
-    make_order([(kobzar, 1)], when=timezone.make_aware(datetime(2026, 11, 11, 0, 0)))
-    return kobzar, zakhar
+def low_stock_books():
+    kobzar = BookFactory(title="Kobzar", stock=3)
+    empty = BookFactory(title="Aeneid", stock=0)
+    BookFactory(title="Zakhar Berkut", stock=40)  # enough
+    BookFactory(title="E-book", format_type="ebook", formats=True)  # no copies at all
+    return kobzar, empty
 
 
 def read_csv(content):
@@ -247,50 +231,58 @@ def read_csv(content):
 
 
 # Generated with AI
-def test_daily_report_counts_the_orders_of_that_day(report_data):
-    report = build_daily_report(DAY)
+def test_low_stock_report_lists_paper_books_with_few_copies(low_stock_books):
+    report = build_low_stock_report()
 
-    assert (report.orders_count, report.cancelled_count) == (2, 1)
-    assert report.revenue == Decimal("800.00")
-    assert [(b["title"], b["copies"], b["revenue"]) for b in report.top_books] == [
-        ("Zakhar Berkut", 4, Decimal("400.00")),
-        ("Kobzar", 2, Decimal("400.00")),
-    ]
-    assert [book.title for book in report.low_stock] == ["Kobzar"]  # 3 <= 5
+    # The emptiest first
+    assert [(book.title, book.stock) for book in report.books] == [("Aeneid", 0), ("Kobzar", 3)]
+    assert report.day == timezone.localdate()
 
 
 # Generated with AI
-def test_daily_report_is_emailed_to_managers_with_csv_files(report_data, manager, mailoutbox):
+def test_low_stock_report_is_emailed_to_managers_with_a_csv_file(
+    low_stock_books, manager, mailoutbox, monkeypatch
+):
+    monkeypatch.setattr(timezone, "localdate", lambda: date(2026, 11, 25))
     UserFactory(groups=["Customers"])  # not a recipient
 
-    send_daily_report.delay(DAY.isoformat())
+    send_low_stock_report.delay()
 
     assert len(mailoutbox) == 1
     message = mailoutbox[0]
     assert message.bcc == [manager.email]
     assert message.to == []  # the managers don't see each other's addresses
+    assert "25.11.2026" in message.subject
     files = {name: read_csv(content) for name, content, _type in message.attachments}
-    assert set(files) == {
-        "orders_2026-11-10.csv",
-        "top_books_2026-11-10.csv",
-        "low_stock_2026-11-10.csv",
-    }
-    assert files["top_books_2026-11-10.csv"][1][1:] == ["Zakhar Berkut", "4", "400.00"]
-    assert len(files["orders_2026-11-10.csv"]) == 1 + 3  # header + 3 orders
+    assert list(files) == ["low_stock_2026-11-25.csv"]
+    rows = files["low_stock_2026-11-25.csv"]
+    assert rows[0] == ["book_id", "title", "author", "stock"]
+    assert [row[1:2] + row[3:] for row in rows[1:]] == [["Aeneid", "0"], ["Kobzar", "3"]]
+    # No sales any more: no orders, no customers' emails
     assert "Kobzar" in message.body
+    assert "http://analytics.example/" in message.body
 
 
 # Generated with AI
-def test_daily_report_without_managers_sends_nothing(report_data, mailoutbox):
-    assert send_daily_report.apply(args=[DAY.isoformat()]).get() == 0
+def test_low_stock_report_is_not_sent_when_nothing_runs_out(manager, mailoutbox):
+    BookFactory(stock=40)
+
+    assert send_low_stock_report.apply().get() == 0
     assert mailoutbox == []
 
 
 # Generated with AI
-def test_daily_report_by_default_is_for_yesterday(manager, mailoutbox, monkeypatch):
-    # "Today" is 11.11.2026 for the task
-    monkeypatch.setattr(timezone, "localdate", lambda: date(2026, 11, 11))
+def test_low_stock_report_without_managers_sends_nothing(low_stock_books, mailoutbox):
+    assert send_low_stock_report.apply().get() == 0
+    assert mailoutbox == []
 
-    send_daily_report.delay()
 
-    assert "10.11.2026" in mailoutbox[0].subject
+# Generated with AI
+def test_low_stock_report_without_analytics_has_no_analytics_line(
+    low_stock_books, manager, mailoutbox, settings
+):
+    settings.ANALYTICS_PUBLIC_URL = ""
+
+    send_low_stock_report.delay()
+
+    assert "Analytics" not in mailoutbox[0].body

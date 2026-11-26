@@ -26,10 +26,11 @@ from django.db import connections
 from django.core.mail import EmailMessage
 from django.test import Client
 
+from analytics.client import AnalyticsClient
 from payments.providers.stripe_checkout import StripeProvider
 
 from .factories import UserFactory
-from .fakes import FakeStripeClient
+from .fakes import FakeAnalyticsSession, FakeStripeClient, analytics_answers
 
 
 @pytest.fixture(autouse=True)
@@ -151,3 +152,16 @@ def failing_mailer(monkeypatch):
         raise smtplib.SMTPServerDisconnected("Connection unexpectedly closed (test)")
 
     monkeypatch.setattr(EmailMessage, "send", broken_send)
+
+
+@pytest.fixture
+def fake_analytics(monkeypatch):
+    """Analytics without the network: every AnalyticsClient gets this session.
+
+    Answers the four reports normally (analytics_answers()); a test changes
+    fake_analytics.answers / .token_answers / .error for other cases and
+    reads fake_analytics.calls.
+    """
+    session = FakeAnalyticsSession(analytics_answers())
+    monkeypatch.setattr(AnalyticsClient, "make_session", staticmethod(lambda: session))
+    return session

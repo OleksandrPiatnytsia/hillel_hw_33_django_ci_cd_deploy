@@ -1,0 +1,229 @@
+{% extends "base.html" %}
+{% load i18n l10n money static %}
+
+{% block title %}{% translate "Sales analytics" %}{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <h1 class="h4 mb-0">📊 {% translate "Sales analytics" %}</h1>
+  {% if analytics_url %}
+    <a class="btn btn-sm btn-outline-secondary" href="{{ analytics_url }}/" target="_blank" rel="noopener">
+      {% translate "Open in Analytics" %} ↗
+    </a>
+  {% endif %}
+</div>
+
+{# The period: links for 7 / 30 / 90 days, or two dates (GET, bookmarkable) #}
+<div class="d-flex flex-wrap align-items-end gap-3 mb-3">
+  <div class="btn-group" role="group" aria-label="{% translate 'Period' %}">
+    {% for days in presets %}
+      <a class="btn btn-sm {% if period.preset == days %}btn-primary{% else %}btn-outline-primary{% endif %}"
+         href="?period={{ days }}"{% if period.preset == days %} aria-current="true"{% endif %}>
+        {% blocktranslate count days=days %}{{ days }} day{% plural %}{{ days }} days{% endblocktranslate %}
+      </a>
+    {% endfor %}
+  </div>
+  <form class="d-flex flex-wrap align-items-end gap-2" method="get">
+    <div>
+      <label class="form-label small mb-1" for="period-from">{% translate "From" %}</label>
+      <input class="form-control form-control-sm" type="date" id="period-from" name="from"
+             value="{{ period.first|date:'Y-m-d' }}" required>
+    </div>
+    <div>
+      <label class="form-label small mb-1" for="period-to">{% translate "To" %}</label>
+      <input class="form-control form-control-sm" type="date" id="period-to" name="to"
+             value="{{ period.last|date:'Y-m-d' }}" required>
+    </div>
+    <button class="btn btn-sm btn-outline-primary" type="submit">{% translate "Show" %}</button>
+  </form>
+</div>
+
+<p class="text-body-secondary small">
+  {% blocktranslate trimmed with first=period.first|date:"d.m.Y" last=period.last|date:"d.m.Y" count days=period.days %}
+    {{ first }} – {{ last }} ({{ days }} day, Kyiv time), compared with the same number of days before.
+  {% plural %}
+    {{ first }} – {{ last }} ({{ days }} days, Kyiv time), compared with the same number of days before.
+  {% endblocktranslate %}
+  {% translate "Amounts in UAH." %}
+</p>
+
+{% if period_error %}<div class="alert alert-danger">{{ period_error }}</div>{% endif %}
+
+{% if not_configured %}
+  <div class="alert alert-info">
+    {% translate "Analytics is not connected to this shop yet: the reports will appear here after it is set up." %}
+  </div>
+{% elif unavailable or refused %}
+  <div class="alert alert-warning">
+    {% if unavailable %}
+      {% translate "Analytics is temporarily unavailable. The shop works as usual; try again in a few minutes." %}
+    {% else %}
+      {% translate "Analytics refused the request of the shop. The administrator has been notified." %}
+    {% endif %}
+    {% if stale_since %}
+      {% blocktranslate trimmed with time=stale_since|date:"d.m.Y H:i" %}
+        The numbers below are as of {{ time }} (UTC).
+      {% endblocktranslate %}
+    {% endif %}
+  </div>
+{% endif %}
+
+{% if tiles %}
+  <div class="row g-3 mb-4">
+    {% for tile in tiles %}
+      <div class="col-6 col-md-4 col-xl-2">
+        <div class="card h-100 shadow-sm">
+          <div class="card-body">
+            <div class="small text-body-secondary">{{ tile.label }}</div>
+            <div class="fs-5 fw-semibold">
+              {% if tile.kind == "money" %}{{ tile.value|money:"UAH" }}{% elif tile.kind == "percent" %}{{ tile.value }} %{% else %}{{ tile.value }}{% endif %}
+            </div>
+            <div class="small {% if tile.good is True %}text-success{% elif tile.good is False %}text-danger{% else %}text-body-secondary{% endif %}">
+              {% if tile.change is None %}
+                {% translate "no data before" %}
+              {% elif tile.change > 0 %}
+                ▲ +{{ tile.change }} %
+              {% elif tile.change < 0 %}
+                ▼ {{ tile.change }} %
+              {% else %}
+                = 0 %
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+{% endif %}
+
+{% if days %}
+  <div class="card shadow-sm mb-4">
+    <div class="card-header">{% translate "Revenue by day" %}</div>
+    <div class="card-body">
+      {# Hidden until analytics.js has drawn the chart: without JavaScript #}
+      {# (or without the CDN) the table below is the report #}
+      <div class="d-none" data-chart-box style="height: 280px">
+        <canvas data-revenue-chart aria-label="{% translate 'Revenue by day' %}" role="img"></canvas>
+      </div>
+      <details open data-chart-table>
+        <summary class="small text-body-secondary">{% translate "Table" %}</summary>
+        <div class="table-responsive mt-2">
+          <table class="table table-sm mb-0">
+            <thead>
+              <tr>
+                <th scope="col">{% translate "Day" %}</th>
+                <th scope="col" class="text-end">{% translate "Orders" %}</th>
+                <th scope="col" class="text-end">{% translate "Revenue" %}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for day in days %}
+                <tr>
+                  <td>{{ day.day|date:"d.m.Y" }}</td>
+                  <td class="text-end">{{ day.orders }}</td>
+                  <td class="text-end">{{ day.revenue|money:"UAH" }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </details>
+      {{ chart|json_script:"revenue-chart-data" }}
+    </div>
+  </div>
+{% endif %}
+
+<div class="row g-4">
+  {% if top_books is not None %}
+    <div class="col-lg-7">
+      <div class="card shadow-sm h-100">
+        <div class="card-header">{% translate "Best sellers" %}</div>
+        <div class="table-responsive">
+          <table class="table table-sm align-middle mb-0">
+            <thead>
+              <tr>
+                <th scope="col">#</th>
+                <th scope="col">{% translate "Book" %}</th>
+                <th scope="col" class="text-end">{% translate "Copies" %}</th>
+                <th scope="col" class="text-end">{% translate "Revenue" %}</th>
+                <th scope="col" class="text-end">{% translate "In stock now" %}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in top_books %}
+                <tr>
+                  <td>{{ forloop.counter }}</td>
+                  <td>
+                    {% if row.book %}<a href="{{ row.book.get_absolute_url }}">{{ row.title }}</a>{% else %}{{ row.title }}{% endif %}
+                    <div class="small text-body-secondary">{{ row.author }}</div>
+                  </td>
+                  <td class="text-end">{{ row.quantity }}</td>
+                  <td class="text-end">{{ row.revenue|money:"UAH" }}</td>
+                  <td class="text-end">
+                    {% if row.book is None %}
+                      <span class="text-body-secondary" title="{% translate 'Not in the catalog any more' %}">—</span>
+                    {% elif row.book.stock <= low_stock_threshold %}
+                      <span class="badge text-bg-warning">{{ row.book.stock }}</span>
+                    {% else %}
+                      {{ row.book.stock }}
+                    {% endif %}
+                  </td>
+                </tr>
+              {% empty %}
+                <tr><td colspan="5" class="text-body-secondary">{% translate "No sales in this period." %}</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  {% endif %}
+
+  {% if formats is not None %}
+    <div class="col-lg-5">
+      <div class="card shadow-sm h-100">
+        <div class="card-header">{% translate "Formats" %}</div>
+        <ul class="list-group list-group-flush">
+          {% for row in formats %}
+            <li class="list-group-item">
+              <div class="d-flex justify-content-between">
+                <span>{{ row.label }}</span>
+                <span>{{ row.revenue|money:"UAH" }}</span>
+              </div>
+              <div class="d-flex justify-content-between small text-body-secondary mb-1">
+                <span>{% blocktranslate count count=row.quantity %}{{ count }} copy{% plural %}{{ count }} copies{% endblocktranslate %}</span>
+                <span>{{ row.share }} %</span>
+              </div>
+              {# localize off: the width needs "80.5", not "80,5" #}
+              <div class="progress" role="progressbar" aria-label="{{ row.label }}"
+                   aria-valuenow="{{ row.share|unlocalize }}" aria-valuemin="0" aria-valuemax="100" style="height: 6px">
+                <div class="progress-bar" style="width: {{ row.share|unlocalize }}%"></div>
+              </div>
+            </li>
+          {% empty %}
+            <li class="list-group-item text-body-secondary">{% translate "No sales in this period." %}</li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+  {% endif %}
+</div>
+
+{% if results.summary.fetched_at and not stale_since %}
+  <p class="small text-body-secondary mt-3 mb-0">
+    {% blocktranslate trimmed with time=results.summary.fetched_at|date:"H:i" %}
+      Data of Analytics as of {{ time }} (UTC), refreshed every few minutes.
+    {% endblocktranslate %}
+  </p>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+  {% if chart %}
+    {# Chart.js from a CDN, the same version as in Analytics; integrity = the hash of the file #}
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.6.1/dist/chart.umd.min.js"
+            integrity="sha384-Emf5ZVIUiarAdhkgtqK+5/Z5qIvM6QoVrS+qAVtfyZVuD5lIHrac0me485+Antp0"
+            crossorigin="anonymous" defer></script>
+    <script src="{% static 'js/analytics.js' %}" defer></script>
+  {% endif %}
+{% endblock %}

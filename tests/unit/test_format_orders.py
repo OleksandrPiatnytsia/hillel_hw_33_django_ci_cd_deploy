@@ -15,7 +15,7 @@ from books.models import Book, BookFormat
 from cart.cart import CART_SESSION_KEY
 from inventory.models import Stock
 from orders.models import OrderItem
-from orders.reports import build_daily_report
+from orders.reports import build_low_stock_report
 from orders.services import OrderError, cancel_order, create_order
 
 from ..factories import BookFactory, BookFormatFactory, OrderFactory, UserFactory
@@ -423,9 +423,9 @@ def test_low_stock_report_lists_only_books_sold_on_paper():
     low = BookFactory(stock=1)
     BookFactory(format_type="ebook", formats=True)  # no copies at all: not "low"
 
-    report = build_daily_report(OrderFactory().created_at.date())
+    report = build_low_stock_report()
 
-    assert [book.pk for book in report.low_stock] == [low.pk]
+    assert [book.pk for book in report.books] == [low.pk]
 
 
 # Generated with AI

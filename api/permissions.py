@@ -33,3 +33,18 @@ class IsOwnerOrReadOnly(BasePermission):
         if request.method in SAFE_METHODS:
             return True
         return obj.user_id == request.user.pk
+
+
+class CanExportOrdersForAnalytics(BasePermission):
+    """orders.export_orders_for_analytics: the account of Analytics (group Services).
+
+    Its own permission, not is_staff: the service reads the orders for the
+    backfill and can do nothing else. Not logged in -> 401, another
+    account (a customer, a manager) -> 403.
+    """
+
+    def has_permission(self, request, view):
+        user = request.user
+        return bool(
+            user and user.is_authenticated and user.has_perm("orders.export_orders_for_analytics")
+        )

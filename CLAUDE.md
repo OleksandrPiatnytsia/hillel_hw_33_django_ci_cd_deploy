@@ -33,12 +33,13 @@ JavaScript). Languages: uk (default) and en.
 - Apps: `users` (custom User, groups Managers etc.), `books` (Book, Author, Publisher, Category,
   BookFormat paper/ebook/audio; `books/cache.py` template fragment cache + invalidation),
   `inventory` (warehouses, stock), `cart` (session cart, key = format id), `wishlist`,
-  `ratings` (only buyers rate), `orders` (`services.create_order()`, `reports.py` daily email),
-  `payments` (Stripe, webhooks), `currencies` (NBU rates, display currency), `api` (the whole
-  REST layer).
+  `ratings` (only buyers rate), `orders` (`services.create_order()`, `reports.py` daily
+  low-stock email), `payments` (Stripe, webhooks), `currencies` (NBU rates, display currency),
+  `api` (the whole REST layer), `outbox` (events for Analytics), `analytics` (the page of
+  Analytics' reports).
 - `templates/` (base, navbar), `static/` (css/styles.css, js/*.js), `locale/{uk,en}`.
 - `tests/` — `unit/`, `integration/`, `api/`, factories in `tests/factories.py`
-  (factory-boy). About 856 tests, coverage ~98.9%; the minimum is 70% (pytest.ini).
+  (factory-boy). About 972 tests, coverage ~99%; the minimum is 70% (pytest.ini).
 - `.github/workflows/django.yml` — jobs lint (black, flake8) + test (PostgreSQL service,
   coverage badge pushed to the `badges` branch on main) -> docker (build; push to Docker Hub
   `ufolog/hillel-bookstore` on main).
@@ -86,10 +87,22 @@ Stages of the shared plan that belong to the bookstore:
   Railway web, worker AND flower need it. Format `audiobook` is sent as `audio` (contract).
   The contract is owned by Analytics: `../hillel_hw_34_django_analytics/docs/events.md`.
   No REST fallback for events (the user's decision).
-- **Stage 5**: an analytics page for managers that calls Analytics' REST reports with a JWT of a
-  service account (Redis cache, a friendly message and logging when Analytics is down); an API
-  for the backfill (Analytics pulls old orders once); integration tests.
-- The sales part of the daily email to managers (`orders/reports.py`) moves to Analytics;
-  the low-stock part stays here.
+- **Stage 5 (code written 2026-11-25, v1.6.0, branch feature/analytics)**, README «Аналітика
+  продажів». Order.Meta permissions `export_orders_for_analytics` + `view_sales_analytics`
+  (migration orders/0011_analytics_permissions made by the user); users/0008_services_group
+  creates them by name (no dependency on orders/0011), group Services, Managers get the view
+  right; command `create_service_account` (password from ANALYTICS_SERVICE_PASSWORD).
+  `GET /api/analytics/orders/` (api/views/analytics.py): CursorPagination by id 100/500,
+  created_from/created_to UTC days, orders without items skipped, item = order_snapshot() +
+  updated_at + paid_at/cancelled_at from OutboxEvent.created_at (null before the outbox);
+  `items_prefetch()` in outbox/snapshot.py keeps the queries constant. App `analytics`:
+  AnalyticsClient (JWT in the cache 14 min, new token after 401, errors NotConfigured /
+  Unavailable (WARNING + 60 s breaker) / Refused (ERROR)), fetch_report() with a fresh copy
+  5 min + last good copy 24 h (keys with real dates), periods = Analytics' rules with Kyiv
+  days, AnalyticsBaseView -> SalesAnalyticsView, Chart.js 4.6.1 CDN + table fallback
+  (static/js/analytics.js). Docker: ANALYTICS_API_URL http://host.docker.internal:8010,
+  host.docker.internal in ALLOWED_HOSTS + extra_hosts host-gateway. Daily email = low stock
+  only (`send_low_stock_report`, beat "daily-low-stock-report", no email when nothing runs
+  out); the sales part is in Analytics' email now.
 
 Present the detailed plan of a stage before coding it.

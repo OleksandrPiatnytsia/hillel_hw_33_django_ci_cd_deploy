@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Bookstore\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-19 07:38+0000\n"
+"POT-Creation-Date: 2026-11-25 08:42+0000\n"
 "PO-Revision-Date: 2026-11-10 16:00+0200\n"
 "Last-Translator: Bookstore\n"
 "Language-Team: Ukrainian\n"
@@ -16,6 +16,217 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=4; plural=(n % 1 == 0 && n % 10 == 1 && n % 100 != 11 ? 0 : n % 1 == 0 && n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? 1 : n % 1 == 0 && (n % 10 ==0 || (n % 10 >=5 && n % 10 <=9) || (n % 100 >=11 && n % 100 <=14 )) ? 2: 3);\n"
+
+#: analytics/apps.py:14 analytics/templates/analytics/sales.html:4
+#: analytics/templates/analytics/sales.html:8
+#: templates/includes/navbar.html:152 users/templates/users/profile.html:99
+msgid "Sales analytics"
+msgstr "Аналітика продажів"
+
+#: analytics/periods.py:59
+msgid "Choose both dates of the period."
+msgstr "Виберіть обидві дати періоду."
+
+#: analytics/periods.py:63
+msgid "A date of the period is not a valid date."
+msgstr "Дата періоду неправильна."
+
+#: analytics/periods.py:65
+msgid "The start of the period is later than its end."
+msgstr "Початок періоду пізніше за його кінець."
+
+#: analytics/periods.py:68
+#, python-format
+msgid "The period is longer than %(days)s days."
+msgstr "Період довший за %(days)s днів."
+
+#: analytics/periods.py:76
+msgid "Unknown period: choose 7, 30 or 90 days."
+msgstr "Невідомий період: виберіть 7, 30 або 90 днів."
+
+#: analytics/templates/analytics/sales.html:11
+msgid "Open in Analytics"
+msgstr "Відкрити в Аналітиці"
+
+#: analytics/templates/analytics/sales.html:18
+msgid "Period"
+msgstr "Період"
+
+#: analytics/templates/analytics/sales.html:22
+#, python-format
+msgid "%(days)s day"
+msgid_plural "%(days)s days"
+msgstr[0] "%(days)s день"
+msgstr[1] "%(days)s дні"
+msgstr[2] "%(days)s днів"
+msgstr[3] "%(days)s дня"
+
+#: analytics/templates/analytics/sales.html:28
+msgid "From"
+msgstr "З"
+
+#: analytics/templates/analytics/sales.html:33
+msgid "To"
+msgstr "По"
+
+#: analytics/templates/analytics/sales.html:37
+#: books/templates/books/book_list.html:212
+#: orders/templates/orders/checkout.html:101
+msgid "Show"
+msgstr "Показати"
+
+#: analytics/templates/analytics/sales.html:42
+#, python-format
+msgid ""
+"%(first)s – %(last)s (%(days)s day, Kyiv time), compared with the same "
+"number of days before."
+msgid_plural ""
+"%(first)s – %(last)s (%(days)s days, Kyiv time), compared with the same "
+"number of days before."
+msgstr[0] ""
+"%(first)s – %(last)s (%(days)s день, за київським часом), порівняно з такою "
+"самою кількістю днів перед ним."
+msgstr[1] ""
+"%(first)s – %(last)s (%(days)s дні, за київським часом), порівняно з такою "
+"самою кількістю днів перед ними."
+msgstr[2] ""
+"%(first)s – %(last)s (%(days)s днів, за київським часом), порівняно з такою "
+"самою кількістю днів перед ними."
+msgstr[3] ""
+"%(first)s – %(last)s (%(days)s дня, за київським часом), порівняно з такою "
+"самою кількістю днів перед ними."
+
+#: analytics/templates/analytics/sales.html:47
+msgid "Amounts in UAH."
+msgstr "Суми в гривнях."
+
+#: analytics/templates/analytics/sales.html:54
+msgid ""
+"Analytics is not connected to this shop yet: the reports will appear here "
+"after it is set up."
+msgstr ""
+"Аналітику ще не підключено до магазину: звіти з'являться тут після "
+"налаштування."
+
+#: analytics/templates/analytics/sales.html:59
+msgid ""
+"Analytics is temporarily unavailable. The shop works as usual; try again in "
+"a few minutes."
+msgstr ""
+"Аналітика тимчасово недоступна. Магазин працює як звичайно; спробуйте за "
+"кілька хвилин."
+
+#: analytics/templates/analytics/sales.html:61
+msgid ""
+"Analytics refused the request of the shop. The administrator has been "
+"notified."
+msgstr "Аналітика відхилила запит магазину. Адміністратора сповіщено."
+
+#: analytics/templates/analytics/sales.html:64
+#, python-format
+msgid "The numbers below are as of %(time)s (UTC)."
+msgstr "Цифри нижче — станом на %(time)s (UTC)."
+
+#: analytics/templates/analytics/sales.html:83
+msgid "no data before"
+msgstr "раніше даних не було"
+
+#: analytics/templates/analytics/sales.html:101
+#: analytics/templates/analytics/sales.html:106
+msgid "Revenue by day"
+msgstr "Виторг по днях"
+
+#: analytics/templates/analytics/sales.html:109
+msgid "Table"
+msgstr "Таблиця"
+
+#: analytics/templates/analytics/sales.html:114
+#: currencies/templates/currencies/rates.html:19
+msgid "Day"
+msgstr "День"
+
+#: analytics/templates/analytics/sales.html:115 analytics/views.py:129
+#: analytics/views.py:178 orders/apps.py:8 users/tools.py:40
+msgid "Orders"
+msgstr "Замовлення"
+
+#: analytics/templates/analytics/sales.html:116
+#: analytics/templates/analytics/sales.html:148 analytics/views.py:128
+msgid "Revenue"
+msgstr "Виторг"
+
+#: analytics/templates/analytics/sales.html:140
+msgid "Best sellers"
+msgstr "Найпопулярніші книги"
+
+#: analytics/templates/analytics/sales.html:146
+#: cart/templates/cart/cart_detail.html:16
+#: orders/templates/orders/checkout.html:109
+#: orders/templates/orders/emails/order_cancelled.html:26
+#: orders/templates/orders/emails/order_created.html:30
+#: orders/templates/orders/order_detail.html:30
+msgid "Book"
+msgstr "Книга"
+
+#: analytics/templates/analytics/sales.html:147
+msgid "Copies"
+msgstr "Примірники"
+
+#: analytics/templates/analytics/sales.html:149
+msgid "In stock now"
+msgstr "На складі зараз"
+
+#: analytics/templates/analytics/sales.html:164
+msgid "Not in the catalog any more"
+msgstr "Уже немає в каталозі"
+
+#: analytics/templates/analytics/sales.html:173
+#: analytics/templates/analytics/sales.html:204
+msgid "No sales in this period."
+msgstr "За цей період продажів немає."
+
+#: analytics/templates/analytics/sales.html:185
+#: books/templates/books/includes/book_details.html:28
+#: books/templates/books/includes/book_format_rows.html:12
+msgid "Formats"
+msgstr "Формати"
+
+#: analytics/templates/analytics/sales.html:194
+#, python-format
+msgid "%(count)s copy"
+msgid_plural "%(count)s copies"
+msgstr[0] "%(count)s примірник"
+msgstr[1] "%(count)s примірники"
+msgstr[2] "%(count)s примірників"
+msgstr[3] "%(count)s примірника"
+
+#: analytics/templates/analytics/sales.html:214
+#, python-format
+msgid "Data of Analytics as of %(time)s (UTC), refreshed every few minutes."
+msgstr ""
+"Дані Аналітики станом на %(time)s (UTC), оновлюються кожні кілька хвилин."
+
+#: analytics/views.py:130
+msgid "Average order"
+msgstr "Середній чек"
+
+#: analytics/views.py:131 orders/models.py:39
+#: orders/templates/orders/order_detail.html:88
+#: payments/templates/payments/emails/payment_received.html:29
+msgid "Paid"
+msgstr "Оплачено"
+
+#: analytics/views.py:132 orders/models.py:34
+msgid "Cancelled"
+msgstr "Скасовано"
+
+#: analytics/views.py:133
+msgid "New customers"
+msgstr "Нові клієнти"
+
+#: analytics/views.py:177
+msgid "Revenue, UAH"
+msgstr "Виторг, грн"
 
 #: api/exceptions.py:16
 msgid "The object is used by other objects and can't be deleted."
@@ -28,6 +239,10 @@ msgid ""
 msgstr ""
 "Цей Idempotency-Key уже використано для іншого замовлення. Для нового "
 "замовлення надішліть новий ключ."
+
+#: api/serializers/analytics.py:36
+msgid "created_from is later than created_to."
+msgstr "created_from пізніше за created_to."
 
 #: api/serializers/catalog.py:109
 #, python-format
@@ -141,7 +356,7 @@ msgid "categories"
 msgstr "категорії"
 
 #: books/admin.py:42 books/models.py:356 books/models.py:546
-#: books/models.py:690 orders/models.py:249 ratings/models.py:33
+#: books/models.py:690 orders/models.py:259 ratings/models.py:33
 #: wishlist/models.py:27
 msgid "book"
 msgstr "книга"
@@ -157,7 +372,7 @@ msgid "stock"
 msgstr "залишок"
 
 #: books/admin.py:84 books/models.py:552 inventory/models.py:86
-#: orders/models.py:260
+#: orders/models.py:270
 msgid "format"
 msgstr "формат"
 
@@ -430,11 +645,11 @@ msgstr "видавництво"
 msgid "publishers"
 msgstr "видавництва"
 
-#: books/models.py:301 config/settings/base.py:428
+#: books/models.py:301 config/settings/base.py:457
 msgid "Ukrainian"
 msgstr "Українська"
 
-#: books/models.py:302 config/settings/base.py:429
+#: books/models.py:302 config/settings/base.py:458
 msgid "English"
 msgstr "Англійська"
 
@@ -454,7 +669,7 @@ msgstr "Французька"
 msgid "Spanish"
 msgstr "Іспанська"
 
-#: books/models.py:308 orders/models.py:275
+#: books/models.py:308 orders/models.py:285
 msgid "title"
 msgstr "назва"
 
@@ -506,7 +721,7 @@ msgstr "М'яка"
 msgid "Dust jacket"
 msgstr "Суперобкладинка"
 
-#: books/models.py:554 orders/admin.py:50 orders/models.py:280
+#: books/models.py:554 orders/admin.py:50 orders/models.py:290
 msgid "price"
 msgstr "ціна"
 
@@ -829,11 +1044,6 @@ msgstr "Відсутні в кінці"
 msgid "Per page"
 msgstr "На сторінці"
 
-#: books/templates/books/book_list.html:212
-#: orders/templates/orders/checkout.html:101
-msgid "Show"
-msgstr "Показати"
-
 #: books/templates/books/book_list.html:226
 msgid "No books match these filters."
 msgstr "За цими фільтрами книг не знайдено."
@@ -845,11 +1055,6 @@ msgstr "Показати всі книги"
 #: books/templates/books/includes/book_card.html:65
 msgid "Choose format"
 msgstr "Обрати формат"
-
-#: books/templates/books/includes/book_details.html:28
-#: books/templates/books/includes/book_format_rows.html:12
-msgid "Formats"
-msgstr "Формати"
 
 #: books/templates/books/includes/book_details.html:58
 #: templates/includes/pagination.html:11
@@ -939,14 +1144,6 @@ msgstr "від %(price)s"
 #: orders/templates/orders/checkout.html:9 templates/includes/navbar.html:131
 msgid "Cart"
 msgstr "Кошик"
-
-#: cart/templates/cart/cart_detail.html:16
-#: orders/templates/orders/checkout.html:109
-#: orders/templates/orders/emails/order_cancelled.html:26
-#: orders/templates/orders/emails/order_created.html:30
-#: orders/templates/orders/order_detail.html:30
-msgid "Book"
-msgstr "Книга"
 
 #: cart/templates/cart/cart_detail.html:20
 #: orders/templates/orders/checkout.html:111
@@ -1161,7 +1358,7 @@ msgstr "створено"
 msgid "updated"
 msgstr "оновлено"
 
-#: currencies/models.py:99 orders/models.py:89 orders/models.py:305
+#: currencies/models.py:99 orders/models.py:89 orders/models.py:315
 msgid "exchange rate"
 msgstr "курс валюти"
 
@@ -1177,10 +1374,6 @@ msgstr "Курси НБУ"
 #: currencies/templates/currencies/rates.html:12
 msgid "History in the admin"
 msgstr "Історія в адмінці"
-
-#: currencies/templates/currencies/rates.html:19
-msgid "Day"
-msgstr "День"
 
 #: currencies/templates/currencies/rates.html:23
 msgid "Load from the NBU"
@@ -1278,7 +1471,7 @@ msgstr "склади"
 msgid "Another warehouse is already the default."
 msgstr "Інший склад уже є складом за замовчуванням."
 
-#: inventory/models.py:103 orders/models.py:311
+#: inventory/models.py:103 orders/models.py:321
 msgid "quantity"
 msgstr "кількість"
 
@@ -1286,7 +1479,7 @@ msgstr "кількість"
 msgid "Only a paper format has copies in a warehouse."
 msgstr "Примірники на складі бувають лише в паперового формату."
 
-#: orders/admin.py:54 orders/models.py:289
+#: orders/admin.py:54 orders/models.py:299
 msgid "original price"
 msgstr "початкова ціна"
 
@@ -1342,10 +1535,6 @@ msgstr "%(order)s має оплати: поверніть гроші покуп�
 #: orders/admin.py:272
 msgid "Cancel selected orders (books go back to stock)"
 msgstr "Скасувати вибрані замовлення (книги повертаються на склад)"
-
-#: orders/apps.py:8 users/tools.py:40
-msgid "Orders"
-msgstr "Замовлення"
 
 #: orders/forms.py:30
 msgid "Save phone and address to my profile"
@@ -1404,10 +1593,6 @@ msgstr "Відправлено"
 msgid "Completed"
 msgstr "Виконано"
 
-#: orders/models.py:34
-msgid "Cancelled"
-msgstr "Скасовано"
-
 #: orders/models.py:37
 msgid "Unpaid"
 msgstr "Не оплачено"
@@ -1415,11 +1600,6 @@ msgstr "Не оплачено"
 #: orders/models.py:38
 msgid "Partially paid"
 msgstr "Частково оплачено"
-
-#: orders/models.py:39 orders/templates/orders/order_detail.html:88
-#: payments/templates/payments/emails/payment_received.html:29
-msgid "Paid"
-msgstr "Оплачено"
 
 #: orders/models.py:43 ratings/models.py:27 wishlist/models.py:21
 msgid "user"
@@ -1453,7 +1633,7 @@ msgstr "гривень за 1 одиницю валюти замовлення �
 msgid "idempotency key"
 msgstr "ключ ідемпотентності"
 
-#: orders/models.py:120 orders/models.py:242 outbox/models.py:39
+#: orders/models.py:120 orders/models.py:252 outbox/models.py:39
 #: payments/models.py:36
 msgid "order"
 msgstr "замовлення"
@@ -1462,24 +1642,32 @@ msgstr "замовлення"
 msgid "orders"
 msgstr "замовлення"
 
-#: orders/models.py:145
+#: orders/models.py:147
+msgid "Can export orders to Analytics"
+msgstr "Може передавати замовлення в Аналітику"
+
+#: orders/models.py:149
+msgid "Can view the sales analytics"
+msgstr "Може переглядати аналітику продажів"
+
+#: orders/models.py:155
 #, python-format
 msgid "Order #%(number)s"
 msgstr "Замовлення #%(number)s"
 
-#: orders/models.py:270
+#: orders/models.py:280
 msgid "format type"
 msgstr "тип формату"
 
-#: orders/models.py:296
+#: orders/models.py:306
 msgid "original currency"
 msgstr "початкова валюта"
 
-#: orders/models.py:317
+#: orders/models.py:327
 msgid "order item"
 msgstr "позиція замовлення"
 
-#: orders/models.py:318
+#: orders/models.py:328
 msgid "order items"
 msgstr "позиції замовлення"
 
@@ -1577,35 +1765,7 @@ msgstr ""
 "Книги резервуються, щойно ви оформите замовлення. Потім ви оплачуєте його "
 "кнопкою «Оплатити» на сторінці замовлення."
 
-#: orders/templates/orders/emails/daily_report.txt:1
-#, python-format
-msgid "Sales report for %(day)s (UTC)."
-msgstr "Звіт про продажі за %(day)s (UTC)."
-
-#: orders/templates/orders/emails/daily_report.txt:3
-#, python-format
-msgid "Orders: %(count)s (paid: %(paid)s, cancelled: %(cancelled)s)"
-msgstr "Замовлень: %(count)s (оплачено: %(paid)s, скасовано: %(cancelled)s)"
-
-#: orders/templates/orders/emails/daily_report.txt:4
-#, python-format
-msgid "Total of the orders: %(revenue)s UAH"
-msgstr "Сума замовлень: %(revenue)s грн"
-
-#: orders/templates/orders/emails/daily_report.txt:6
-msgid "Best sellers:"
-msgstr "Найпопулярніші книги:"
-
-#: orders/templates/orders/emails/daily_report.txt:7
-#, python-format
-msgid "%(title)s: %(copies)s pcs, %(revenue)s UAH"
-msgstr "%(title)s: %(copies)s шт., %(revenue)s грн"
-
-#: orders/templates/orders/emails/daily_report.txt:8
-msgid "No sales."
-msgstr "Продажів не було."
-
-#: orders/templates/orders/emails/daily_report.txt:10
+#: orders/templates/orders/emails/low_stock_report.txt:1
 #, python-format
 msgid "Low stock: %(count)s book."
 msgid_plural "Low stock: %(count)s books."
@@ -1614,16 +1774,25 @@ msgstr[1] "Мало на складі: %(count)s книги."
 msgstr[2] "Мало на складі: %(count)s книг."
 msgstr[3] "Мало на складі: %(count)s книги."
 
-#: orders/templates/orders/emails/daily_report.txt:11
+#: orders/templates/orders/emails/low_stock_report.txt:2
+#, python-format
+msgid "Paper books with %(threshold)s copies or fewer in the warehouse:"
+msgstr "Паперові книги, яких на складі %(threshold)s або менше:"
+
+#: orders/templates/orders/emails/low_stock_report.txt:4
 #, python-format
 msgid "%(title)s: %(stock)s left"
 msgstr "%(title)s: залишилось %(stock)s"
 
-#: orders/templates/orders/emails/daily_report.txt:13
-msgid "Details are in the attached CSV files."
-msgstr "Подробиці — у вкладених CSV-файлах."
+#: orders/templates/orders/emails/low_stock_report.txt:6
+msgid "The list is in the attached CSV file."
+msgstr "Список — у вкладеному CSV-файлі."
 
-#: orders/templates/orders/emails/daily_report.txt:15
+#: orders/templates/orders/emails/low_stock_report.txt:8
+msgid "Sales reports are in Analytics:"
+msgstr "Звіти про продажі — в Аналітиці:"
+
+#: orders/templates/orders/emails/low_stock_report.txt:10
 #: orders/templates/orders/emails/order_cancelled.html:14
 #: orders/templates/orders/emails/order_cancelled.html:58
 #: orders/templates/orders/emails/order_cancelled.txt:15
@@ -1638,14 +1807,14 @@ msgstr "Подробиці — у вкладених CSV-файлах."
 msgid "Bookstore"
 msgstr "Книгарня"
 
-#: orders/templates/orders/emails/daily_report_subject.txt:2
+#: orders/templates/orders/emails/low_stock_report_subject.txt:2
 #, python-format
-msgid "Bookstore: report for %(day)s, %(count)s order"
-msgid_plural "Bookstore: report for %(day)s, %(count)s orders"
-msgstr[0] "Книгарня: звіт за %(day)s, %(count)s замовлення"
-msgstr[1] "Книгарня: звіт за %(day)s, %(count)s замовлення"
-msgstr[2] "Книгарня: звіт за %(day)s, %(count)s замовлень"
-msgstr[3] "Книгарня: звіт за %(day)s, %(count)s замовлення"
+msgid "Bookstore: low stock on %(day)s, %(count)s book"
+msgid_plural "Bookstore: low stock on %(day)s, %(count)s books"
+msgstr[0] "Книгарня: мало на складі %(day)s, %(count)s книга"
+msgstr[1] "Книгарня: мало на складі %(day)s, %(count)s книги"
+msgstr[2] "Книгарня: мало на складі %(day)s, %(count)s книг"
+msgstr[3] "Книгарня: мало на складі %(day)s, %(count)s книги"
 
 #: orders/templates/orders/emails/order_cancelled.html:15
 #: orders/templates/orders/emails/order_cancelled.txt:2
@@ -2299,16 +2468,16 @@ msgstr "Мій профіль"
 msgid "Wishlist"
 msgstr "Список бажань"
 
-#: templates/includes/navbar.html:156
+#: templates/includes/navbar.html:160
 msgid "Log out"
 msgstr "Вийти"
 
-#: templates/includes/navbar.html:165 users/templates/users/auth_form.html:54
+#: templates/includes/navbar.html:169 users/templates/users/auth_form.html:54
 #: users/views.py:41
 msgid "Log in"
 msgstr "Увійти"
 
-#: templates/includes/navbar.html:169 users/templates/users/auth_form.html:52
+#: templates/includes/navbar.html:173 users/templates/users/auth_form.html:52
 #: users/views.py:73
 msgid "Sign up"
 msgstr "Зареєструватися"
@@ -2387,7 +2556,7 @@ msgid "Groups"
 msgstr "Групи"
 
 #: users/templates/users/profile.html:38
-#: users/templates/users/profile.html:126
+#: users/templates/users/profile.html:137
 msgid "none"
 msgstr "немає"
 
@@ -2436,11 +2605,19 @@ msgid ""
 "See the numbers of the NBU, correct them if needed and save with a button"
 msgstr "Подивитися курси НБУ, за потреби виправити й зберегти кнопкою"
 
-#: users/templates/users/profile.html:100
+#: users/templates/users/profile.html:101
+msgid "Revenue, best sellers and formats"
+msgstr "Виторг, найпопулярніші книги й формати"
+
+#: users/templates/users/profile.html:103
+msgid "The reports of the Analytics service for any period"
+msgstr "Звіти сервісу Аналітики за будь-який період"
+
+#: users/templates/users/profile.html:111
 msgid "Tools"
 msgstr "Інструменти"
 
-#: users/templates/users/profile.html:121
+#: users/templates/users/profile.html:132
 #, python-format
 msgid "All permissions (%(count)s)"
 msgstr "Усі права (%(count)s)"

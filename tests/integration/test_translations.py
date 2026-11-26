@@ -208,16 +208,16 @@ def _all_texts(message):
 @pytest.mark.parametrize("language", ["uk", "en"])
 def test_task_emails_are_in_the_language_of_the_recipient(language, mailoutbox):
     from orders.emails import send_order_cancelled_email, send_order_created_email
-    from orders.reports import build_daily_report, send_daily_report_email
+    from orders.reports import build_low_stock_report, send_low_stock_report_email
 
     customer = UserFactory(language=language)
     UserFactory(language=language, groups=["Managers"])
-    book = BookFactory(title="Kobzar", stock=2)  # low stock: that part of the report too
+    book = BookFactory(title="Kobzar", stock=2)  # low stock: the report has a line
     order = OrderFactory(user=customer, items=[(book, 1)])
 
     send_order_created_email(order.pk)
     send_order_cancelled_email(order.pk)
-    send_daily_report_email(build_daily_report(order.created_at.date()))
+    send_low_stock_report_email(build_low_stock_report())
 
     assert len(mailoutbox) == 3
     texts = [_all_texts(message) for message in mailoutbox]
@@ -225,7 +225,7 @@ def test_task_emails_are_in_the_language_of_the_recipient(language, mailoutbox):
         for text in texts:
             assert [word for word in ENGLISH if word in text] == []
         assert "скасовано" in mailoutbox[1].subject
-        assert "звіт за" in mailoutbox[2].subject
+        assert "мало на складі" in mailoutbox[2].subject
         assert "Мало на складі: 1 книга." in mailoutbox[2].body
         assert "Kobzar: залишилось 2" in mailoutbox[2].body
     else:

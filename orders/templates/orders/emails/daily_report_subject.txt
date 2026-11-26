@@ -1,2 +1,0 @@
-{# One line: orders/reports.py strips the newline at the end of the file #}
-{% load i18n %}{% autoescape off %}{% blocktranslate with day=report.day|date:"d.m.Y" count count=report.orders_count %}Bookstore: report for {{ day }}, {{ count }} order{% plural %}Bookstore: report for {{ day }}, {{ count }} orders{% endblocktranslate %}{% endautoescape %}
